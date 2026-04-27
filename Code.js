@@ -1,15 +1,15 @@
 /**
- * PR管理シートと連携し、全データを統合してGitHubへ送信
+ * 全てのデータソースを統合し、色情報を含めてGitHubへ送信
  */
 function finalizeAndPushToGitHub() {
   const ui = SpreadsheetApp.getUi();
   
   if (typeof GITHUB_TOKEN === 'undefined' || GITHUB_TOKEN.indexOf("ここに") === 0) {
-    ui.alert("GITHUB_TOKEN が設定されていません。Config.gs ファイルを確認してください。");
+    ui.alert("GITHUB_TOKEN が設定されていません。Config.gs を確認してください。");
     return;
   }
 
-  const response = ui.alert('Webサイト更新', 'PR管理シートと連携して全データを反映しますか？', ui.ButtonSet.YES_NO);
+  const response = ui.alert('Webサイト更新', '最新データをGitHubへ反映しますか？', ui.ButtonSet.YES_NO);
   if (response !== ui.Button.YES) return;
 
   try {
@@ -17,78 +17,72 @@ function finalizeAndPushToGitHub() {
     const allEvents = [];
     const now = new Date();
     
-    // --- 0. PR管理シートの読み込み (マッピング作成) ---
+    // PR管理
     const prMap = {};
     const prSheet = ss.getSheetByName("PR管理");
     if (prSheet) {
       const prData = prSheet.getDataRange().getValues();
       for (let i = 1; i < prData.length; i++) {
-        const prCode = String(prData[i][0]); // A列: PR番号 (PR128など)
-        const prContent = String(prData[i][1]); // B列: 内容
-        if (prCode) prMap[prCode] = prContent;
+        if (prData[i][0]) prMap[String(prData[i][0]).trim()] = String(prData[i][1]).trim();
       }
     }
 
-    // --- 1. 「新規」シート ---
-    const newSheet = ss.getSheetByName("新規");
-    if (newSheet) {
-      const range = newSheet.getDataRange();
-      const data = range.getValues();
-      const backgrounds = range.getBackgrounds();
-      for (let i = 1; i < data.length; i++) {
-        if (!data[i][0]) continue;
-        let title = String(data[i][2]);
-        let prInfo = fetchPRContent(title, prMap); // PR内容を検索
-        
-        allEvents.push({
-          date: formatDate(data[i][0]),
-          time: data[i][1],
-          media: "新規",
-          title: title,
-          pr: prInfo, // PR内容を格納
-          color: backgrounds[i][2],
-          target: data[i][7],
-          pic: "未定"
-        });
-      }
-    }
+    const processSheetByName = (name, mediaDefault) => {
+      const sheet = ss.getSheetByName(name);
+      if (!sheet) return;
+      
+      const data = sheet.getDataRange().getValues();
+      const backgrounds = sheet.getDataRange().getBackgrounds();
+      const headers = data[0].map(h => String(h).trim());
+      
+      const findCol = (keywords) => headers.findIndex(h => keywords.some(k => h.indexOf(k) !== -1));
+      
+      const idx = {
+        date: findCol(["日"]),
+        time: findCol(["時間", "時"]),
+        title: findCol(["内容", "件名", "メルマガ"]),
+        media: findCol(["媒体", "種別"]),
+        target: findCol(["ターゲット", "対象"]),
+        pic: findCol(["担当"])
+      };
 
-    // --- 2. 「リスト」シート ---
-    const listSheet = ss.getSheetByName("リスト");
-    if (listSheet) {
-      const range = listSheet.getDataRange();
-      const data = range.getValues();
-      const backgrounds = range.getBackgrounds();
       for (let i = 1; i < data.length; i++) {
-        if (!data[i][0]) continue;
-        const targetDate = getDateFromDayName(data[i][0], now);
-        let title = String(data[i][2]);
-        let prInfo = fetchPRContent(title, prMap);
+        const row = data[i];
+        let dateVal = idx.date !== -1 ? row[idx.date] : "";
+        if (!dateVal) continue;
+
+        if (name === "リスト") {
+          dateVal = getDateFromDayName(String(dateVal), now);
+        }
+
+        const title = idx.title !== -1 ? String(row[idx.title]) : "";
+        if (!title || title === "undefined") continue;
 
         allEvents.push({
-          date: formatDate(targetDate),
-          time: data[i][1],
-          media: "リスト",
+          date: formatDate(dateVal),
+          time: idx.time !== -1 ? String(row[idx.time]) : "",
+          media: idx.media !== -1 ? String(row[idx.media]) : mediaDefault,
           title: title,
-          pr: prInfo,
-          color: backgrounds[i][2],
-          target: data[i][7],
-          pic: "定常"
+          pr: fetchPRContent(title, prMap),
+          color: idx.title !== -1 ? backgrounds[i][idx.title] : "#ffffff",
+          target: idx.target !== -1 ? String(row[idx.target]) : "",
+          pic: idx.pic !== -1 ? String(row[idx.pic]) : ""
         });
       }
-    }
-
-    const path = "data.json";
-    const url = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + path;
-    const getRes = UrlFetchApp.fetch(url, { headers: { "Authorization": "token " + GITHUB_TOKEN }, muteHttpExceptions: true });
-    let sha = getRes.getResponseCode() === 200 ? JSON.parse(getRes.getContentText()).sha : "";
-
-    const payload = {
-      message: "Update calendar data with PR content",
-      content: Utilities.base64Encode(JSON.stringify(allEvents, null, 2), Utilities.Charset.UTF_8),
-      sha: sha
     };
 
+    processSheetByName("新規", "新規");
+    processSheetByName("リスト", "定常");
+
+    const jsonString = JSON.stringify(allEvents, null, 2);
+    const blob = Utilities.newBlob(jsonString, "application/json", "data.json");
+    const payload = {
+      message: "Update calendar data",
+      content: Utilities.base64Encode(blob.getBytes()),
+      sha: getSha("data.json")
+    };
+
+    const url = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/data.json";
     UrlFetchApp.fetch(url, {
       method: "put",
       headers: { "Authorization": "token " + GITHUB_TOKEN },
@@ -96,34 +90,40 @@ function finalizeAndPushToGitHub() {
       contentType: "application/json"
     });
 
-    ui.alert('更新完了！PR文章を含めて反映しました。');
+    ui.alert('更新完了！カレンダーが反映されます。');
   } catch (e) {
     ui.alert('エラー: ' + e.message);
   }
 }
 
-/**
- * タイトルからPRXXX形式を探し、マッピングから内容を返す
- */
+function getSha(path) {
+  const url = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + path;
+  const res = UrlFetchApp.fetch(url, { headers: { "Authorization": "token " + GITHUB_TOKEN }, muteHttpExceptions: true });
+  return res.getResponseCode() === 200 ? JSON.parse(res.getContentText()).sha : "";
+}
+
 function fetchPRContent(text, prMap) {
   const match = text.match(/PR\d+/);
-  if (match && prMap[match[0]]) {
-    return prMap[match[0]];
-  }
+  if (match && prMap[match[0]]) return prMap[match[0]];
   return "";
 }
 
 function formatDate(date) {
-  if (!(date instanceof Date)) date = new Date(date);
+  if (!(date instanceof Date)) {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return String(date);
+    date = d;
+  }
   return Utilities.formatDate(date, "JST", "yyyy/MM/dd");
 }
 
 function getDateFromDayName(dayName, baseDate) {
   const days = ["日", "月", "火", "水", "木", "金", "土"];
-  const targetDay = days.indexOf(dayName.replace(/曜/g, ""));
+  const cleanDay = dayName.replace(/曜/g, "").trim();
+  const targetDay = days.indexOf(cleanDay);
   if (targetDay === -1) return baseDate;
   const currentDay = baseDate.getDay();
-  const diff = targetDay - currentDay;
+  let diff = targetDay - currentDay;
   const result = new Date(baseDate);
   result.setDate(baseDate.getDate() + diff);
   return result;
@@ -131,6 +131,6 @@ function getDateFromDayName(dayName, baseDate) {
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('★管理メニュー')
-    .addItem('Webサイトを更新（PR紐付け対応）', 'finalizeAndPushToGitHub')
+    .addItem('Webサイトを更新（最終安定版）', 'finalizeAndPushToGitHub')
     .addToUi();
 }
