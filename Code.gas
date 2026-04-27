@@ -1,5 +1,5 @@
 /**
- * PR管理シートと連携し、全データを統合してGitHubへ送信
+ * PR管理シートと連携し、タイトルと内容を確実に抽出してGitHubへ送信
  */
 function finalizeAndPushToGitHub() {
   const ui = SpreadsheetApp.getUi();
@@ -9,7 +9,7 @@ function finalizeAndPushToGitHub() {
     return;
   }
 
-  const response = ui.alert('Webサイト更新', 'PR管理シートと連携して全データを反映しますか？', ui.ButtonSet.YES_NO);
+  const response = ui.alert('Webサイト更新', '最新のメルマガ内容を反映しますか？', ui.ButtonSet.YES_NO);
   if (response !== ui.Button.YES) return;
 
   try {
@@ -17,74 +17,68 @@ function finalizeAndPushToGitHub() {
     const allEvents = [];
     const now = new Date();
     
-    // --- 0. PR管理シートの読み込み (マッピング作成) ---
+    // --- 0. PR管理シートの読み込み ---
     const prMap = {};
     const prSheet = ss.getSheetByName("PR管理");
     if (prSheet) {
       const prData = prSheet.getDataRange().getValues();
       for (let i = 1; i < prData.length; i++) {
-        const prCode = String(prData[i][0]); // A列: PR番号 (PR128など)
-        const prContent = String(prData[i][1]); // B列: 内容
+        const prCode = String(prData[i][0]).trim(); // A列: PR番号
+        const prContent = String(prData[i][1]).trim(); // B列: 内容
         if (prCode) prMap[prCode] = prContent;
       }
     }
 
-    // --- 1. 「新規」シート ---
-    const newSheet = ss.getSheetByName("新規");
-    if (newSheet) {
-      const range = newSheet.getDataRange();
+    // --- 抽出関数 ---
+    const processSheet = (sheetName, mediaName, picDefault) => {
+      const sheet = ss.getSheetByName(sheetName);
+      if (!sheet) return;
+      
+      const range = sheet.getDataRange();
       const data = range.getValues();
       const backgrounds = range.getBackgrounds();
+      
       for (let i = 1; i < data.length; i++) {
-        if (!data[i][0]) continue;
-        let title = String(data[i][2]);
-        let prInfo = fetchPRContent(title, prMap); // PR内容を検索
+        const row = data[i];
+        let dateVal = row[0]; // 日付 または 曜日
+        if (!dateVal) continue;
+        
+        // リストシートの場合は曜日から日付を計算
+        if (sheetName === "リスト") {
+          dateVal = getDateFromDayName(String(dateVal), now);
+        }
+
+        let originalTitle = String(row[2] || ""); // C列: メルマガ内容
+        if (!originalTitle) continue;
+
+        // PR内容の検索
+        let prInfo = fetchPRContent(originalTitle, prMap);
         
         allEvents.push({
-          date: formatDate(data[i][0]),
-          time: data[i][1],
-          media: "新規",
-          title: title,
-          pr: prInfo, // PR内容を格納
-          color: backgrounds[i][2],
-          target: data[i][7],
-          pic: "未定"
-        });
-      }
-    }
-
-    // --- 2. 「リスト」シート ---
-    const listSheet = ss.getSheetByName("リスト");
-    if (listSheet) {
-      const range = listSheet.getDataRange();
-      const data = range.getValues();
-      const backgrounds = range.getBackgrounds();
-      for (let i = 1; i < data.length; i++) {
-        if (!data[i][0]) continue;
-        const targetDate = getDateFromDayName(data[i][0], now);
-        let title = String(data[i][2]);
-        let prInfo = fetchPRContent(title, prMap);
-
-        allEvents.push({
-          date: formatDate(targetDate),
-          time: data[i][1],
-          media: "リスト",
-          title: title,
+          date: formatDate(dateVal),
+          time: row[1] || "", // D列: 時間
+          media: mediaName,
+          title: originalTitle, // 本来のタイトルを保持
           pr: prInfo,
           color: backgrounds[i][2],
-          target: data[i][7],
-          pic: "定常"
+          target: row[7] || "", // H列: ターゲット
+          pic: picDefault
         });
       }
-    }
+    };
 
+    // 各シートから抽出
+    processSheet("新規", "新規", "未定");
+    processSheet("リスト", "定常", "定常");
+
+    // GitHubへ送信
     const path = "data.json";
     const url = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + path;
     const getRes = UrlFetchApp.fetch(url, { headers: { "Authorization": "token " + GITHUB_TOKEN }, muteHttpExceptions: true });
     let sha = getRes.getResponseCode() === 200 ? JSON.parse(getRes.getContentText()).sha : "";
 
     const payload = {
-      message: "Update calendar data with PR content",
+      message: "Fix: Ensure title and PR content are extracted",
       content: Utilities.base64Encode(JSON.stringify(allEvents, null, 2), Utilities.Charset.UTF_8),
       sha: sha
     };
@@ -96,20 +90,15 @@ function finalizeAndPushToGitHub() {
       contentType: "application/json"
     });
 
-    ui.alert('更新完了！PR文章を含めて反映しました。');
+    ui.alert('更新完了！タイトルとPR内容が反映されました。');
   } catch (e) {
     ui.alert('エラー: ' + e.message);
   }
 }
 
-/**
- * タイトルからPRXXX形式を探し、マッピングから内容を返す
- */
 function fetchPRContent(text, prMap) {
   const match = text.match(/PR\d+/);
-  if (match && prMap[match[0]]) {
-    return prMap[match[0]];
-  }
+  if (match && prMap[match[0]]) return prMap[match[0]];
   return "";
 }
 
@@ -131,6 +120,6 @@ function getDateFromDayName(dayName, baseDate) {
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('★管理メニュー')
-    .addItem('Webサイトを更新（PR紐付け対応）', 'finalizeAndPushToGitHub')
+    .addItem('Webサイトを更新（タイトル反映版）', 'finalizeAndPushToGitHub')
     .addToUi();
 }
