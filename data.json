@@ -1,713 +1,3449 @@
 [
   {
-    "date": "メルマガ内容",
-    "time": "通数",
-    "media": "計",
-    "title": "設定者",
-    "target": "確認者",
-    "pic": "メルマガ内容",
-    "status": "通数"
+    "date": "2026/04/01",
+    "time": 12,
+    "media": "新規",
+    "title": "5月入社可能",
+    "color": "#cfe2f3",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/14",
+    "time": 21,
+    "media": "新規",
+    "title": "フルリモート×フレックス_エンジニア",
+    "color": "#cfe2f3",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/15",
+    "time": 12,
+    "media": "新規",
+    "title": "5月入社可能",
+    "color": "#cfe2f3",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/17",
+    "time": 20,
+    "media": "新規",
+    "title": "有給取得率",
+    "color": "#cfe2f3",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/20",
+    "time": 20,
+    "media": "新規",
+    "title": "保育士_幼稚園教諭",
+    "color": "#cfe2f3",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/14",
+    "time": 10,
+    "media": "新規",
+    "title": "カスタマーサクセス_リモート ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/14",
+    "time": 18,
+    "media": "新規",
+    "title": "スカウトリマインド",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/15",
+    "time": 19,
+    "media": "新規",
+    "title": "アプリ人気",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/15",
+    "time": 9,
+    "media": "新規",
+    "title": "時短×リモート_関西",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/15",
+    "time": 10,
+    "media": "新規",
+    "title": "週休3日OK_ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/15",
+    "time": 10,
+    "media": "新規",
+    "title": "全国募集",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/16",
+    "time": 19,
+    "media": "新規",
+    "title": "フルリモートランキング_新規30日以降",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/16",
+    "time": 10,
+    "media": "新規",
+    "title": "フルリモートランキング_新規8日から29日",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/16",
+    "time": 15,
+    "media": "新規",
+    "title": "レコメンドリマインド",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/17",
+    "time": 8,
+    "media": "新規",
+    "title": "自己PR不要×面接1回",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/17",
+    "time": 18,
+    "media": "新規",
+    "title": "人気単独求人_おまとめメルマガ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/17",
+    "time": 19,
+    "media": "新規",
+    "title": "内定まで最短",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/18",
+    "time": 15,
+    "media": "新規",
+    "title": "ミライさんリマインド",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/18",
+    "time": 17,
+    "media": "新規",
+    "title": "首都圏_アドバイザー・カウンセラー_未経験",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/19",
+    "time": 17,
+    "media": "新規",
+    "title": "お祝い金あり",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/19",
+    "time": 18,
+    "media": "新規",
+    "title": "増発_フレキシブル事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/20",
+    "time": 12,
+    "media": "新規",
+    "title": "10時以降出社",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/20",
+    "time": 17,
+    "media": "新規",
+    "title": "ふるさと納税メルマガ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/20",
+    "time": 17,
+    "media": "新規",
+    "title": "美容クリニックで働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/20",
+    "time": 20,
+    "media": "新規",
+    "title": "保育士_幼稚園教諭",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/18",
+    "time": 10,
+    "media": "新規",
+    "title": "JAD特集",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/25",
+    "time": 10,
+    "media": "新規",
+    "title": "JAD特集",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/03/10",
+    "time": 11,
+    "media": "新規",
+    "title": "エンジニアフェア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/03/17",
+    "time": 11,
+    "media": "新規",
+    "title": "エンジニアフェア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/03/24",
+    "time": 11,
+    "media": "新規",
+    "title": "エンジニアフェア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/03/31",
+    "time": 11,
+    "media": "新規",
+    "title": "エンジニアフェア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/07",
+    "time": 11,
+    "media": "新規",
+    "title": "エンジニアフェア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/07",
+    "time": 21,
+    "media": "新規",
+    "title": "フルリモート×フレックス_エンジニア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/10",
+    "time": 20,
+    "media": "新規",
+    "title": "有給取得率",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/14",
+    "time": 21,
+    "media": "新規",
+    "title": "フルリモート×フレックス_エンジニア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/17",
+    "time": 20,
+    "media": "新規",
+    "title": "有給取得率",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "未定"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 15,
+    "media": "リスト",
+    "title": "ECサイト運用_未経験",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング×WEBマーケティング",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 17,
+    "media": "リスト",
+    "title": "引っ越し特典",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 18,
+    "media": "リスト",
+    "title": "過去会員×フルリモート×未経験歓迎",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "TP部_働きやすい企業特集",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "埼玉_路線",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "神奈川_路線",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "千葉_路線",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "大阪_路線",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "東京_路線_事務",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 20,
+    "media": "リスト",
+    "title": "２回目転職×称号",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 19,
+    "media": "リスト",
+    "title": "TP部_リモート×未経験OKの求人特集",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 13,
+    "media": "リスト",
+    "title": "外部人気求人ランキング",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 11,
+    "media": "リスト",
+    "title": "フレックス_ランキング",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "京都市で働く",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "熊本市で働く",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "広島市で働く",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 12,
+    "media": "リスト",
+    "title": "高層ビルで働く_首都圏",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 12,
+    "media": "リスト",
+    "title": "高層ビルで働く_大阪",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 19,
+    "media": "リスト",
+    "title": "美容業界×未経験歓迎",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 18,
+    "media": "リスト",
+    "title": "コスメ業界_希望",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 13,
+    "media": "リスト",
+    "title": "関西_フルリモート_求人特集",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "超好条件_営業",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 12,
+    "media": "リスト",
+    "title": "未経験OK_専門性の高い事務",
+    "color": "#b7e1cd",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆エンジニア_経験_35歳以上_首都圏版",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆エンジニア_未経験_35歳以上_首都圏版",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 17,
+    "media": "リスト",
+    "title": "相模原市で働く",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆営業_経験_35歳以上_首都圏版",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆営業_未経験_35歳以上_首都圏版",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 18,
+    "media": "リスト",
+    "title": "駅直結_営業販サコンサル",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 11,
+    "media": "リスト",
+    "title": "外資系企業",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 20,
+    "media": "リスト",
+    "title": "再募集メルマガ",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 21,
+    "media": "リスト",
+    "title": "事務‗新宿駅×駅チカ",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 12,
+    "media": "リスト",
+    "title": "人気検索KW_営業系希望",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 12,
+    "media": "リスト",
+    "title": "英語_リモートOK_月25万以上_未経験OK",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "首都圏‗営業×リモート×フレックス",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "首都圏‗事務×リモート×フレックス",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "人気検索KW_クリエイティブ系希望",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 19,
+    "media": "リスト",
+    "title": "TP部_リモートOK×女性管理職在籍の求人特集",
+    "color": "#999999",
+    "target": "対象年齢",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 18,
+    "media": "リスト",
+    "title": "高収入_未経験OK",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 10,
+    "media": "リスト",
+    "title": "全員面接",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 20,
+    "media": "リスト",
+    "title": "海外旅行し放題メルマガ",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "関西_アドバイザー・カウンセラー_未経験",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 18,
+    "media": "リスト",
+    "title": "宅地建物取引士資格あり",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 10,
+    "media": "リスト",
+    "title": "40代正社員×新着求人特集",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 17,
+    "media": "リスト",
+    "title": "時短×月給30万円以上_関西",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 19,
+    "media": "リスト",
+    "title": "上場_エンジニア経験",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 8,
+    "media": "リスト",
+    "title": "人気検索KW_事務系希望_関西",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 17,
+    "media": "リスト",
+    "title": "販サ経験者_ハイブランド",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "埼玉_路線_B",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "四国で働く",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "神奈川_路線_B",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "千葉_路線_B",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "大阪で働く",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "東京_路線_事務_B",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "東北で働く",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "北陸で働く",
+    "color": "#999999",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 17,
+    "media": "リスト",
+    "title": "◇応募ランキング A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_首都圏 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_西日本 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_東海 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_北海道・東北 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_北関東・甲信越・北陸 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆エンジニア_経験_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆エンジニア_未経験_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 16,
+    "media": "リスト",
+    "title": "35歳以上向け A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "35歳以上向け_関西 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "40代ラスト転職",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "TP部_営業_現住所",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 21,
+    "media": "リスト",
+    "title": "WEB面接・コロナ対策",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "フルリモート_全国_エンジニア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "フルリモート_全国_営業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "フルリモート_全国_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_クリエイティブ（Web）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_営業（マーケ）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_事務（一般事務）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 21,
+    "media": "リスト",
+    "title": "ランキング_事務（貿易事務）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 16,
+    "media": "リスト",
+    "title": "育児両立_フレックス",
+    "color": "#ffffff",
+    "target": "対象年齢",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 8,
+    "media": "リスト",
+    "title": "応募から1日_好条件営業ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から1日_好条件事務ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から3日会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 8,
+    "media": "リスト",
+    "title": "快適な在宅ワーク",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 8,
+    "media": "リスト",
+    "title": "関西_自己PR不要_リモート未経験_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 15,
+    "media": "リスト",
+    "title": "好条件×業務委託",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 15,
+    "media": "リスト",
+    "title": "好条件×契約社員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 10,
+    "media": "リスト",
+    "title": "事務_販サ経験者向け_東京",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 11,
+    "media": "リスト",
+    "title": "事務（経理）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 8,
+    "media": "リスト",
+    "title": "推し活_残業なし_休日120日以上_月給30万以上",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 17,
+    "media": "リスト",
+    "title": "仙台_リモートOK_未経験",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 17,
+    "media": "リスト",
+    "title": "大阪_リモートOK_未経験",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 17,
+    "media": "リスト",
+    "title": "単独求人訴求メルマガ_B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 20,
+    "media": "リスト",
+    "title": "当日新規会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 17,
+    "media": "リスト",
+    "title": "福岡_リモートOK_未経験",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 14,
+    "media": "リスト",
+    "title": "福祉事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 14,
+    "media": "リスト",
+    "title": "福祉事務_35歳以上",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "未経験_研修・資格_事務系_関西",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 19,
+    "media": "リスト",
+    "title": "未経験_研修・資格_事務系_首都圏",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 14,
+    "media": "リスト",
+    "title": "未経験向け急募求人_クリエイティブ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 14,
+    "media": "リスト",
+    "title": "未経験向け急募求人_営業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 14,
+    "media": "リスト",
+    "title": "未経験向け急募求人_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 10,
+    "media": "リスト",
+    "title": "面接1回",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/28",
+    "time": 10,
+    "media": "リスト",
+    "title": "面接1回_35歳以上",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 21,
+    "media": "リスト",
+    "title": "◇ウキにしか掲載していない求人",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 13,
+    "media": "リスト",
+    "title": "◇掲載終了前+UP A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 13,
+    "media": "リスト",
+    "title": "◇掲載終了前+UP_35歳以上 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 13,
+    "media": "リスト",
+    "title": "◇掲載終了前+UP_関西 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 8,
+    "media": "リスト",
+    "title": "★求人特集(35歳未満) A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆営業_経験_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆営業_未経験_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 17,
+    "media": "リスト",
+    "title": "☆推進課",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 17,
+    "media": "リスト",
+    "title": "☆推進課_35歳以上",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 17,
+    "media": "リスト",
+    "title": "☆推進課_関西",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 10,
+    "media": "リスト",
+    "title": "40代未経験_正社員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 8,
+    "media": "リスト",
+    "title": "50代事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 20,
+    "media": "リスト",
+    "title": "これから人気",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 19,
+    "media": "リスト",
+    "title": "フルリモート×正社員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 20,
+    "media": "リスト",
+    "title": "ユニークな福利厚生制度_B",
+    "color": "#ffffff",
+    "target": "対象年齢",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_エンジニア（IT系）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_クリエイティブ（その他）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_営業（その他）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_事務（営業事務）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 15,
+    "media": "リスト",
+    "title": "営業（コールセンター）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 18,
+    "media": "リスト",
+    "title": "駅直結_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 8,
+    "media": "リスト",
+    "title": "応募から1日_好条件営業ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から1日_好条件事務ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から3日会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 13,
+    "media": "リスト",
+    "title": "関西単独求人メルマガ_A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 12,
+    "media": "リスト",
+    "title": "休日120日_就業中_関西",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 12,
+    "media": "リスト",
+    "title": "休日120日_未就業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 17,
+    "media": "リスト",
+    "title": "掲載終了間近_人気求人ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 9,
+    "media": "リスト",
+    "title": "裁量労働制",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 10,
+    "media": "リスト",
+    "title": "子育て支援",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 15,
+    "media": "リスト",
+    "title": "事務（金融関連）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 11,
+    "media": "リスト",
+    "title": "事務（総務・人事）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 9,
+    "media": "リスト",
+    "title": "時短×リモート",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 12,
+    "media": "リスト",
+    "title": "自己PR不要_リモート未経験_エンジニア",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 12,
+    "media": "リスト",
+    "title": "自己PR不要_リモート未経験_営業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 12,
+    "media": "リスト",
+    "title": "自己PR不要_リモート未経験_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 12,
+    "media": "リスト",
+    "title": "自己PR不要_残業無_未経験_販サ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 10,
+    "media": "リスト",
+    "title": "趣味・興味メルマガ_A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 19,
+    "media": "リスト",
+    "title": "渋谷・恵比寿勤務_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 20,
+    "media": "リスト",
+    "title": "大手上場_35歳以上 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 20,
+    "media": "リスト",
+    "title": "大手上場_関西 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 20,
+    "media": "リスト",
+    "title": "大手上場_第二新卒 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 15,
+    "media": "リスト",
+    "title": "転職回数不問",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 20,
+    "media": "リスト",
+    "title": "当日新規会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 21,
+    "media": "リスト",
+    "title": "年収UP_営業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 16,
+    "media": "リスト",
+    "title": "年収UP_関西",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 21,
+    "media": "リスト",
+    "title": "年収UP_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 21,
+    "media": "リスト",
+    "title": "年収UP_販サ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 16,
+    "media": "リスト",
+    "title": "副業OK×リモート_ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 19,
+    "media": "リスト",
+    "title": "未経験_研修・資格_エンジニア系_首都圏",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/29",
+    "time": 19,
+    "media": "リスト",
+    "title": "六本木勤務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 13,
+    "media": "リスト",
+    "title": "☆TP部_事務_現住所",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆販サ_経験_35歳以上_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆販サ_経験_35歳以上_全国版",
+    "color": "#ffffff",
+    "target": "対象年齢",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆販サ_経験_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆販サ_経験_全国版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆販サ_未経験_35歳以上_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "☆販サ_未経験_首都圏版",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 18,
+    "media": "リスト",
+    "title": "40代事務ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 16,
+    "media": "リスト",
+    "title": "エンジニア限定_単独求人メルマガ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 11,
+    "media": "リスト",
+    "title": "クリエイティブ（Web）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 11,
+    "media": "リスト",
+    "title": "コロナ禍_事務_首都圏",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 10,
+    "media": "リスト",
+    "title": "フルリモートランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_営業（BtoB）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_事務（秘書）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 14,
+    "media": "リスト",
+    "title": "リモートワーク A_35歳以上",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 15,
+    "media": "リスト",
+    "title": "営業（マーケ）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 8,
+    "media": "リスト",
+    "title": "応募から1日_好条件営業ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から1日_好条件事務ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から3日会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 12,
+    "media": "リスト",
+    "title": "応募ランキング B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 12,
+    "media": "リスト",
+    "title": "応募ランキングB_全国",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 21,
+    "media": "リスト",
+    "title": "学歴不問×大手上場企業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 14,
+    "media": "リスト",
+    "title": "関西‗リモート×フレックス",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 9,
+    "media": "リスト",
+    "title": "関西限定求人特集",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 12,
+    "media": "リスト",
+    "title": "丸の内・大手町・有楽町_残業少_事務 ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 10,
+    "media": "リスト",
+    "title": "経験活かせる_営業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 10,
+    "media": "リスト",
+    "title": "経験活かせる_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 12,
+    "media": "リスト",
+    "title": "資格活かせる_簿記",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 15,
+    "media": "リスト",
+    "title": "事務（その他）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 20,
+    "media": "リスト",
+    "title": "事務職 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 20,
+    "media": "リスト",
+    "title": "事務職_35歳以上 A_ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 20,
+    "media": "リスト",
+    "title": "事務職_関西 A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 20,
+    "media": "リスト",
+    "title": "首都圏_フルリモート_求人特集",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 12,
+    "media": "リスト",
+    "title": "新規会員向け_自己PR不要_求人特集",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 8,
+    "media": "リスト",
+    "title": "新着_クリエイティブ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 8,
+    "media": "リスト",
+    "title": "新着_企画営業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 8,
+    "media": "リスト",
+    "title": "新着_経理",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 8,
+    "media": "リスト",
+    "title": "新着_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 8,
+    "media": "リスト",
+    "title": "新着_人事",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 21,
+    "media": "リスト",
+    "title": "新働きやすさ_A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 21,
+    "media": "リスト",
+    "title": "新働きやすさ_A_関西",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 17,
+    "media": "リスト",
+    "title": "単独求人訴求メルマガ_C",
+    "color": "#ffffff",
+    "target": "対象年齢",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 17,
+    "media": "リスト",
+    "title": "東海_リモート",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 20,
+    "media": "リスト",
+    "title": "当日新規会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 16,
+    "media": "リスト",
+    "title": "年休130日以上_残業10時間以下",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 8,
+    "media": "リスト",
+    "title": "年収500万以上_未経験歓迎",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 21,
+    "media": "リスト",
+    "title": "髪色・服装自由_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 10,
+    "media": "リスト",
+    "title": "副業OK",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 20,
+    "media": "リスト",
+    "title": "未経験_研修・資格_クリエイティブ系_埼玉神奈川千葉",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 20,
+    "media": "リスト",
+    "title": "未経験_研修・資格_クリエイティブ系_東京",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/30",
+    "time": 19,
+    "media": "リスト",
+    "title": "未経験エンジニア希望向け_首都圏",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_首都圏 B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_西日本 B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_東海 B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_北海道・東北 B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 12,
+    "media": "リスト",
+    "title": "★新着総合_北関東・甲信越・北陸 B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 17,
+    "media": "リスト",
+    "title": "☆Womantype[全]",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 9,
+    "media": "リスト",
+    "title": "40~60代活躍中",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 21,
+    "media": "リスト",
+    "title": "ウルトラ好条件",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 11,
+    "media": "リスト",
+    "title": "クリエイティブ（その他）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 8,
+    "media": "リスト",
+    "title": "データ入力×リモートOK",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 14,
+    "media": "リスト",
+    "title": "フルリモート_全国",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 8,
+    "media": "リスト",
+    "title": "フルリモート×好条件",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_事務（経理）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 15,
+    "media": "リスト",
+    "title": "リモート手当あり",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 15,
+    "media": "リスト",
+    "title": "営業（その他）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 8,
+    "media": "リスト",
+    "title": "応募から1日_好条件営業ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から1日_好条件事務ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から3日会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 21,
+    "media": "リスト",
+    "title": "希望業種_人材サービス",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 8,
+    "media": "リスト",
+    "title": "既婚者",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 19,
+    "media": "リスト",
+    "title": "経験_アパレル・コスメ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 19,
+    "media": "リスト",
+    "title": "経験_一般事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 19,
+    "media": "リスト",
+    "title": "経験_営業",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 11,
+    "media": "リスト",
+    "title": "今週の人気求人ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 20,
+    "media": "リスト",
+    "title": "残業したくない",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 20,
+    "media": "リスト",
+    "title": "残業したくない_関西",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 10,
+    "media": "リスト",
+    "title": "子育手当",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 15,
+    "media": "リスト",
+    "title": "事務（医療事務）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 11,
+    "media": "リスト",
+    "title": "事務（広報）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 20,
+    "media": "リスト",
+    "title": "住宅手当あり_首都圏",
+    "color": "#ffffff",
+    "target": "対象年齢",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 20,
+    "media": "リスト",
+    "title": "住宅手当あり_首都圏_35歳以上",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 20,
+    "media": "リスト",
+    "title": "当日新規会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 8,
+    "media": "リスト",
+    "title": "梅田で働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/01",
+    "time": 8,
+    "media": "リスト",
+    "title": "未婚者",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 8,
+    "media": "リスト",
+    "title": "★求人特集(35歳未満） B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 14,
+    "media": "リスト",
+    "title": "☆横浜",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 16,
+    "media": "リスト",
+    "title": "☆救済メルマガ(UP10)",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 20,
+    "media": "リスト",
+    "title": "35歳以上向け B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 20,
+    "media": "リスト",
+    "title": "35歳以上向け_関西 B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 20,
+    "media": "リスト",
+    "title": "35歳未満_PV多い求人",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 9,
+    "media": "リスト",
+    "title": "NPS取得アンケート",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 19,
+    "media": "リスト",
+    "title": "フルリモート×未経験歓迎",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 13,
+    "media": "リスト",
+    "title": "ランキング_営業（キャリアカウンセラー）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 13,
+    "media": "リスト",
+    "title": "ランキング_事務（総務・人事）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 8,
+    "media": "リスト",
+    "title": "応募から1日_好条件営業ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から1日_好条件事務ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から3日会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "応募から1日_好条件営業ランキング",
-    "time": "",
-    "media": 2.5,
-    "title": "R",
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "横浜駅で働く",
+    "color": "#ffffff",
     "target": "",
-    "pic": "★求人特集(35歳未満) A",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "快適な在宅ワーク",
-    "time": "",
-    "media": "",
-    "title": "石",
-    "target": "部",
-    "pic": "50代事務",
-    "status": ""
+    "date": "2026/05/02",
+    "time": 18,
+    "media": "リスト",
+    "title": "関西限定事務求人特集",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 21,
+    "media": "リスト",
+    "title": "月給30万以上_ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 21,
+    "media": "リスト",
+    "title": "検討中ランキング_クリエイティブ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 10,
+    "media": "リスト",
+    "title": "検討中ランキング_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 21,
+    "media": "リスト",
+    "title": "検討中ランキング_販サ",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "札幌駅で働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 21,
+    "media": "リスト",
+    "title": "事務（一般事務）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 15,
+    "media": "リスト",
+    "title": "事務（貿易事務）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 12,
+    "media": "リスト",
+    "title": "趣味・興味メルマガ_B",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 18,
+    "media": "リスト",
+    "title": "賞与3ヶ月以上×リモート_ランキング",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "新大阪駅・本町駅で働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "仙台駅で働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "大宮浦和で働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 9,
+    "media": "リスト",
+    "title": "単独求人訴求メルマガ_A",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 20,
+    "media": "リスト",
+    "title": "当日新規会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 17,
+    "media": "リスト",
+    "title": "博多区で働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/05/02",
+    "time": 15,
+    "media": "リスト",
+    "title": "販サ（フロント）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 12,
+    "media": "リスト",
+    "title": "★ウキポリ[全]",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "関西_自己PR不要_リモート未経験_事務",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 17,
+    "media": "リスト",
+    "title": "☆IT派遣［全］",
+    "color": "#ffffff",
     "target": "",
-    "pic": "応募から1日_好条件営業ランキング",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "推し活_残業なし_休日120日以上_月給30万以上",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 19,
+    "media": "リスト",
+    "title": "☆TP部メルマガ",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A1",
-    "time": 2.5,
-    "media": "",
-    "title": "内",
-    "target": "平",
-    "pic": "",
-    "status": ""
+    "date": "2026/04/26",
+    "time": 19,
+    "media": "リスト",
+    "title": "☆TP部メルマガ_未就業",
+    "color": "#ffffff",
+    "target": "対象年齢",
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 8,
+    "media": "リスト",
+    "title": "40代再就職",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A3",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 8,
+    "media": "リスト",
+    "title": "40代再就職_関西",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "ランキング_クリエイティブ（Web）_希望",
-    "time": "",
-    "media": 0,
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 9,
+    "media": "リスト",
+    "title": "これから人気×エンジニア",
+    "color": "#ffffff",
     "target": "",
-    "pic": "ランキング_エンジニア（IT系）_希望",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "ランキング_営業（マーケ）_希望",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 9,
+    "media": "リスト",
+    "title": "これから人気×リモート",
+    "color": "#ffffff",
     "target": "",
-    "pic": "ランキング_クリエイティブ（その他）_希望",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "ランキング_事務（一般事務）_希望",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 9,
+    "media": "リスト",
+    "title": "これから人気×リモート×営業",
+    "color": "#ffffff",
     "target": "",
-    "pic": "ランキング_営業（その他）_希望",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 9,
+    "media": "リスト",
+    "title": "これから人気×販サ",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 18,
+    "media": "リスト",
+    "title": "プライベート重視_35歳以上",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "事務_販サ経験者向け_東京",
-    "time": "",
-    "media": 0,
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 13,
+    "media": "リスト",
+    "title": "フルリモート_35歳以上",
+    "color": "#ffffff",
     "target": "",
-    "pic": "40代未経験_正社員",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "面接1回",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 19,
+    "media": "リスト",
+    "title": "ランキング_販サ（フロント）_希望",
+    "color": "#ffffff",
     "target": "",
-    "pic": "子育て支援",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "面接1回_35歳以上",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 21,
+    "media": "リスト",
+    "title": "リモート_ランキング",
+    "color": "#ffffff",
     "target": "",
-    "pic": "趣味・興味メルマガ_A",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "カスタマーサクセス_リモート ",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 20,
+    "media": "リスト",
+    "title": "異業種提案_事務",
+    "color": "#ffffff",
     "target": "",
-    "pic": "週休3日OK_ランキング",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 8,
+    "media": "リスト",
+    "title": "応募から1日_好条件営業ランキング",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から1日_好条件事務ランキング",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "事務（経理）_希望",
-    "time": "",
-    "media": 0,
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から3日会員",
+    "color": "#ffffff",
     "target": "",
-    "pic": "事務（総務・人事）_希望",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 9,
+    "media": "リスト",
+    "title": "応募ランキング C",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 11,
+    "media": "リスト",
+    "title": "関西単独求人メルマガ_B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "★新着総合_首都圏 A",
-    "time": "",
-    "media": 0,
-    "title": "荒",
-    "target": "平",
-    "pic": "休日120日_就業中_関西",
-    "status": ""
+    "date": "2026/04/26",
+    "time": 18,
+    "media": "リスト",
+    "title": "月曜日はリモート×フレックスで働く",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
+  },
+  {
+    "date": "2026/04/26",
+    "time": 10,
+    "media": "リスト",
+    "title": "語学を活かせる",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "★新着総合_西日本 A",
-    "time": "",
-    "media": "",
-    "title": "荒",
-    "target": "平",
-    "pic": "休日120日_未就業",
-    "status": ""
+    "date": "2026/04/26",
+    "time": 17,
+    "media": "リスト",
+    "title": "事務・営業職経験者向け",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "★新着総合_東海 A",
-    "time": "",
-    "media": "",
-    "title": "荒",
-    "target": "平",
-    "pic": "自己PR不要_リモート未経験_エンジニア",
-    "status": ""
+    "date": "2026/04/26",
+    "time": 11,
+    "media": "リスト",
+    "title": "事務（営業事務）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "★新着総合_北海道・東北 A",
-    "time": "",
-    "media": "",
-    "title": "荒",
-    "target": "平",
-    "pic": "自己PR不要_リモート未経験_営業",
-    "status": ""
+    "date": "2026/04/26",
+    "time": 19,
+    "media": "リスト",
+    "title": "上場_営業経験",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "★新着総合_北関東・甲信越・北陸 A",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 19,
+    "media": "リスト",
+    "title": "上場_事務経験",
+    "color": "#ffffff",
     "target": "",
-    "pic": "自己PR不要_リモート未経験_事務",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 19,
+    "media": "リスト",
+    "title": "上場_販サ経験",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 8,
+    "media": "リスト",
+    "title": "人気検索KW_事務系希望",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 20,
+    "media": "リスト",
+    "title": "正社員_関西",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/26",
+    "time": 20,
+    "media": "リスト",
+    "title": "当日新規会員",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "福祉事務",
-    "time": "",
-    "media": 0,
-    "title": "R",
+    "date": "2026/04/26",
+    "time": 21,
+    "media": "リスト",
+    "title": "名駅・栄駅で働く",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "福祉事務_35歳以上",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 8,
+    "media": "リスト",
+    "title": "◇掲載終了前+UP_35歳以上 B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "未経験向け急募求人_クリエイティブ",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 8,
+    "media": "リスト",
+    "title": "◇掲載終了前+UP_関西 B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "未経験向け急募求人_営業",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 12,
+    "media": "リスト",
+    "title": "★納品対策",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "未経験向け急募求人_事務",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 10,
+    "media": "リスト",
+    "title": "☆TP部_事務_希望地",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 14,
+    "media": "リスト",
+    "title": "☆関西",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 14,
+    "media": "リスト",
+    "title": "☆東海",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "好条件×業務委託",
-    "time": "",
-    "media": 0,
-    "title": "部",
-    "target": "武",
-    "pic": "営業（コールセンター）_希望",
-    "status": ""
+    "date": "2026/04/27",
+    "time": 20,
+    "media": "リスト",
+    "title": "36歳以上正社員求人",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "好条件×契約社員",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 8,
+    "media": "リスト",
+    "title": "webデザイナー×未経験歓迎_希望",
+    "color": "#ffffff",
     "target": "",
-    "pic": "事務（金融関連）_希望",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 11,
+    "media": "リスト",
+    "title": "クリエイティブ総合ランキング",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 21,
+    "media": "リスト",
+    "title": "フルフレックス",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "35歳以上向け A",
-    "time": "",
-    "media": 0,
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 15,
+    "media": "リスト",
+    "title": "ランキング_事務（医療事務）_希望",
+    "color": "#ffffff",
     "target": "",
-    "pic": "年収UP_関西",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "育児両立_フレックス",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 9,
+    "media": "リスト",
+    "title": "ランキング_事務（広報）_希望",
+    "color": "#ffffff",
     "target": "",
-    "pic": "副業OK×リモート_ランキング",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 13,
+    "media": "リスト",
+    "title": "リモートワーク B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 21,
+    "media": "リスト",
+    "title": "営業_カタカナ職業",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇応募ランキング A",
-    "time": "",
-    "media": 0,
-    "title": "荒",
-    "target": "平",
-    "pic": "☆推進課",
-    "status": ""
+    "date": "2026/04/27",
+    "time": 15,
+    "media": "リスト",
+    "title": "営業（キャリアカウンセラー）_希望",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "仙台_リモートOK_未経験",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 8,
+    "media": "リスト",
+    "title": "応募から1日_好条件営業ランキング",
+    "color": "#ffffff",
     "target": "",
-    "pic": "☆推進課_35歳以上",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "大阪_リモートOK_未経験",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から1日_好条件事務ランキング",
+    "color": "#ffffff",
     "target": "",
-    "pic": "☆推進課_関西",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "単独求人訴求メルマガ_B",
-    "time": "",
-    "media": "",
-    "title": "武",
-    "target": "部",
-    "pic": "掲載終了間近_人気求人ランキング",
-    "status": ""
+    "date": "2026/04/27",
+    "time": 21,
+    "media": "リスト",
+    "title": "応募から3日会員",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "福岡_リモートOK_未経験",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 11,
+    "media": "リスト",
+    "title": "関西_未経験リモート_事務",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "関西‗超好条件_事務",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 14,
+    "media": "リスト",
+    "title": "希望勤務地_埼玉",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "☆エンジニア_経験_首都圏版",
-    "time": "",
-    "media": 0,
-    "title": "部",
-    "target": "内",
-    "pic": "☆営業_経験_首都圏版",
-    "status": ""
+    "date": "2026/04/27",
+    "time": 14,
+    "media": "リスト",
+    "title": "希望勤務地_千葉",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "☆エンジニア_未経験_首都圏版",
-    "time": "",
-    "media": "",
-    "title": "部",
-    "target": "内",
-    "pic": "☆営業_未経験_首都圏版",
-    "status": ""
+    "date": "2026/04/27",
+    "time": 14,
+    "media": "リスト",
+    "title": "希望勤務地_東京",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "スカウトリマインド",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 20,
+    "media": "リスト",
+    "title": "広報・マーケティング_リモート_未経験",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 8,
+    "media": "リスト",
+    "title": "高収入_リモート_営業",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 8,
+    "media": "リスト",
+    "title": "高収入_リモート_事務",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "35歳以上向け_関西 A",
-    "time": "",
-    "media": 0,
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 20,
+    "media": "リスト",
+    "title": "国認定企業",
+    "color": "#ffffff",
     "target": "",
-    "pic": "フルリモート×正社員",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "40代ラスト転職",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "事務_経験_35歳以上_首都圏版",
+    "color": "#ffffff",
     "target": "",
-    "pic": "渋谷・恵比寿勤務_事務",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "TP部_営業_現住所",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "事務_未経験_35歳以上_首都圏版",
+    "color": "#ffffff",
     "target": "",
-    "pic": "未経験_研修・資格_エンジニア系_首都圏",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "フルリモート_全国_エンジニア",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "事務_未経験_休眠会員_首都圏版",
+    "color": "#ffffff",
     "target": "",
-    "pic": "六本木勤務",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "フルリモート_全国_営業",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 16,
+    "media": "リスト",
+    "title": "事務職 B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "フルリモート_全国_事務",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 16,
+    "media": "リスト",
+    "title": "事務職_35歳以上 B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "未経験_研修・資格_事務系_関西",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 16,
+    "media": "リスト",
+    "title": "事務職_関西 B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "未経験_研修・資格_事務系_首都圏",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "自己PR不要_35歳以上",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "自己PR不要_フルリモート",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 20,
+    "media": "リスト",
+    "title": "新規会員向け_フルリモート×未経験歓迎",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "当日新規会員",
-    "time": "",
-    "media": 0,
-    "title": "荒",
-    "target": "内",
-    "pic": "これから人気",
-    "status": ""
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "全国_超好条件_事務",
+    "color": "#ffffff",
+    "target": "",
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 14,
+    "media": "リスト",
+    "title": "大手・上場企業×事務",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 17,
+    "media": "リスト",
+    "title": "単独求人訴求メルマガ_C",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "WEB面接・コロナ対策",
-    "time": "",
-    "media": 0,
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 18,
+    "media": "リスト",
+    "title": "中国地方で働く",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ウキにしか掲載していない求人",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "ランキング_事務（貿易事務）_希望",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 19,
+    "media": "リスト",
+    "title": "超好条件_エンジニア",
+    "color": "#ffffff",
     "target": "",
-    "pic": "応募から1日_好条件事務ランキング",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "応募から1日_好条件事務ランキング",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 9,
+    "media": "リスト",
+    "title": "直近新規登録会員向け",
+    "color": "#ffffff",
     "target": "",
-    "pic": "応募から3日会員",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "応募から3日会員",
-    "time": "",
-    "media": "",
-    "title": "R",
+    "date": "2026/04/27",
+    "time": 20,
+    "media": "リスト",
+    "title": "当日新規会員",
+    "color": "#ffffff",
     "target": "",
-    "pic": "年収UP_営業",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "フルリモート×フレックス_エンジニア",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 9,
+    "media": "リスト",
+    "title": "年収600万円以上",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "フルリモート×フレックス_エンジニア",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 13,
+    "media": "リスト",
+    "title": "美容業界×事務_希望",
+    "color": "#ffffff",
     "target": "",
-    "pic": "",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 20,
+    "media": "リスト",
+    "title": "不動産×事務",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ A2",
-    "status": ""
+    "pic": "定常"
   },
   {
-    "date": "◇ポジションマッチ_36歳以上 A2",
-    "time": "",
-    "media": "",
-    "title": "",
+    "date": "2026/04/27",
+    "time": 8,
+    "media": "リスト",
+    "title": "◇掲載終了前+UP B",
+    "color": "#ffffff",
     "target": "",
-    "pic": "◇ポジションマッチ_36歳以上 A2",
-    "status": ""
+    "pic": "定常"
   }
 ]
