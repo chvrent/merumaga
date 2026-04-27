@@ -32,9 +32,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     const dateStr = item.date.replace(/\//g, '-');
                     const timeStr = item.time ? `T${String(item.time).padStart(2, '0')}:00:00` : 'T00:00:00';
                     
-                    // 火曜起点での隔週計算 (週番号で偶奇判定)
+                    // 火曜起点での隔週計算 (基準日: 2026/04/14 = A)
                     const d = new Date(dateStr);
-                    const weekNum = Math.floor((d.getTime() - (2 * 24 * 60 * 60 * 1000)) / (7 * 24 * 60 * 60 * 1000));
+                    const baseDate = new Date('2026-04-14');
+                    const weekNum = Math.floor((d.getTime() - baseDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
                     const isGroupA = (weekNum % 2 === 0);
 
                     return {
