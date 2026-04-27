@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy to GitHub Pages and GAS
 
 on:
   push:
@@ -14,14 +14,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Deploy
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
-        id: deploy
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: .
           user_name: 'github-actions[bot]'
           user_email: 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Deploy to Google Apps Script
+        run: |
+          echo "$CLASPRC_JSON" > ~/.clasprc.json
+          npx clasp push -f
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
 
       - name: Slack Notification
         uses: slackapi/slack-github-action@v1.26.0
