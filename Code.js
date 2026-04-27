@@ -29,16 +29,15 @@ function getCalendarEvents() {
     const findCol = (keywords) => headers.findIndex(h => keywords.some(k => h.indexOf(k) !== -1));
     
     const idx = {
-      date: findCol(["日"]),
-      time: findCol(["時間", "時"]),
-      title: findCol(["内容", "件名", "メルマガ"]),
-      media: findCol(["媒体", "種別"]),
-      target: findCol(["ターゲット", "対象"]),
-      pic: findCol(["担当"]),
+      date: findCol(["日付"]),
+      time: findCol(["時間"]),
+      title: findCol(["メルマガ内容"]),
+      media: findCol(["種別"]),
+      target: findCol(["対象"]),
+      pic: findCol(["設定者", "確認者"]),
       setup: findCol(["設定"]),
       check: findCol(["確認"])
     };
-
     for (let i = 1; i < data.length; i++) {
       const row = data[i];
       let dateVal = idx.date !== -1 ? row[idx.date] : "";
