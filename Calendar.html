@@ -65,9 +65,9 @@
 
                             return {
                                 title: `[${item.media}] ${item.title}`,
-                                start: dateStr + timeStr,
-                                backgroundColor: isGroupA ? '#28a745' : '#e83e8c',
-                                borderColor: isGroupA ? '#28a745' : '#e83e8c',
+                                start: `${dateStr}T${timeStr.replace('T', '')}`,
+                                backgroundColor: '#007bff',
+                                borderColor: '#007bff',
                                 extendedProps: {
                                     media: item.media,
                                     time: item.time,
