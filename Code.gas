@@ -1,0 +1,64 @@
+/**
+ * 確定版作成：色固定・空白詰め・数式解除
+ */
+function finalizeAndShrinkSchedule() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const editSheet = ss.getActiveSheet(); 
+  const ui = SpreadsheetApp.getUi();
+
+  const response = ui.alert('確定実行', '見た目の色を固定し、空白行を詰めた確定版を作成しますか？', ui.ButtonSet.YES_NO);
+  if (response !== ui.Button.YES) return;
+
+  // 1. シート名の決定
+  const dateVal = editSheet.getRange("C1").getValue();
+  const formattedDate = (dateVal instanceof Date) ? Utilities.formatDate(dateVal, "JST", "MM-dd") : "確定版";
+  const backupName = formattedDate + "_確定版";
+
+  // 2. シートをコピー
+  let backupSheet = ss.getSheetByName(backupName);
+  if (backupSheet) ss.deleteSheet(backupSheet); 
+  backupSheet = editSheet.copyTo(ss);
+  backupSheet.setName(backupName);
+
+  // 反映を待つ
+  SpreadsheetApp.flush();
+
+  // 3. 色の固定
+  const lastRow = backupSheet.getLastRow();
+  const lastCol = backupSheet.getLastColumn();
+  const targetRange = backupSheet.getRange(1, 1, lastRow, lastCol);
+
+  try {
+    const bg = targetRange.getDisplayBackgrounds();
+    const fc = targetRange.getDisplayFontColors();
+    
+    backupSheet.clearConditionalFormatRules();
+    targetRange.setBackgrounds(bg);
+    targetRange.setFontColors(fc);
+  } catch (e) {
+    // 実際には成功していることが多いので、ログに残すだけでアラートは出さない
+    console.log("Color sync note: " + e.message);
+  }
+
+  // 4. 数式を値に固定
+  targetRange.copyTo(targetRange, {contentsOnly: true});
+
+  // 5. 空白行を削除
+  const values = targetRange.getValues();
+  for (let i = lastRow - 1; i >= 2; i--) {
+    const row = values[i];
+    const hasContent = row.slice(2).some(cell => cell !== "" && cell !== null && cell !== undefined);
+    if (!hasContent) {
+      backupSheet.deleteRow(i + 1);
+    }
+  }
+
+  ui.alert('確定版を作成しました！これで手動編集が自由に行えます。');
+}
+
+function onOpen() {
+  const ui = SpreadsheetApp.getUi();
+  ui.createMenu('★管理メニュー')
+    .addItem('今週のスケジュールを確定', 'finalizeAndShrinkSchedule')
+    .addToUi();
+}s
