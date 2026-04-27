@@ -1,21 +1,11 @@
 /**
- * スプレッドシートからデータを取得してカレンダー用JSONを返す
+ * スプレッドシートからデータを取得し、行ごとの詳細（設定・確認）を含めて返す
  */
 function getCalendarEvents() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const allEvents = [];
   const now = new Date();
   
-  // PR管理用マップ
-  const prMap = {};
-  const prSheet = ss.getSheetByName("PR管理");
-  if (prSheet) {
-    const prData = prSheet.getDataRange().getValues();
-    for (let i = 1; i < prData.length; i++) {
-      if (prData[i][0]) prMap[String(prData[i][0]).trim()] = String(prData[i][1]).trim();
-    }
-  }
-
   const processSheetByName = (name, mediaDefault) => {
     const sheet = ss.getSheetByName(name);
     if (!sheet) return;
@@ -32,7 +22,9 @@ function getCalendarEvents() {
       title: findCol(["内容", "件名", "メルマガ"]),
       media: findCol(["媒体", "種別"]),
       target: findCol(["ターゲット", "対象"]),
-      pic: findCol(["担当"])
+      pic: findCol(["担当"]),
+      setup: findCol(["設定"]),
+      check: findCol(["確認"])
     };
 
     for (let i = 1; i < data.length; i++) {
@@ -49,13 +41,14 @@ function getCalendarEvents() {
 
       allEvents.push({
         date: formatDate(dateVal),
-        time: idx.time !== -1 ? String(row[idx.time]) : "",
+        time: idx.time !== -1 ? String(row[idx.time]) : "0",
         media: idx.media !== -1 ? String(row[idx.media]) : mediaDefault,
         title: title,
-        pr: fetchPRContent(title, prMap),
-        color: idx.title !== -1 ? backgrounds[i][idx.title] : "#ffffff",
+        color: idx.title !== -1 ? backgrounds[i][idx.title] : "#007bff",
         target: idx.target !== -1 ? String(row[idx.target]) : "",
-        pic: idx.pic !== -1 ? String(row[idx.pic]) : ""
+        pic: idx.pic !== -1 ? String(row[idx.pic]) : "",
+        setup: idx.setup !== -1 ? String(row[idx.setup]) : "未",
+        check: idx.check !== -1 ? String(row[idx.check]) : "未"
       });
     }
   };
@@ -64,12 +57,6 @@ function getCalendarEvents() {
   processSheetByName("リスト", "定常");
   
   return JSON.stringify(allEvents);
-}
-
-function fetchPRContent(text, prMap) {
-  const match = text.match(/PR\d+/);
-  if (match && prMap[match[0]]) return prMap[match[0]];
-  return "";
 }
 
 function formatDate(date) {

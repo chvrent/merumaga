@@ -6,7 +6,7 @@
   <script src='https://cdn.jsdelivr.net/npm/fullcalendar@5.10.1/main.min.js'></script>
   <style>
     body { font-family: "Helvetica Neue", Arial, sans-serif; margin: 5px; background-color: #f8f9fa; }
-    #calendar { height: 780px; background: white; padding: 10px; border-radius: 8px; }
+    #calendar { background: white; padding: 10px; border-radius: 8px; }
     
     /* 強制縦並びスタイル */
     .fc-timegrid-event-harness { position: static !important; }
@@ -19,7 +19,8 @@
         margin-bottom: 2px !important;
     }
     .fc-v-event { width: 100% !important; left: 0 !important; }
-    .fc-timegrid-slot { height: 4.5em !important; }
+    /* 時間枠を大きくして可変に対応 */
+    .fc-timegrid-slot { height: 6em !important; }
   </style>
 </head>
 <body>
@@ -54,29 +55,23 @@
                 google.script.run
                     .withSuccessHandler(function(jsonString) {
                         const data = JSON.parse(jsonString);
-                            const events = data.map(item => {
+                        const events = data.map(item => {
                             const dateStr = item.date.replace(/\//g, '-');
-                            
-                            // 時間データを数値として扱い、'HH:00:00'形式に変換
                             const hour = parseInt(String(item.time).replace('時', '')) || 0;
                             const timePart = String(hour).padStart(2, '0') + ':00:00';
-                            
-                            const d = new Date(dateStr);
-                            const baseDate = new Date('2026-04-14');
-                            const weekNum = Math.floor((d.getTime() - baseDate.getTime()) / (7 * 24 * 60 * 60 * 1000));
-                            const isGroupA = (weekNum % 2 === 0);
 
                             return {
                                 title: `[${item.media}] ${item.title}`,
                                 start: `${dateStr}T${timePart}`,
-                                backgroundColor: '#007bff',
-                                borderColor: '#007bff',
+                                backgroundColor: item.color,
+                                borderColor: item.color,
                                 extendedProps: {
                                     media: item.media,
                                     time: hour,
                                     pic: item.pic,
                                     target: item.target,
-                                    pr: item.pr
+                                    setup: item.setup,
+                                    check: item.check
                                 }
                             };
                         });
@@ -87,10 +82,8 @@
             },
             eventOrder: 'start,title',
             eventClick: function(info) {
-                const props = info.event.extendedProps;
-                let detail = `【${info.event.title}】\n配信: ${props.time || '未設定'}:00\n担当: ${props.pic}\n対象: ${props.target}`;
-                if (props.pr) detail += `\n\n--- PR内容 ---\n${props.pr}`;
-                alert(detail);
+                const p = info.event.extendedProps;
+                alert(`【${info.event.title}】\n時間: ${p.time}:00\n担当: ${p.pic}\n対象: ${p.target}\n設定: ${p.setup}\n確認: ${p.check}`);
             }
         });
 
