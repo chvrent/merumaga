@@ -1,5 +1,5 @@
 /**
- * シートの見出し名から動的にデータを抽出し、文字化けを防いでGitHubへ送信
+ * 日本語の文字化けを完全に防ぎ、列名を正確に判定する最終安定版
  */
 function finalizeAndPushToGitHub() {
   const ui = SpreadsheetApp.getUi();
@@ -9,7 +9,7 @@ function finalizeAndPushToGitHub() {
     return;
   }
 
-  const response = ui.alert('Webサイト更新', '項目名を自動判定してデータを反映しますか？', ui.ButtonSet.YES_NO);
+  const response = ui.alert('Webサイト更新', '文字化けを修正した最新形式で反映しますか？', ui.ButtonSet.YES_NO);
   if (response !== ui.Button.YES) return;
 
   try {
@@ -17,7 +17,7 @@ function finalizeAndPushToGitHub() {
     const allEvents = [];
     const now = new Date();
     
-    // PR管理のマッピング
+    // PR管理
     const prMap = {};
     const prSheet = ss.getSheetByName("PR管理");
     if (prSheet) {
@@ -33,16 +33,18 @@ function finalizeAndPushToGitHub() {
       
       const data = sheet.getDataRange().getValues();
       const backgrounds = sheet.getDataRange().getBackgrounds();
-      const headers = data[0];
+      const headers = data[0].map(h => String(h).trim());
       
-      // 列のインデックスを名前で探す
+      // 正確な列インデックスの取得
+      const findCol = (keywords) => headers.findIndex(h => keywords.some(k => h.indexOf(k) !== -1));
+      
       const idx = {
-        date: headers.findIndex(h => h.includes("日")),
-        time: headers.findIndex(h => h.includes("時間")),
-        title: headers.findIndex(h => h.includes("内容")),
-        media: headers.findIndex(h => h.includes("媒体") || h.includes("種別")),
-        target: headers.findIndex(h => h.includes("ターゲット") || h.includes("対象")),
-        pic: headers.findIndex(h => h.includes("担当"))
+        date: findCol(["日"]),
+        time: findCol(["時間", "時"]),
+        title: findCol(["内容", "件名", "メルマガ"]),
+        media: findCol(["媒体", "種別"]),
+        target: findCol(["ターゲット", "対象"]),
+        pic: findCol(["担当"])
       };
 
       for (let i = 1; i < data.length; i++) {
@@ -55,7 +57,7 @@ function finalizeAndPushToGitHub() {
         }
 
         const title = idx.title !== -1 ? String(row[idx.title]) : "";
-        if (!title) continue;
+        if (!title || title === "undefined") continue;
 
         allEvents.push({
           date: formatDate(dateVal),
@@ -73,11 +75,12 @@ function finalizeAndPushToGitHub() {
     processSheetByName("新規", "新規");
     processSheetByName("リスト", "定常");
 
-    // GitHubへ送信 (文字化け対策のため、直接 JSON.stringify してから base64化)
+    // --- 文字化け対策: UTF-8 を維持した送信 ---
     const jsonString = JSON.stringify(allEvents, null, 2);
+    const blob = Utilities.newBlob(jsonString, "application/json", "data.json");
     const payload = {
-      message: "Fix: Column detection and Encoding",
-      content: Utilities.base64Encode(jsonString, Utilities.Charset.UTF_8),
+      message: "Final Fix: Encoding and Column detection",
+      content: Utilities.base64Encode(blob.getBytes()), // Blob経由で確実にバイト列を取得
       sha: getSha("data.json")
     };
 
@@ -89,7 +92,7 @@ function finalizeAndPushToGitHub() {
       contentType: "application/json"
     });
 
-    ui.alert('更新完了！日本語も正しく反映されるはずです。');
+    ui.alert('更新完了！今度こそ日本語が正しく表示されるはずです。カレンダーを確認してください。');
   } catch (e) {
     ui.alert('エラー: ' + e.message);
   }
@@ -108,17 +111,21 @@ function fetchPRContent(text, prMap) {
 }
 
 function formatDate(date) {
-  if (!(date instanceof Date)) date = new Date(date);
+  if (!(date instanceof Date)) {
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return String(date);
+    date = d;
+  }
   return Utilities.formatDate(date, "JST", "yyyy/MM/dd");
 }
 
 function getDateFromDayName(dayName, baseDate) {
   const days = ["日", "月", "火", "水", "木", "金", "土"];
-  const targetDay = days.indexOf(dayName.replace(/曜/g, ""));
+  const cleanDay = dayName.replace(/曜/g, "").trim();
+  const targetDay = days.indexOf(cleanDay);
   if (targetDay === -1) return baseDate;
   const currentDay = baseDate.getDay();
   let diff = targetDay - currentDay;
-  // もし過ぎた曜日なら来週にするなどの調整が必要な場合はここで行う
   const result = new Date(baseDate);
   result.setDate(baseDate.getDate() + diff);
   return result;
@@ -126,6 +133,6 @@ function getDateFromDayName(dayName, baseDate) {
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('★管理メニュー')
-    .addItem('Webサイトを更新（最新安定版）', 'finalizeAndPushToGitHub')
+    .addItem('Webサイトを更新（最終安定版）', 'finalizeAndPushToGitHub')
     .addToUi();
 }
