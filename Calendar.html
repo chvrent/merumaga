@@ -56,7 +56,9 @@
                         const data = JSON.parse(jsonString);
                         const events = data.map(item => {
                             const dateStr = item.date.replace(/\//g, '-');
-                            const timeStr = item.time ? `T${String(item.time).padStart(2, '0')}:00:00` : 'T00:00:00';
+                            // 時間文字列をパースし、'HH:00:00'形式に統一
+                            const rawTime = String(item.time).replace('時', '').trim();
+                            const timePart = rawTime.padStart(2, '0') + ':00:00';
                             
                             const d = new Date(dateStr);
                             const baseDate = new Date('2026-04-14');
@@ -65,12 +67,12 @@
 
                             return {
                                 title: `[${item.media}] ${item.title}`,
-                                start: `${dateStr}T${timeStr.replace('T', '')}`,
+                                start: `${dateStr}T${timePart}`,
                                 backgroundColor: '#007bff',
                                 borderColor: '#007bff',
                                 extendedProps: {
                                     media: item.media,
-                                    time: item.time,
+                                    time: rawTime,
                                     pic: item.pic,
                                     target: item.target,
                                     pr: item.pr
