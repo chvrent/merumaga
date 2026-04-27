@@ -1,63 +1,54 @@
-async function loadSchedule() {
-    const listContainer = document.getElementById('schedule-list');
-    
-    try {
-        const response = await fetch('data.json');
-        if (!response.ok) throw new Error('データの読み込みに失敗しました');
-        
-        const data = await response.json();
-        renderSchedule(data);
-        setupFilters(data);
-    } catch (error) {
-        listContainer.innerHTML = `<div class="error">エラー: ${error.message}</div>`;
-    }
-}
+document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
 
-function renderSchedule(items) {
-    const listContainer = document.getElementById('schedule-list');
-    listContainer.innerHTML = '';
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth', // 月表示
+        locale: 'ja',
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,timeGridWeek,listMonth'
+        },
+        buttonText: {
+            today: '今日',
+            month: '月',
+            week: '週',
+            list: 'リスト'
+        },
+        events: async function(info, successCallback, failureCallback) {
+            try {
+                // スプレッドシートから送られたデータを読み込む
+                const response = await fetch('data.json');
+                const data = await response.json();
 
-    items.forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'schedule-item';
-        
-        const statusClass = item.status === '完了' ? 'done' : (item.status === '進行中' ? 'working' : '');
-        
-        div.innerHTML = `
-            <div class="date-time">
-                ${item.date}<br>
-                <small>${item.time || ''}</small>
-            </div>
-            <div class="content">
-                <span class="title">${item.title}</span>
-                <span class="meta">${item.media} | 担当: ${item.pic} | ターゲット: ${item.target}</span>
-            </div>
-            <div class="status ${statusClass}">${item.status || '未着手'}</div>
-        `;
-        listContainer.appendChild(div);
+                // カレンダー用のデータ形式に変換
+                const events = data.map(item => {
+                    // 日付形式の調整 (yyyy/mm/dd -> yyyy-mm-dd)
+                    const dateStr = item.date.replace(/\//g, '-');
+                    
+                    return {
+                        title: `[${item.media}] ${item.title}`,
+                        start: dateStr,
+                        description: `担当: ${item.pic}\nターゲット: ${item.target}`,
+                        className: item.media.includes('女の転職') ? 'media-type-woman' : 'media-type-type',
+                        allDay: true
+                    };
+                });
+
+                successCallback(events);
+            } catch (error) {
+                console.error('データの読み込みに失敗しました:', error);
+                failureCallback(error);
+            }
+        },
+        eventClick: function(info) {
+            // クリックした時に詳細をアラート表示（後でポップアップに改良可能）
+            alert(
+                '【' + info.event.title + '】\n' +
+                info.event.extendedProps.description
+            );
+        }
     });
-}
 
-function setupFilters(data) {
-    const mediaFilter = document.getElementById('filter-media');
-    const picFilter = document.getElementById('filter-pic');
-    
-    const medias = [...new Set(data.map(item => item.media))].filter(Boolean);
-    const pics = [...new Set(data.map(item => item.pic))].filter(Boolean);
-    
-    medias.forEach(m => mediaFilter.add(new Option(m, m)));
-    pics.forEach(p => picFilter.add(new Option(p, p)));
-    
-    const filterAction = () => {
-        const filtered = data.filter(item => {
-            return (!mediaFilter.value || item.media === mediaFilter.value) &&
-                   (!picFilter.value || item.pic === picFilter.value);
-        });
-        renderSchedule(filtered);
-    };
-    
-    mediaFilter.addEventListener('change', filterAction);
-    picFilter.addEventListener('change', filterAction);
-}
-
-document.addEventListener('DOMContentLoaded', loadSchedule);
+    calendar.render();
+});

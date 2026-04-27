@@ -3,25 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>メルマガ配信スケジュール</title>
+    <title>メルマガ配信カレンダー</title>
+    <!-- FullCalendar CSS -->
+    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <h1>メルマガ配信スケジュール</h1>
-        <div id="filter-container">
-            <select id="filter-media">
-                <option value="">全ての媒体</option>
-            </select>
-            <select id="filter-pic">
-                <option value="">全ての担当者</option>
-            </select>
-        </div>
     </header>
 
     <main>
-        <div id="schedule-list">
-            <div class="loading">データを読み込み中...</div>
+        <div id="calendar-container">
+            <div id="calendar"></div>
         </div>
     </main>
 
@@ -29,6 +23,8 @@
         <p>&copy; 2024 mail-magazine-maker</p>
     </footer>
 
+    <!-- FullCalendar JS -->
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
     <script src="script.js"></script>
 </body>
 </html>
