@@ -20,6 +20,7 @@ jobs:
       - name: Deploy to Google Apps Script
         run: |
           echo "$CLASPRC_JSON" > ~/.clasprc.json
+          npm install -g @google/clasp
           npx clasp push -f
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
