@@ -1,29 +1,713 @@
 [
-    {
-        "date": "2024-05-01",
-        "time": "10:00",
-        "media": "女の転職type",
-        "title": "GW特集メルマガ",
-        "target": "全ユーザー",
-        "pic": "横尾",
-        "status": "進行中"
-    },
-    {
-        "date": "2024-05-02",
-        "time": "12:00",
-        "media": "type",
-        "title": "エンジニア積極採用中案件",
-        "target": "エンジニア属性",
-        "pic": "田中",
-        "status": "完了"
-    },
-    {
-        "date": "2024-05-03",
-        "time": "18:00",
-        "media": "女の転職type",
-        "title": "週末の運勢メルマガ",
-        "target": "全ユーザー",
-        "pic": "横尾",
-        "status": "未着手"
-    }
+  {
+    "date": "メルマガ内容",
+    "time": "通数",
+    "media": "計",
+    "title": "設定者",
+    "target": "確認者",
+    "pic": "メルマガ内容",
+    "status": "通数"
+  },
+  {
+    "date": "応募から1日_好条件営業ランキング",
+    "time": "",
+    "media": 2.5,
+    "title": "R",
+    "target": "",
+    "pic": "★求人特集(35歳未満) A",
+    "status": ""
+  },
+  {
+    "date": "快適な在宅ワーク",
+    "time": "",
+    "media": "",
+    "title": "石",
+    "target": "部",
+    "pic": "50代事務",
+    "status": ""
+  },
+  {
+    "date": "関西_自己PR不要_リモート未経験_事務",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "応募から1日_好条件営業ランキング",
+    "status": ""
+  },
+  {
+    "date": "推し活_残業なし_休日120日以上_月給30万以上",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A1",
+    "time": 2.5,
+    "media": "",
+    "title": "内",
+    "target": "平",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A3",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "ランキング_クリエイティブ（Web）_希望",
+    "time": "",
+    "media": 0,
+    "title": "R",
+    "target": "",
+    "pic": "ランキング_エンジニア（IT系）_希望",
+    "status": ""
+  },
+  {
+    "date": "ランキング_営業（マーケ）_希望",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "ランキング_クリエイティブ（その他）_希望",
+    "status": ""
+  },
+  {
+    "date": "ランキング_事務（一般事務）_希望",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "ランキング_営業（その他）_希望",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "事務_販サ経験者向け_東京",
+    "time": "",
+    "media": 0,
+    "title": "R",
+    "target": "",
+    "pic": "40代未経験_正社員",
+    "status": ""
+  },
+  {
+    "date": "面接1回",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "子育て支援",
+    "status": ""
+  },
+  {
+    "date": "面接1回_35歳以上",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "趣味・興味メルマガ_A",
+    "status": ""
+  },
+  {
+    "date": "カスタマーサクセス_リモート ",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "週休3日OK_ランキング",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "事務（経理）_希望",
+    "time": "",
+    "media": 0,
+    "title": "R",
+    "target": "",
+    "pic": "事務（総務・人事）_希望",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "★新着総合_首都圏 A",
+    "time": "",
+    "media": 0,
+    "title": "荒",
+    "target": "平",
+    "pic": "休日120日_就業中_関西",
+    "status": ""
+  },
+  {
+    "date": "★新着総合_西日本 A",
+    "time": "",
+    "media": "",
+    "title": "荒",
+    "target": "平",
+    "pic": "休日120日_未就業",
+    "status": ""
+  },
+  {
+    "date": "★新着総合_東海 A",
+    "time": "",
+    "media": "",
+    "title": "荒",
+    "target": "平",
+    "pic": "自己PR不要_リモート未経験_エンジニア",
+    "status": ""
+  },
+  {
+    "date": "★新着総合_北海道・東北 A",
+    "time": "",
+    "media": "",
+    "title": "荒",
+    "target": "平",
+    "pic": "自己PR不要_リモート未経験_営業",
+    "status": ""
+  },
+  {
+    "date": "★新着総合_北関東・甲信越・北陸 A",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "自己PR不要_リモート未経験_事務",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "福祉事務",
+    "time": "",
+    "media": 0,
+    "title": "R",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "福祉事務_35歳以上",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "未経験向け急募求人_クリエイティブ",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "未経験向け急募求人_営業",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "未経験向け急募求人_事務",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "好条件×業務委託",
+    "time": "",
+    "media": 0,
+    "title": "部",
+    "target": "武",
+    "pic": "営業（コールセンター）_希望",
+    "status": ""
+  },
+  {
+    "date": "好条件×契約社員",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "事務（金融関連）_希望",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "35歳以上向け A",
+    "time": "",
+    "media": 0,
+    "title": "R",
+    "target": "",
+    "pic": "年収UP_関西",
+    "status": ""
+  },
+  {
+    "date": "育児両立_フレックス",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "副業OK×リモート_ランキング",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "◇応募ランキング A",
+    "time": "",
+    "media": 0,
+    "title": "荒",
+    "target": "平",
+    "pic": "☆推進課",
+    "status": ""
+  },
+  {
+    "date": "仙台_リモートOK_未経験",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "☆推進課_35歳以上",
+    "status": ""
+  },
+  {
+    "date": "大阪_リモートOK_未経験",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "☆推進課_関西",
+    "status": ""
+  },
+  {
+    "date": "単独求人訴求メルマガ_B",
+    "time": "",
+    "media": "",
+    "title": "武",
+    "target": "部",
+    "pic": "掲載終了間近_人気求人ランキング",
+    "status": ""
+  },
+  {
+    "date": "福岡_リモートOK_未経験",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "☆エンジニア_経験_首都圏版",
+    "time": "",
+    "media": 0,
+    "title": "部",
+    "target": "内",
+    "pic": "☆営業_経験_首都圏版",
+    "status": ""
+  },
+  {
+    "date": "☆エンジニア_未経験_首都圏版",
+    "time": "",
+    "media": "",
+    "title": "部",
+    "target": "内",
+    "pic": "☆営業_未経験_首都圏版",
+    "status": ""
+  },
+  {
+    "date": "スカウトリマインド",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "35歳以上向け_関西 A",
+    "time": "",
+    "media": 0,
+    "title": "R",
+    "target": "",
+    "pic": "フルリモート×正社員",
+    "status": ""
+  },
+  {
+    "date": "40代ラスト転職",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "渋谷・恵比寿勤務_事務",
+    "status": ""
+  },
+  {
+    "date": "TP部_営業_現住所",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "未経験_研修・資格_エンジニア系_首都圏",
+    "status": ""
+  },
+  {
+    "date": "フルリモート_全国_エンジニア",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "六本木勤務",
+    "status": ""
+  },
+  {
+    "date": "フルリモート_全国_営業",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "フルリモート_全国_事務",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "未経験_研修・資格_事務系_関西",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "未経験_研修・資格_事務系_首都圏",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "当日新規会員",
+    "time": "",
+    "media": 0,
+    "title": "荒",
+    "target": "内",
+    "pic": "これから人気",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  },
+  {
+    "date": "WEB面接・コロナ対策",
+    "time": "",
+    "media": 0,
+    "title": "R",
+    "target": "",
+    "pic": "◇ウキにしか掲載していない求人",
+    "status": ""
+  },
+  {
+    "date": "ランキング_事務（貿易事務）_希望",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "応募から1日_好条件事務ランキング",
+    "status": ""
+  },
+  {
+    "date": "応募から1日_好条件事務ランキング",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "応募から3日会員",
+    "status": ""
+  },
+  {
+    "date": "応募から3日会員",
+    "time": "",
+    "media": "",
+    "title": "R",
+    "target": "",
+    "pic": "年収UP_営業",
+    "status": ""
+  },
+  {
+    "date": "フルリモート×フレックス_エンジニア",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "フルリモート×フレックス_エンジニア",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ A2",
+    "status": ""
+  },
+  {
+    "date": "◇ポジションマッチ_36歳以上 A2",
+    "time": "",
+    "media": "",
+    "title": "",
+    "target": "",
+    "pic": "◇ポジションマッチ_36歳以上 A2",
+    "status": ""
+  }
 ]
