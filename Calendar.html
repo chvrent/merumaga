@@ -32,6 +32,7 @@
           var calendarEl = document.getElementById('calendar');
           var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'timeGridWeek',
+            slotEventOverlap: false,
             locale: 'ja',
             slotMinTime: '08:00:00',
             slotMaxTime: '22:00:00',
