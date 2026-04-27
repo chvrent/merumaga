@@ -134,3 +134,10 @@ function onOpen() {
     .addItem('Webサイトを更新（最終安定版）', 'finalizeAndPushToGitHub')
     .addToUi();
 }
+
+function doGet() {
+  return HtmlService.createTemplateFromFile('Calendar')
+      .evaluate()
+      .setTitle('メルマガ配信カレンダー')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
