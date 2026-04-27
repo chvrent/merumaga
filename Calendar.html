@@ -37,6 +37,11 @@
               center: 'title',
               right: 'timeGridWeek,dayGridMonth'
             },
+            eventDidMount: function(info) {
+              info.el.style.display = 'block';
+              info.el.style.width = '95%';
+              info.el.style.marginBottom = '2px';
+            },
             eventClick: function(info) {
               var p = info.event.extendedProps;
               alert('【配信詳細】\n時間：' + p.time + '時\n内容：' + p.fullTitle + '\n通数：' + p.count + '通');
