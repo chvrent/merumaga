@@ -22,6 +22,7 @@ jobs:
           echo "$CLASPRC_JSON" > ~/.clasprc.json
           npm install -g @google/clasp
           npx clasp push -f
+          npx clasp deploy -i AKfycbw6BevrPjps9owV_fWrApNjwrTdYRdgx18-XqFQ_hTSOT-vn61lnpjw1f5AY4THgFsuVQ -d "Auto-deploy via GitHub Actions"
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
 
