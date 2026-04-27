@@ -3,8 +3,20 @@
  */
 function getCalendarEvents() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
+  console.log("Spreadsheet Name: " + ss.getName());
+  const sheets = ss.getSheets().map(s => s.getName());
+  console.log("Sheet Names: " + sheets.join(", "));
+  
   const allEvents = [];
   const now = new Date();
+  
+  // デバッグ用にシートのヘッダーもログに出す
+  const debugHeader = (name) => {
+    const sheet = ss.getSheetByName(name);
+    if(sheet) console.log("Header of " + name + ": " + sheet.getDataRange().getValues()[0].join(", "));
+  };
+  debugHeader("新規");
+  debugHeader("リスト");
   
   const processSheetByName = (name, mediaDefault) => {
     const sheet = ss.getSheetByName(name);
