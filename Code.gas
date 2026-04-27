@@ -1,3 +1,7 @@
+const GITHUB_TOKEN = "YOUR_GITHUB_TOKEN_HERE";
+const REPO_OWNER = "cdc-a-yokoo";
+const REPO_NAME = "mail-magazine-maker";
+
 /**
  * 確定版作成：色固定・空白詰め・数式解除
  */
@@ -20,7 +24,6 @@ function finalizeAndShrinkSchedule() {
   backupSheet = editSheet.copyTo(ss);
   backupSheet.setName(backupName);
 
-  // 反映を待つ
   SpreadsheetApp.flush();
 
   // 3. 色の固定
@@ -31,12 +34,10 @@ function finalizeAndShrinkSchedule() {
   try {
     const bg = targetRange.getDisplayBackgrounds();
     const fc = targetRange.getDisplayFontColors();
-    
     backupSheet.clearConditionalFormatRules();
     targetRange.setBackgrounds(bg);
     targetRange.setFontColors(fc);
   } catch (e) {
-    // 実際には成功していることが多いので、ログに残すだけでアラートは出さない
     console.log("Color sync note: " + e.message);
   }
 
@@ -53,12 +54,90 @@ function finalizeAndShrinkSchedule() {
     }
   }
 
-  ui.alert('確定版を作成しました！これで手動編集が自由に行えます。');
+  ui.alert('確定版を作成しました！次に「Webサイトを更新」を実行してください。');
 }
 
+/**
+ * 確定したデータをJSONにしてGitHubへ送信
+ */
+function finalizeAndPushToGitHub() {
+  const ui = SpreadsheetApp.getUi();
+  
+  if (GITHUB_TOKEN === "YOUR_GITHUB_TOKEN_HERE") {
+    ui.alert("GITHUB_TOKEN が設定されていません。コードの1行目を確認してください。");
+    return;
+  }
+
+  const response = ui.alert('GitHub更新', '現在のシートのデータをWebサイトに反映しますか？', ui.ButtonSet.YES_NO);
+  if (response !== ui.Button.YES) return;
+
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getActiveSheet(); 
+    const rows = sheet.getDataRange().getValues();
+    
+    const jsonData = [];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
+      if (!row[2]) continue; // C列が空ならスキップ
+      
+      jsonData.push({
+        date: (row[2] instanceof Date) ? Utilities.formatDate(row[2], "JST", "MM/dd") : row[2],
+        time: row[3],
+        media: row[4],
+        title: row[5],
+        target: row[6],
+        pic: row[7],
+        status: row[8]
+      });
+    }
+
+    const path = "data.json";
+    const url = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + path;
+    
+    // 現在のSHAを取得
+    const getRes = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: { "Authorization": "token " + GITHUB_TOKEN },
+      muteHttpExceptions: true
+    });
+    
+    let sha = "";
+    if (getRes.getResponseCode() === 200) {
+      sha = JSON.parse(getRes.getContentText()).sha;
+    }
+
+    const payload = {
+      message: "Update data.json from Google Sheets via GAS",
+      content: Utilities.base64Encode(JSON.stringify(jsonData, null, 2), Utilities.Charset.UTF_8),
+      sha: sha
+    };
+
+    const putRes = UrlFetchApp.fetch(url, {
+      method: "put",
+      headers: { "Authorization": "token " + GITHUB_TOKEN },
+      payload: JSON.stringify(payload),
+      contentType: "application/json",
+      muteHttpExceptions: true
+    });
+
+    if (putRes.getResponseCode() >= 200 && putRes.getResponseCode() < 300) {
+      ui.alert('Webサイトの更新依頼を送信しました！数分で反映されます。');
+    } else {
+      ui.alert('GitHubへの送信に失敗しました: ' + putRes.getContentText());
+    }
+  } catch (e) {
+    ui.alert('エラーが発生しました: ' + e.message);
+  }
+}
+
+/**
+ * メニューの作成
+ */
 function onOpen() {
   const ui = SpreadsheetApp.getUi();
   ui.createMenu('★管理メニュー')
-    .addItem('今週のスケジュールを確定', 'finalizeAndShrinkSchedule')
+    .addItem('1. 今週のスケジュールを確定', 'finalizeAndShrinkSchedule')
+    .addItem('2. Webサイトを更新（GitHub反映）', 'finalizeAndPushToGitHub')
     .addToUi();
-}s
+}
