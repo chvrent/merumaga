@@ -210,25 +210,61 @@ function doGet() {
 function getSpreadsheetData() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheets = ss.getSheets();
-  const excludeSheets = ["設定", "マスタ", "ルール", "MA等", "PR管理", "MA", "長期休暇対応", "配信停止メルマガ一覧", "商品系管理"];
+  
+  // アプリに表示・編集させるマスタのリスト
+  const includeSheets = [
+    "リスト", 
+    "新規", 
+    "特殊配信マスタ", 
+    "自動求人特集", 
+    "月末増発", 
+    "MA等", 
+    "PR管理"
+  ];
   
   const result = {
-    sheets: []
+    sheets: [],
+    prMap: {} // PR紐付け用のデータ
   };
   
   sheets.forEach(sheet => {
     const name = sheet.getName();
-    if (excludeSheets.indexOf(name) === -1) {
+    if (includeSheets.indexOf(name) !== -1) {
       const range = sheet.getDataRange();
       const values = range.getValues();
-      const headers = values[0] || [];
-      const data = values.slice(1);
+      
+      // シートごとのヘッダー開始行の調整
+      let headerRow = 0;
+      if (name === "リスト" || name === "特殊配信マスタ" || name === "自動求人特集") headerRow = 1;
+      if (name === "PR管理") headerRow = 2;
+      
+      const headers = values[headerRow] || [];
+      const data = values.slice(headerRow + 1);
       
       result.sheets.push({
         name: name,
         headers: headers,
         data: data
       });
+      
+      // PR管理シートからマッピングを作成
+      if (name === "PR管理") {
+        data.forEach(row => {
+          const prId = row[0];
+          const prContent = row[4];
+          const targetMails = row.slice(6); // G列以降
+          if (prId && prContent) {
+            targetMails.forEach(mailName => {
+              if (mailName && typeof mailName === 'string') {
+                const cleanName = mailName.trim();
+                if (cleanName && cleanName !== "#REF!" && cleanName !== "#VALUE!") {
+                  result.prMap[cleanName] = { id: prId, content: prContent };
+                }
+              }
+            });
+          }
+        });
+      }
     }
   });
   

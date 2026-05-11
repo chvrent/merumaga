@@ -103,38 +103,70 @@
     .btn-primary { background: var(--primary-color); color: white; }
     .btn-secondary { background: #6c757d; color: white; }
 
-    /* カレンダープレビュー (Table形式) */
+    /* カレンダープレビュー (Table形式 - 編集版再現) */
+    .calendar-container {
+      width: 100%;
+      overflow-x: auto;
+    }
     .calendar-table {
       width: 100%;
+      min-width: 1200px;
       border-collapse: collapse;
-      font-size: 0.8em;
+      font-size: 0.75em;
+      table-layout: fixed;
     }
     .calendar-table th, .calendar-table td {
       border: 1px solid var(--border-color);
-      padding: 8px;
-      height: 80px;
+      padding: 4px;
       vertical-align: top;
-      width: 14.28%;
     }
     .calendar-table th {
-      background: #eee;
-      height: auto;
+      background: #343a40;
+      color: white;
+      text-align: center;
     }
-    .event-chip {
-      background: #e7f3ff;
-      border-left: 3px solid var(--primary-color);
-      padding: 2px 5px;
-      margin-bottom: 3px;
-      border-radius: 2px;
-      font-size: 0.85em;
-      cursor: pointer;
+    .day-header {
+      background: #e9ecef !important;
+      color: #333 !important;
+      font-weight: bold;
+    }
+    .col-header {
+      background: #f8f9fa;
+      font-size: 0.8em;
+      color: #666;
+    }
+    .time-cell {
+      width: 40px;
+      background: #f8f9fa;
+      text-align: center;
+      font-weight: bold;
+    }
+    
+    /* 5列構成のサブテーブル的な表現 */
+    .slot-cell {
+      height: 40px;
       overflow: hidden;
-      white-space: nowrap;
-      text-overflow: ellipsis;
-      transition: background 0.2s;
     }
-    .event-chip:hover {
-      background: #cfe2ff;
+    .mail-content { width: 150px; }
+    .mail-count { width: 40px; text-align: center; }
+    .mail-setter { width: 40px; text-align: center; }
+    .mail-checker { width: 40px; text-align: center; }
+    .mail-total { width: 40px; text-align: center; font-weight: bold; background: #fffde7; }
+
+    .event-item {
+      padding: 2px;
+      margin-bottom: 2px;
+      border-bottom: 1px dotted #ccc;
+      cursor: pointer;
+    }
+    .event-item:hover { background: #f0f7ff; }
+    .pr-badge {
+      background: #ffc107;
+      color: #000;
+      padding: 1px 3px;
+      border-radius: 3px;
+      font-size: 0.8em;
+      margin-right: 3px;
     }
 
     /* モーダル */
@@ -153,7 +185,9 @@
       margin: 5% auto;
       padding: 20px;
       border-radius: 8px;
-      width: 500px;
+      width: 600px;
+      max-height: 80vh;
+      overflow-y: auto;
       box-shadow: 0 4px 15px rgba(0,0,0,0.2);
     }
     .modal-header {
@@ -260,16 +294,23 @@
         let inputType = "text";
         if (header.includes("日付")) inputType = "date";
         if (header.includes("時間")) inputType = "time";
+        if (header.includes("配信停止")) inputType = "checkbox";
         
         let value = initialValues ? initialValues[i] : "";
         if (inputType === "date" && value) {
           value = formatDateForInput(new Date(value));
         }
-
-        group.innerHTML = `
-          <label>${header}</label>
-          <input type="${inputType}" name="col_${i}" data-header="${header}" value="${value}" placeholder="${header}を入力">
-        `;
+        if (inputType === "checkbox") {
+          const isChecked = value === true || value === "TRUE";
+          group.innerHTML = `
+            <label><input type="checkbox" name="col_${i}" ${isChecked ? 'checked' : ''}> ${header}</label>
+          `;
+        } else {
+          group.innerHTML = `
+            <label>${header}</label>
+            <input type="${inputType}" name="col_${i}" data-header="${header}" value="${value}" placeholder="${header}を入力">
+          `;
+        }
         form.appendChild(group);
       });
 
@@ -283,54 +324,106 @@
       return form;
     }
 
-    // カレンダー描画
+    // カレンダー描画 (編集版形式)
     function renderCalendar() {
       const view = document.getElementById('calendar-view');
       const dayNames = ["火", "水", "木", "金", "土", "日", "月"];
+      const timeSlots = [8,9,10,11,12,13,14,15,16,17,18,19,20,21,22];
       
       const today = new Date();
       const diff = today.getDay() >= 2 ? today.getDay() - 2 : today.getDay() + 5;
       const startDate = new Date(today);
       startDate.setDate(today.getDate() - diff);
 
-      let html = '<table class="calendar-table"><thead><tr>';
+      let html = '<div class="calendar-container"><table class="calendar-table"><thead>';
+      
+      // 日付ヘッダー
+      html += '<tr><th rowspan="2" class="time-cell">時間</th>';
       dayNames.forEach((d, i) => {
         const date = new Date(startDate);
         date.setDate(startDate.getDate() + i);
-        html += `<th>${d}<br><small>${date.getMonth()+1}/${date.getDate()}</small></th>`;
+        html += `<th colspan="5" class="day-header">${d} (${date.getMonth()+1}/${date.getDate()})</th>`;
       });
-      html += '</tr></thead><tbody><tr>';
+      html += '</tr>';
 
-      for (let i = 0; i < 7; i++) {
-        const targetDate = new Date(startDate);
-        targetDate.setDate(startDate.getDate() + i);
-        const dateStr = formatDate(targetDate);
-        const dayName = dayNames[i];
+      // 項目ヘッダー
+      html += '<tr>';
+      dayNames.forEach(() => {
+        html += '<th class="col-header mail-content">内容</th><th class="col-header mail-count">通数</th><th class="col-header mail-setter">設</th><th class="col-header mail-checker">確</th><th class="col-header mail-total">計</th>';
+      });
+      html += '</tr></thead><tbody>';
 
-        html += '<td>';
-        appData.sheets.forEach((sheet, sIdx) => {
-          const dateIdx = sheet.headers.indexOf("日付");
-          const dayIdx = sheet.headers.indexOf("曜日");
-          const nameIdx = sheet.headers.indexOf("メルマガ名") !== -1 ? sheet.headers.indexOf("メルマガ名") : 
-                         sheet.headers.indexOf("名称") !== -1 ? sheet.headers.indexOf("名称") : 2;
+      // 時間ごとの行
+      timeSlots.forEach(hour => {
+        html += `<tr><td class="time-cell">${hour}</td>`;
+        dayNames.forEach((d, i) => {
+          const targetDate = new Date(startDate);
+          targetDate.setDate(startDate.getDate() + i);
+          const dateStr = formatDate(targetDate);
+          const dayName = d;
 
-          sheet.data.forEach((row, rIdx) => {
-            let match = false;
-            if (dateIdx !== -1 && formatDate(new Date(row[dateIdx])) === dateStr) match = true;
-            if (dayIdx !== -1 && String(row[dayIdx]).includes(dayName)) match = true;
-
-            if (match && row[nameIdx]) {
-              const safeRow = JSON.stringify(row).replace(/"/g, '&quot;');
-              html += `<div class="event-chip" title="${row[nameIdx]}" onclick='openEditModal(${sIdx}, ${rIdx})'>
-                        [${sheet.name.substring(0,2)}] ${row[nameIdx]}
-                      </div>`;
-            }
+          const events = findEvents(dateStr, dayName, hour);
+          
+          html += `<td colspan="5" style="padding:0;">`;
+          events.forEach(ev => {
+            const pr = appData.prMap[ev.title] ? `<span class="pr-badge" title="${appData.prMap[ev.title].content}">PR</span>` : '';
+            const isStopped = ev.stop === true || ev.stop === "TRUE";
+            const style = isStopped ? 'color:#999; text-decoration:line-through; background:#f0f0f0;' : '';
+            
+            html += `<div class="event-item" style="display:flex; ${style}" onclick="openEditModal(${ev.sIdx}, ${ev.rIdx})">
+                      <div class="mail-content">${pr}${ev.title}</div>
+                      <div class="mail-count">${ev.count || ''}</div>
+                      <div class="mail-setter">${ev.setter || ''}</div>
+                      <div class="mail-checker">${ev.checker || ''}</div>
+                      <div class="mail-total">${ev.count || ''}</div>
+                    </div>`;
           });
+          html += `</td>`;
         });
-        html += '</td>';
-      }
-      html += '</tr></tbody></table>';
+        html += '</tr>';
+      });
+
+      html += '</tbody></table></div>';
       view.innerHTML = html;
+    }
+
+    function findEvents(dateStr, dayName, hour) {
+      const matched = [];
+      appData.sheets.forEach((sheet, sIdx) => {
+        if (sheet.name === "PR管理") return;
+        
+        const h = sheet.headers;
+        const dateIdx = h.indexOf("日付");
+        const dayIdx = h.indexOf("曜日");
+        const timeIdx = h.indexOf("時間");
+        const nameIdx = h.indexOf("メルマガ内容") !== -1 ? h.indexOf("メルマガ内容") : 
+                         h.indexOf("名称") !== -1 ? h.indexOf("名称") : 
+                         h.indexOf("シナリオ名") !== -1 ? h.indexOf("シナリオ名") : 2;
+        const countIdx = h.indexOf("通数");
+        const setterIdx = h.indexOf("設定者");
+        const checkerIdx = h.indexOf("確認者");
+        const stopIdx = h.indexOf("配信停止");
+
+        sheet.data.forEach((row, rIdx) => {
+          let dateMatch = false;
+          if (dateIdx !== -1 && formatDate(new Date(row[dateIdx])) === dateStr) dateMatch = true;
+          if (dayIdx !== -1 && String(row[dayIdx]).includes(dayName)) dateMatch = true;
+
+          const rowHour = parseInt(row[timeIdx]);
+          if (dateMatch && rowHour === hour) {
+            matched.push({
+              title: row[nameIdx],
+              count: row[countIdx],
+              setter: row[setterIdx],
+              checker: row[checkerIdx],
+              stop: row[stopIdx],
+              sIdx: sIdx,
+              rIdx: rIdx
+            });
+          }
+        });
+      });
+      return matched;
     }
 
     function openEditModal(sheetIndex, rowIndex) {
@@ -360,7 +453,12 @@
       const rowData = [];
       
       sheet.headers.forEach((_, i) => {
-        rowData.push(form.querySelector(`[name="col_${i}"]`).value);
+        const input = form.querySelector(`[name="col_${i}"]`);
+        if (input.type === "checkbox") {
+          rowData.push(input.checked);
+        } else {
+          rowData.push(input.value);
+        }
       });
 
       const keyIdx = 0;
