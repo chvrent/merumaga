@@ -1,30 +1,404 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>メルマガ配信カレンダー</title>
-    <!-- FullCalendar CSS -->
-    <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet' />
-    <link rel="stylesheet" href="style.css">
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>メルマガスケジュール作成メーカー</title>
+  <style>
+    :root {
+      --sidebar-width: 200px;
+      --preview-width: 450px;
+      --primary-color: #007bff;
+      --bg-light: #f8f9fa;
+      --border-color: #dee2e6;
+    }
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      margin: 0;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+      color: #333;
+    }
+    /* 3ペイン構成 */
+    .sidebar {
+      width: var(--sidebar-width);
+      background: var(--bg-light);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+    }
+    .main {
+      flex: 1;
+      padding: 20px;
+      overflow-y: auto;
+      background: white;
+      border-right: 1px solid var(--border-color);
+    }
+    .preview {
+      width: var(--preview-width);
+      padding: 20px;
+      overflow-y: auto;
+      background: var(--bg-light);
+    }
+    
+    /* サイドバー */
+    .sidebar-header {
+      padding: 15px;
+      background: #343a40;
+      color: white;
+      font-weight: bold;
+    }
+    .step-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+    .step-item {
+      padding: 12px 15px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-color);
+      transition: background 0.2s;
+    }
+    .step-item:hover {
+      background: #e9ecef;
+    }
+    .step-item.active {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    /* 操作パネル */
+    .form-container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+    input, select, textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      box-sizing: border-box;
+    }
+    .btn-group {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .btn-primary { background: var(--primary-color); color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+
+    /* カレンダープレビュー (Table形式) */
+    .calendar-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8em;
+    }
+    .calendar-table th, .calendar-table td {
+      border: 1px solid var(--border-color);
+      padding: 8px;
+      height: 80px;
+      vertical-align: top;
+      width: 14.28%;
+    }
+    .calendar-table th {
+      background: #eee;
+      height: auto;
+    }
+    .event-chip {
+      background: #e7f3ff;
+      border-left: 3px solid var(--primary-color);
+      padding: 2px 5px;
+      margin-bottom: 3px;
+      border-radius: 2px;
+      font-size: 0.85em;
+      cursor: pointer;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      transition: background 0.2s;
+    }
+    .event-chip:hover {
+      background: #cfe2ff;
+    }
+
+    /* モーダル */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background-color: white;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 8px;
+      width: 500px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .close {
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-    <header>
-        <h1>メルマガ配信スケジュール</h1>
-    </header>
+  <div class="sidebar">
+    <div class="sidebar-header">Stepナビ</div>
+    <div class="step-list" id="step-list">
+      <div style="padding: 20px; color: #999;">読み込み中...</div>
+    </div>
+  </div>
+  
+  <div class="main">
+    <div class="form-container" id="form-container">
+      <h2>操作パネル</h2>
+      <p style="color: #666;">左側のステップを選択して入力を開始してください。</p>
+    </div>
+  </div>
+  
+  <div class="preview">
+    <h2>全体プレビュー</h2>
+    <div id="calendar-view">
+      <!-- カレンダー描画エリア -->
+    </div>
+  </div>
 
-    <main>
-        <div id="calendar-container">
-            <div id="calendar"></div>
-        </div>
-    </main>
+  <!-- 編集モーダル -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="modal-title">予定の編集</h3>
+        <span class="close" onclick="closeModal()">&times;</span>
+      </div>
+      <div id="modal-form-container"></div>
+    </div>
+  </div>
 
-    <footer>
-        <p>&copy; 2024 mail-magazine-maker</p>
-    </footer>
+  <script>
+    let appData = null;
+    let currentSheetIndex = -1;
 
-    <!-- FullCalendar JS -->
-    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
-    <script src="script.js"></script>
+    // 初期化: データを取得
+    function init() {
+      google.script.run
+        .withSuccessHandler(data => {
+          appData = data;
+          renderSidebar();
+          renderCalendar();
+        })
+        .withFailureHandler(err => alert("Error: " + err))
+        .getSpreadsheetData();
+    }
+
+    // サイドバー描画
+    function renderSidebar() {
+      const list = document.getElementById('step-list');
+      list.innerHTML = '';
+      appData.sheets.forEach((sheet, index) => {
+        const div = document.createElement('div');
+        div.className = 'step-item';
+        div.innerText = `${index + 1}. ${sheet.name}`;
+        div.onclick = () => selectSheet(index);
+        list.appendChild(div);
+      });
+    }
+
+    // シート選択 -> フォーム生成
+    function selectSheet(index, initialValues = null) {
+      currentSheetIndex = index;
+      const sheet = appData.sheets[index];
+      
+      document.querySelectorAll('.step-item').forEach((el, i) => {
+        el.classList.toggle('active', i === index);
+      });
+
+      const container = document.getElementById('form-container');
+      container.innerHTML = `<h2>${sheet.name} の入力</h2>`;
+      
+      const form = createForm(sheet, initialValues);
+      container.appendChild(form);
+    }
+
+    function createForm(sheet, initialValues = null) {
+      const form = document.createElement('form');
+      form.id = 'dynamic-form';
+      sheet.headers.forEach((header, i) => {
+        if (!header) return;
+        const group = document.createElement('div');
+        group.className = 'form-group';
+        
+        let inputType = "text";
+        if (header.includes("日付")) inputType = "date";
+        if (header.includes("時間")) inputType = "time";
+        
+        let value = initialValues ? initialValues[i] : "";
+        if (inputType === "date" && value) {
+          value = formatDateForInput(new Date(value));
+        }
+
+        group.innerHTML = `
+          <label>${header}</label>
+          <input type="${inputType}" name="col_${i}" data-header="${header}" value="${value}" placeholder="${header}を入力">
+        `;
+        form.appendChild(group);
+      });
+
+      const btnGroup = document.createElement('div');
+      btnGroup.className = 'btn-group';
+      btnGroup.innerHTML = `
+        <button type="button" class="btn-primary" onclick="handleSave()">保存して反映</button>
+        <button type="button" class="btn-secondary" onclick="resetForm()">リセット</button>
+      `;
+      form.appendChild(btnGroup);
+      return form;
+    }
+
+    // カレンダー描画
+    function renderCalendar() {
+      const view = document.getElementById('calendar-view');
+      const dayNames = ["火", "水", "木", "金", "土", "日", "月"];
+      
+      const today = new Date();
+      const diff = today.getDay() >= 2 ? today.getDay() - 2 : today.getDay() + 5;
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - diff);
+
+      let html = '<table class="calendar-table"><thead><tr>';
+      dayNames.forEach((d, i) => {
+        const date = new Date(startDate);
+        date.setDate(startDate.getDate() + i);
+        html += `<th>${d}<br><small>${date.getMonth()+1}/${date.getDate()}</small></th>`;
+      });
+      html += '</tr></thead><tbody><tr>';
+
+      for (let i = 0; i < 7; i++) {
+        const targetDate = new Date(startDate);
+        targetDate.setDate(startDate.getDate() + i);
+        const dateStr = formatDate(targetDate);
+        const dayName = dayNames[i];
+
+        html += '<td>';
+        appData.sheets.forEach((sheet, sIdx) => {
+          const dateIdx = sheet.headers.indexOf("日付");
+          const dayIdx = sheet.headers.indexOf("曜日");
+          const nameIdx = sheet.headers.indexOf("メルマガ名") !== -1 ? sheet.headers.indexOf("メルマガ名") : 
+                         sheet.headers.indexOf("名称") !== -1 ? sheet.headers.indexOf("名称") : 2;
+
+          sheet.data.forEach((row, rIdx) => {
+            let match = false;
+            if (dateIdx !== -1 && formatDate(new Date(row[dateIdx])) === dateStr) match = true;
+            if (dayIdx !== -1 && String(row[dayIdx]).includes(dayName)) match = true;
+
+            if (match && row[nameIdx]) {
+              const safeRow = JSON.stringify(row).replace(/"/g, '&quot;');
+              html += `<div class="event-chip" title="${row[nameIdx]}" onclick='openEditModal(${sIdx}, ${rIdx})'>
+                        [${sheet.name.substring(0,2)}] ${row[nameIdx]}
+                      </div>`;
+            }
+          });
+        });
+        html += '</td>';
+      }
+      html += '</tr></tbody></table>';
+      view.innerHTML = html;
+    }
+
+    function openEditModal(sheetIndex, rowIndex) {
+      const sheet = appData.sheets[sheetIndex];
+      const row = sheet.data[rowIndex];
+      currentSheetIndex = sheetIndex;
+
+      const modal = document.getElementById('editModal');
+      const container = document.getElementById('modal-form-container');
+      document.getElementById('modal-title').innerText = `${sheet.name} の編集`;
+      
+      container.innerHTML = '';
+      const form = createForm(sheet, row);
+      container.appendChild(form);
+      modal.style.display = 'block';
+    }
+
+    function closeModal() {
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    // 保存処理
+    function handleSave() {
+      if (currentSheetIndex === -1) return;
+      const sheet = appData.sheets[currentSheetIndex];
+      const form = document.querySelector('.modal:not([style*="display: none"]) form') || document.getElementById('dynamic-form');
+      const rowData = [];
+      
+      sheet.headers.forEach((_, i) => {
+        rowData.push(form.querySelector(`[name="col_${i}"]`).value);
+      });
+
+      const keyIdx = 0;
+      const keyValue = rowData[keyIdx];
+
+      google.script.run
+        .withSuccessHandler(res => {
+          alert("保存しました！");
+          closeModal();
+          init();
+        })
+        .upsertData(sheet.name, rowData, keyIdx, keyValue);
+    }
+
+    function formatDate(date) {
+      if (!date || isNaN(date.getTime())) return "";
+      return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
+    }
+
+    function formatDateForInput(date) {
+      if (!date || isNaN(date.getTime())) return "";
+      const y = date.getFullYear();
+      const m = ("0" + (date.getMonth() + 1)).slice(-2);
+      const d = ("0" + date.getDate()).slice(-2);
+      return `${y}-${m}-${d}`;
+    }
+
+    function resetForm() {
+      const form = document.getElementById('dynamic-form');
+      if (form) form.reset();
+    }
+
+    window.onclick = function(event) {
+      const modal = document.getElementById('editModal');
+      if (event.target == modal) closeModal();
+    }
+
+    window.onload = init;
+  </script>
 </body>
 </html>
