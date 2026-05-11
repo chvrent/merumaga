@@ -199,7 +199,7 @@ function createFinalVersion() {
  * Webアプリの起動
  */
 function doGet() {
-  return HtmlService.createHtmlOutputFromFile('Index')
+  return HtmlService.createHtmlOutputFromFile('index')
     .setTitle('メルマガスケジュール作成メーカー')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
