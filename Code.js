@@ -1,136 +1,303 @@
 /**
- * PR管理シートと連携し、全データを統合してGitHubへ送信
+ * メルマガスケジュール管理システム：運用版
+ * 最終更新: 2026-05-08
  */
-function finalizeAndPushToGitHub() {
+
+function onOpen() {
   const ui = SpreadsheetApp.getUi();
+  ui.createMenu('📅 スケジュール管理')
+    .addItem('マスタの色を編集版に同期', 'syncBackgroundColors')
+    .addItem('確定版を作成（空行のみ削除）', 'createFinalVersion')
+    .addToUi();
+}
+
+// ============================================================
+// 1. 背景色同期・配信停止グレーアウト
+// ============================================================
+
+/**
+ * マスタの背景色を編集版のタイトルセルに同期し、停止案件をグレーアウトする
+ */
+function syncBackgroundColors() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const dateCols = ["C", "H", "M", "R", "W", "AB", "AG"];
   
-  if (typeof GITHUB_TOKEN === 'undefined' || GITHUB_TOKEN.indexOf("ここに") === 0) {
-    ui.alert("GITHUB_TOKEN が設定されていません。Config.gs ファイルを確認してください。");
-    return;
-  }
+  const getColorMap = (name, mailCol) => {
+    const s = ss.getSheetByName(name);
+    if (!s) return {};
+    const d = s.getDataRange().getValues();
+    const b = s.getDataRange().getBackgrounds();
+    const map = {};
+    for (let i = 1; i < d.length; i++) {
+      const name = String(d[i][mailCol-1]).trim();
+      if (name) map[name] = b[i][mailCol-1];
+    }
+    return map;
+  };
+  
+  const colorMaps = {
+    LIST: getColorMap("リスト", 3),
+    NEW: getColorMap("新規", 3),
+    SPECIAL: getColorMap("特殊配信マスタ", 6),
+    MA: getColorMap("MA等", 3)
+  };
 
-  const response = ui.alert('Webサイト更新', 'PR管理シートと連携して全データを反映しますか？', ui.ButtonSet.YES_NO);
-  if (response !== ui.Button.YES) return;
-
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const allEvents = [];
-    const now = new Date();
+  const range = sheet.getRange(3, 1, 215, 35);
+  const values = range.getValues();
+  const backgrounds = range.getBackgrounds();
+  
+  let currentKey = "";
+  for (let i = 0; i < values.length; i++) {
+    const valB = values[i][1];
+    if (valB === "毎週") currentKey = "LIST";
+    else if (valB === "新規") currentKey = "NEW";
+    else if (valB === "特殊") currentKey = "SPECIAL";
+    else if (valB === "MA等") currentKey = "MA";
     
-    // --- 0. PR管理シートの読み込み (マッピング作成) ---
-    const prMap = {};
-    const prSheet = ss.getSheetByName("PR管理");
-    if (prSheet) {
-      const prData = prSheet.getDataRange().getValues();
-      for (let i = 1; i < prData.length; i++) {
-        const prCode = String(prData[i][0]); // A列: PR番号 (PR128など)
-        const prContent = String(prData[i][1]); // B列: 内容
-        if (prCode) prMap[prCode] = prContent;
+    if (!currentKey) continue;
+    
+    dateCols.forEach(col => {
+      const colIdx = col.charCodeAt(0) - 65;
+      const mailName = String(values[i][colIdx]).trim();
+      if (mailName && colorMaps[currentKey][mailName]) {
+        backgrounds[i][colIdx] = colorMaps[currentKey][mailName];
+      } else if (mailName) {
+        backgrounds[i][colIdx] = "#ffffff";
       }
-    }
-
-    // --- 1. 「新規」シート ---
-    const newSheet = ss.getSheetByName("新規");
-    if (newSheet) {
-      const range = newSheet.getDataRange();
-      const data = range.getValues();
-      const backgrounds = range.getBackgrounds();
-      for (let i = 1; i < data.length; i++) {
-        if (!data[i][0]) continue;
-        let title = String(data[i][2]);
-        let prInfo = fetchPRContent(title, prMap); // PR内容を検索
-        
-        allEvents.push({
-          date: formatDate(data[i][0]),
-          time: data[i][1],
-          media: "新規",
-          title: title,
-          pr: prInfo, // PR内容を格納
-          color: backgrounds[i][2],
-          target: data[i][7],
-          pic: "未定"
-        });
-      }
-    }
-
-    // --- 2. 「リスト」シート ---
-    const listSheet = ss.getSheetByName("リスト");
-    if (listSheet) {
-      const range = listSheet.getDataRange();
-      const data = range.getValues();
-      const backgrounds = range.getBackgrounds();
-      for (let i = 1; i < data.length; i++) {
-        if (!data[i][0]) continue;
-        const targetDate = getDateFromDayName(data[i][0], now);
-        let title = String(data[i][2]);
-        let prInfo = fetchPRContent(title, prMap);
-
-        allEvents.push({
-          date: formatDate(targetDate),
-          time: data[i][1],
-          media: "リスト",
-          title: title,
-          pr: prInfo,
-          color: backgrounds[i][2],
-          target: data[i][7],
-          pic: "定常"
-        });
-      }
-    }
-
-    const path = "data.json";
-    const url = "https://api.github.com/repos/" + REPO_OWNER + "/" + REPO_NAME + "/contents/" + path;
-    const getRes = UrlFetchApp.fetch(url, { headers: { "Authorization": "token " + GITHUB_TOKEN }, muteHttpExceptions: true });
-    let sha = getRes.getResponseCode() === 200 ? JSON.parse(getRes.getContentText()).sha : "";
-
-    const payload = {
-      message: "Update calendar data with PR content",
-      content: Utilities.base64Encode(JSON.stringify(allEvents, null, 2), Utilities.Charset.UTF_8),
-      sha: sha
-    };
-
-    UrlFetchApp.fetch(url, {
-      method: "put",
-      headers: { "Authorization": "token " + GITHUB_TOKEN },
-      payload: JSON.stringify(payload),
-      contentType: "application/json"
     });
-
-    ui.alert('更新完了！PR文章を含めて反映しました。');
-  } catch (e) {
-    ui.alert('エラー: ' + e.message);
   }
+  range.setBackgrounds(backgrounds);
+  
+  applyEditSheetStopGrayRule();
+  SpreadsheetApp.getUi().alert("背景色の同期とグレーアウトを完了しました。");
 }
 
 /**
- * タイトルからPRXXX形式を探し、マッピングから内容を返す
+ * 配信停止案件をグレーアウトする (内部用)
  */
-function fetchPRContent(text, prMap) {
-  const match = text.match(/PR\d+/);
-  if (match && prMap[match[0]]) {
-    return prMap[match[0]];
+function applyEditSheetStopGrayRule() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getActiveSheet();
+  const dateCols = ["C", "H", "M", "R", "W", "AB", "AG"];
+  
+  const getStopMap = (name, mailCol, stopColHeader) => {
+    const s = ss.getSheetByName(name);
+    if (!s) return {};
+    const d = s.getDataRange().getValues();
+    const headers = d[1] || d[0]; // 2行目または1行目
+    let stopIdx = headers.indexOf(stopColHeader);
+    if (stopIdx === -1 && name === "リスト") stopIdx = 14; // O列
+    if (stopIdx === -1 && name === "新規") stopIdx = 14;   // O列
+    
+    const map = {};
+    if (stopIdx === -1) return map;
+
+    for (let i = 2; i < d.length; i++) {
+      if (d[i][stopIdx] === true || d[i][stopIdx] === "TRUE") {
+        map[String(d[i][mailCol-1]).trim()] = true;
+      }
+    }
+    return map;
+  };
+  
+  const stopMaps = {
+    LIST: getStopMap("リスト", 3, "配信停止"),
+    NEW: getStopMap("新規", 3, "配信停止"),
+    SPECIAL: getStopMap("特殊配信マスタ", 6, "配信停止"),
+    MA: getStopMap("MA等", 3, "配信停止")
+  };
+
+  const range = sheet.getRange(3, 1, 215, 35);
+  const values = range.getValues();
+  const backgrounds = range.getBackgrounds();
+  
+  let currentKey = "";
+  for (let i = 0; i < values.length; i++) {
+    const valB = values[i][1];
+    if (valB === "毎週") currentKey = "LIST";
+    else if (valB === "新規") currentKey = "NEW";
+    else if (valB === "特殊") currentKey = "SPECIAL";
+    else if (valB === "MA等") currentKey = "MA";
+    
+    if (!currentKey) continue;
+    
+    dateCols.forEach(col => {
+      const colIdx = col.charCodeAt(0) - 65;
+      const mailName = String(values[i][colIdx]).trim();
+      if (mailName && stopMaps[currentKey][mailName]) {
+        for (let j = 0; j < 5; j++) {
+          backgrounds[i][colIdx + j] = "#cccccc";
+        }
+      }
+    });
   }
-  return "";
+  range.setBackgrounds(backgrounds);
 }
 
-function formatDate(date) {
-  if (!(date instanceof Date)) date = new Date(date);
-  return Utilities.formatDate(date, "JST", "yyyy/MM/dd");
+// ============================================================
+// 2. 確定版生成
+// ============================================================
+
+/**
+ * 確定版を作成：編集版をコピーし、数式を値に変換、空行を削除する
+ */
+function createFinalVersion() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const activeSheet = ss.getActiveSheet();
+  const sheetName = activeSheet.getName();
+  
+  if (sheetName.indexOf("編集版") === -1) {
+    SpreadsheetApp.getUi().alert("編集版シートを開いた状態で実行してください。");
+    return;
+  }
+  
+  const finalName = sheetName.replace("編集版", "確定版");
+  let finalSheet = ss.getSheetByName(finalName);
+  if (finalSheet) {
+    const res = SpreadsheetApp.getUi().alert("確認", "既に「" + finalName + "」が存在します。上書きしますか？", SpreadsheetApp.getUi().ButtonSet.YES_NO);
+    if (res !== SpreadsheetApp.getUi().Button.YES) return;
+    ss.deleteSheet(finalSheet);
+  }
+  
+  finalSheet = activeSheet.copyTo(ss).setName(finalName);
+  
+  // 数式を値に変換
+  const range = finalSheet.getDataRange();
+  range.setValues(range.getValues());
+  
+  // 空行の削除 (火〜月の全スロットが空の行)
+  const lastRow = finalSheet.getLastRow();
+  const dateColIndices = [3, 8, 13, 18, 23, 28, 33]; // C, H, M, R, W, AB, AG (1-based)
+  
+  for (let i = lastRow; i >= 3; i--) { 
+    let hasContent = false;
+    for (let j = 0; j < dateColIndices.length; j++) {
+      if (finalSheet.getRange(i, dateColIndices[j]).getValue() !== "") {
+        hasContent = true;
+        break;
+      }
+    }
+    
+    const valA = finalSheet.getRange(i, 1).getValue();
+    const valB = finalSheet.getRange(i, 2).getValue();
+    
+    if (!hasContent && valA !== "" && valB === "") {
+      finalSheet.deleteRow(i);
+    }
+  }
+  
+  ss.setActiveSheet(finalSheet);
+  SpreadsheetApp.getUi().alert("確定版「" + finalName + "」を作成しました。");
 }
 
-function getDateFromDayName(dayName, baseDate) {
-  const days = ["日", "月", "火", "水", "木", "金", "土"];
-  const targetDay = days.indexOf(dayName.replace(/曜/g, ""));
-  if (targetDay === -1) return baseDate;
-  const currentDay = baseDate.getDay();
-  const diff = targetDay - currentDay;
-  const result = new Date(baseDate);
-  result.setDate(baseDate.getDate() + diff);
+// ============================================================
+// 3. Webアプリ用API (イメージ.txt に基づく)
+// ============================================================
+
+/**
+ * Webアプリの起動
+ */
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('index')
+    .setTitle('メルマガスケジュール作成メーカー')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+/**
+ * 全シートのヘッダー情報とデータを取得する (Roadmap Step 1)
+ */
+function getSpreadsheetData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
+  
+  // アプリに表示・編集させるマスタのリスト
+  const includeSheets = [
+    "リスト", 
+    "新規", 
+    "特殊配信マスタ", 
+    "自動求人特集", 
+    "月末増発", 
+    "MA等", 
+    "PR管理"
+  ];
+  
+  const result = {
+    sheets: [],
+    prMap: {} // PR紐付け用のデータ
+  };
+  
+  sheets.forEach(sheet => {
+    const name = sheet.getName();
+    if (includeSheets.indexOf(name) !== -1) {
+      const range = sheet.getDataRange();
+      const values = range.getValues();
+      
+      // シートごとのヘッダー開始行の調整
+      let headerRow = 0;
+      if (name === "リスト" || name === "特殊配信マスタ" || name === "自動求人特集") headerRow = 1;
+      if (name === "PR管理") headerRow = 2;
+      
+      const headers = values[headerRow] || [];
+      const data = values.slice(headerRow + 1);
+      
+      result.sheets.push({
+        name: name,
+        headers: headers,
+        data: data
+      });
+      
+      // PR管理シートからマッピングを作成
+      if (name === "PR管理") {
+        data.forEach(row => {
+          const prId = row[0];
+          const prContent = row[4];
+          const targetMails = row.slice(6); // G列以降
+          if (prId && prContent) {
+            targetMails.forEach(mailName => {
+              if (mailName && typeof mailName === 'string') {
+                const cleanName = mailName.trim();
+                if (cleanName && cleanName !== "#REF!" && cleanName !== "#VALUE!") {
+                  result.prMap[cleanName] = { id: prId, content: prContent };
+                }
+              }
+            });
+          }
+        });
+      }
+    }
+  });
+  
   return result;
 }
 
-function onOpen() {
-  SpreadsheetApp.getUi().createMenu('★管理メニュー')
-    .addItem('Webサイトを更新（PR紐付け対応）', 'finalizeAndPushToGitHub')
-    .addToUi();
+/**
+ * データの更新・追加 (Roadmap Step Sync)
+ */
+function upsertData(sheetName, rowData, keyColumnIndex, keyValue) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) throw new Error("Sheet not found: " + sheetName);
+  
+  const data = sheet.getDataRange().getValues();
+  let rowIndex = -1;
+  
+  // キー照合
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][keyColumnIndex]) === String(keyValue)) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+  
+  if (rowIndex !== -1) {
+    // 更新 (Update)
+    sheet.getRange(rowIndex, 1, 1, rowData.length).setValues([rowData]);
+  } else {
+    // 追加 (Insert)
+    sheet.appendRow(rowData);
+  }
+  
+  return { success: true, action: rowIndex !== -1 ? "update" : "insert" };
 }
+

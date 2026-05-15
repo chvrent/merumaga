@@ -1,0 +1,47 @@
+name: Deploy to Google Apps Script
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Deploy to Google Apps Script
+        run: |
+          echo "$CLASPRC_JSON" > ~/.clasprc.json
+          npm install -g @google/clasp
+          npx clasp push -f
+          npx clasp deploy -i AKfycbw6BevrPjps9owV_fWrApNjwrTdYRdgx18-XqFQ_hTSOT-vn61lnpjw1f5AY4THgFsuVQ -d "Auto-deploy via GitHub Actions"
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+
+      - name: Slack Notification
+        uses: slackapi/slack-github-action@v1.26.0
+        if: always()
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅ デプロイ成功!' || '❌ デプロイ失敗...' }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "${{ job.status == 'success' && '✅ *Deploy Success!*' || '❌ *Deploy Failed!*' }}\nリポジトリ: ${{ github.repository }}\nコミット: ${{ github.event.head_commit.message }}"
+                  }
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
