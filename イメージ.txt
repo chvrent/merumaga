@@ -1,1 +1,136 @@
-メルマガスケジュール作成メーカー 開発仕様書1. コンセプトスプシ連動型UI: スプレッドシート（DB）の構成を正（マスター）とし、アプリ側はそれを操作するためのインターフェースに徹する。ステップ式進行: 各シートを「1つの工程（ステップ）」と定義。順番に項目を埋めることでスケジュールが完成する。柔軟なメンテナンス: シートの追加・削除や列（項目）の増減が、アプリ側のコードを書き換えずに反映される「動的設計」。2. 画面構成ライブラリを使用せず、HTMLとCSSの表組みで構築する3ペイン構成。エリア役割挙動Stepナビ（左）工程の切り替えスプシのシート一覧を表示。選択したシートの入力画面へ。操作パネル（中）入力フォーム選択中シートの1行目（ヘッダー）を読み込み、入力欄を自動生成。カレンダー（右）全体プレビュー<table>で構築。全シートのデータを集約して視覚化。3. 主要機能① 動的フォーム生成SpreadsheetApp.getSheets() を利用し、シート名をステップ名として取得。各シートの1行目の値をラベル（項目名）として、input や select タグを自動生成。特定のシート（例：「設定」「マスタ」）はアプリに表示しない除外フィルタ機能を実装。② データ整合性（Upsertロジック）キー照合: 「日付」や「ID」をキーとして使用。更新・追加:キーが既存なら：その行のデータを上書き（Update）。キーが新規なら：シートの末尾に新しい行を追加（Insert）。手動編集への対応: スプシ側で行の並べ替えが行われても、キー照合によりアプリからの書き込みミスを防止。③ 自作カレンダーUI外部ライブラリ（FullCalendar等）を使わない、純粋なHTML Tableによる描画。日付セル内のボタンから直接、特定のタスクの追加・編集モーダルを呼び出し可能。各ステップの進捗状況（未入力/入力済）に応じてセルの背景色を変化させる。4. 技術スタックBackend: Google Apps Script (GAS)Frontend: HTML5, CSS3 (Flexbox/Grid/Table), Vanilla JavaScriptDatabase: Google Sheets5. 実装ロードマップ[Backend] 全シートのヘッダー情報とデータをJSONで返すAPIの作成。[Frontend] サイドバーにステップ一覧を表示し、クリックで入力を切り替える枠組みの作成。[UI] 1週間〜1ヶ月単位のスケジュールを<table>で描画するエンジンの作成。[Sync] 「確定・反映」ボタンによる一括書き込み処理（setValues）の実装。
+**開発指示書**										
+										
+- **目的**: このブックに追加済みの `app_*` シートをデータソースとして、Apps Script のWebアプリで「配信マスタ検索・PR本文確認・休暇対応確認・商品系条件確認」ができるアプリを作成する。										
+- **前提データ**: 元シートではなく、アプリ用に整形済みの `app_schedule`, `app_pr`, `app_pr_targets`, `app_holidays`, `app_product`, `app_readme` を読む。										
+- **実装方式**: Apps Script Webアプリは `doGet(e)` または `doPost(e)` を持ち、`HtmlOutput` または `TextOutput` を返す必要があるため、画面UIは `HtmlService`、画面からサーバー処理呼び出しは `google.script.run` を使う構成にする。 ([ウェブアプリ  |  Apps Script  |  Google for Developers](https://developers.google.com/apps-script/guides/web?hl=ja&utm_source=openai))										
+										
+**推奨構成**										
+- `Code.gs`: `doGet()`, API入口、共通レスポンス処理。										
+- `DataService.gs`: スプレッドシート読み込み、シート→JSON変換、検索/絞り込み。										
+- `Index.html`: 画面本体。										
+- `Styles.html`: CSS。										
+- `Client.html`: クライアント側JavaScript。										
+- データ取得は日付表示を保つため `getDisplayValues()` を使用する。Google公式ドキュメントでも、表示値を文字列として取得する用途に `getDisplayValues()` / `getDisplayValue()` が示されている。 ([Class Range  |  Apps Script  |  Google for Developers](https://developers.google.com/apps-script/reference/spreadsheet/range?utm_source=openai))										
+										
+**利用シート**										
+- `app_schedule`: 配信マスタ。主キーは `id`、表示名は `mail_name`、日付は `start_date` / `end_date`。										
+- `app_pr`: PR本文マスタ。主キーは `pr_id`、本文は `pr_text`。										
+- `app_pr_targets`: PRと対象メルマガの1対多対応表。`pr_id` と `mail_name` で紐付け。										
+- `app_holidays`: 長期休暇・祝日対応。`delivery_date`, `mail_name`, `delivery_status` を使用。										
+- `app_product`: 商品系メルマガの条件・通数マスタ。`mail_name`, `after_setting`, `after_volume` を使用。										
+										
+**サーバー側API仕様**										
+```javascript										
+function doGet(e) {										
+  return HtmlService.createTemplateFromFile('Index')										
+    .evaluate()										
+    .setTitle('メルマガ配信マスタ')										
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');										
+}										
+										
+function include(filename) {										
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();										
+}										
+										
+function getInitialData() {										
+  return {										
+    schedule: getSheetObjects_('app_schedule'),										
+    pr: getSheetObjects_('app_pr'),										
+    prTargets: getSheetObjects_('app_pr_targets'),										
+    holidays: getSheetObjects_('app_holidays'),										
+    product: getSheetObjects_('app_product')										
+  };										
+}										
+										
+function getSheetObjects_(sheetName) {										
+  const ss = SpreadsheetApp.getActiveSpreadsheet();										
+  const sheet = ss.getSheetByName(sheetName);										
+  if (!sheet) throw new Error(`Sheet not found: ${sheetName}`);										
+										
+  const values = sheet.getDataRange().getDisplayValues();										
+  const headers = values.shift();										
+										
+  return values										
+    .filter(row => row.some(v => v !== ''))										
+    .map(row => {										
+      const obj = {};										
+      headers.forEach((h, i) => obj[h] = row[i] || '');										
+      return obj;										
+    });										
+}										
+```										
+										
+**画面機能要件**										
+- **配信マスタ検索**: `mail_name`, `weekday`, `hour`, `category`, `format`, `assignee`, `reviewer` で検索/フィルタ。										
+- **有効/停止フィルタ**: `is_inactive` が `TRUE` / `true` の行は「停止・非表示」扱いにできるようトグルを用意。										
+- **PR確認**: `app_pr_targets.mail_name` から該当 `pr_id` を探し、`app_pr.pr_text` と `insert_position` を表示。										
+- **休暇対応確認**: `mail_name` または `delivery_date` で `app_holidays` を検索し、`delivery_status` と `contact_note` を表示。										
+- **商品条件確認**: `mail_name` で `app_product` を検索し、`after_setting`, `after_volume`, `notes` を表示。										
+- **コピー機能**: PR本文、配信条件、対象メルマガ名をワンクリックでコピーできるボタンを設置。										
+										
+**クライアント側呼び出し例**										
+```html										
+<script>										
+let APP_DATA = {};										
+										
+function loadData() {										
+  showLoading(true);										
+										
+  google.script.run										
+    .withSuccessHandler(data => {										
+      APP_DATA = data;										
+      renderSchedule(data.schedule);										
+      showLoading(false);										
+    })										
+    .withFailureHandler(error => {										
+      showLoading(false);										
+      alert('データ取得に失敗しました: ' + error.message);										
+    })										
+    .getInitialData();										
+}										
+										
+function isActiveRow(row) {										
+  return String(row.is_inactive || '').toLowerCase() !== 'true';										
+}										
+										
+function searchSchedule(keyword) {										
+  const q = String(keyword || '').toLowerCase();										
+  const rows = APP_DATA.schedule || [];										
+										
+  return rows.filter(row => {										
+    if (!isActiveRow(row)) return false;										
+    return [										
+      row.mail_name,										
+      row.weekday,										
+      row.hour,										
+      row.category,										
+      row.format,										
+      row.assignee,										
+      row.reviewer										
+    ].join(' ').toLowerCase().includes(q);										
+  });										
+}										
+</script>										
+```										
+										
+**画面UI指示**										
+#ERROR!										
+- 一覧テーブルは `mail_name`, `weekday`, `hour`, `category`, `format`, `delivery_count`, `assignee`, `reviewer` を基本表示。										
+#ERROR!										
+#ERROR!										
+- HTML Service は iframe サンドボックスで動作し、リンク遷移などに制約があるため、外部リンクは `_blank` または `_top` を指定する。 ([HTML Service: Restrictions  |  Apps Script  |  Google for Developers](https://developers.google.com/apps-script/guides/html/restrictions?utm_source=openai))										
+										
+**デプロイ手順**										
+- スプレッドシートから **拡張機能 → Apps Script** を開く。										
+- `Code.gs`, `DataService.gs`, `Index.html`, `Styles.html`, `Client.html` を作成。										
+#ERROR!										
+- **デプロイ → 新しいデプロイ → 種類: ウェブアプリ** を選択。										
+#ERROR!										
+- `/exec` URL を共有し、更新時は新バージョンで再デプロイ。										
+										
+**注意点**										
+- 元シートではなく、必ず `app_*` シートを読む。										
+- 日付は表示値 `yyyy-mm-dd` をそのまま使う。										
+- `#REF!` は出力シート側で空欄化済みだが、空欄チェックは必ず入れる。										
+- PRは `app_pr` と `app_pr_targets` を分けて扱い、1つのPRが複数メルマガに紐づく前提で実装する。										
+										

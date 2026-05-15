@@ -1,0 +1,1799 @@
+<script>
+  let APP_DATA = {};
+  let CURRENT_ENTRY = null;
+  let ACTIVE_MASTER = 'schedule';
+  let MASTER_DATA = { sheetName: '', headers: [], rows: [] };
+  let IS_MOVE_MODE = false;
+  let SORTABLES = [];
+  const MASTER_RENDER_LIMIT = 300;
+  let MASTER_FILTERS = {
+    'format:自動求人特集': false,
+    'category:イレギュラー': false,
+    'category:検証': false
+  };
+  const CYCLE_BASE_DATE = new Date(2026, 3, 28);
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const PR_START_DATE_KEYS = ['start_date', '開始日', '開始'];
+  const PR_END_DATE_KEYS = ['end_date', '終了日', '終了'];
+  const DISPLAY_NAMES = {
+    __rowNumber: '行番号',
+    schedule_id: 'ID',
+    id: 'ID',
+    source_sheet: '元シート',
+    source_row: '元行',
+    mail_name: 'メルマガ名',
+    category: '種別',
+    sub_category: 'サブカテゴリ',
+    sub_category_class: 'サブカテゴリクラス',
+    cycle: 'サイクル',
+    weekday: '曜日',
+    hour: '時間',
+    format: '形式',
+    delivery_count: '通数',
+    assignee: '設定者',
+    reviewer: '確認者',
+    start_date: '開始日',
+    end_date: '終了日',
+    pr: 'PR',
+    pr_id: 'PR ID',
+    pr_text: 'PR本文',
+    name: 'PRタイトル',
+    insert_position: '挿入位置',
+    notes: '備考',
+    job_url: '求人URL',
+    current_job_count: '現在求人数',
+    job_count_updated_at: '求人数最終取得日時',
+    is_inactive: '配信停止',
+    is_fixed: '確定済',
+    target_ids: 'PRが入るメルマガ',
+    target_mails: '紐づいたメルマガ',
+    schedule_name: 'スケジュール名',
+    target_mail_name: '対象メルマガ',
+    mail_target: '対象メルマガ',
+    product_name: '商品名',
+    after_setting: '設定後条件',
+    after_volume: '設定後通数',
+    timestamp: '投稿日時',
+    user: '投稿者',
+    comment_text: 'コメント',
+    pr_title: 'PRタイトル'
+  };
+  const MASTER_ID_HEADERS = {
+    app_schedule: ['schedule_id', 'id'],
+    app_pr: ['id'],
+    app_product: ['product_id', 'id'],
+    app_pr_targets: ['pr_target_id', 'id']
+  };
+  const MASTER_CONFIG = {
+    schedule: {
+      title: 'メルマガ一覧',
+      description: 'app_schedule / app_product の配信マスタを編集します。',
+      sheets: [
+        { label: '配信マスタ', name: 'app_schedule' },
+        { label: '商品条件', name: 'app_product' }
+      ]
+    },
+    pr: {
+      title: 'PR管理',
+      description: 'PR本文を主軸とした紐付け管理を行います。',
+      sheets: [
+        { label: 'PR本文', name: 'app_pr' }
+      ]
+    }
+  };
+
+  function loadData() {
+    const startInput = document.getElementById('startInput');
+    const start = startInput && startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(new Date());
+    const rangeStart = formatDate(start);
+    const rangeEndDate = new Date(start);
+    rangeEndDate.setDate(start.getDate() + 6);
+    const rangeEnd = formatDate(rangeEndDate);
+
+    google.script.run
+      .withSuccessHandler(data => {
+        APP_DATA = data || {};
+        renderScheduleGrid();
+        if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
+      })
+      .withFailureHandler(err => {
+        document.getElementById('tableContainer').innerHTML =
+          '<div class="empty-state">データの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
+      })
+      .getInitialData({ startDate: rangeStart, endDate: rangeEnd });
+  }
+
+  function toggleMoveMode() {
+    IS_MOVE_MODE = !IS_MOVE_MODE;
+    const btn = document.getElementById('moveModeToggle');
+    const shell = document.querySelector('.app-shell');
+
+    if (btn) {
+      btn.textContent = `移動: ${IS_MOVE_MODE ? 'ON' : 'OFF'}`;
+      btn.classList.toggle('is-active', IS_MOVE_MODE);
+    }
+    if (shell) shell.classList.toggle('is-move-mode', IS_MOVE_MODE);
+
+    if (IS_MOVE_MODE) {
+      initDragAndDrop();
+    } else {
+      destroyDragAndDrop();
+    }
+  }
+
+  function initDragAndDrop() {
+    destroyDragAndDrop();
+    if (typeof Sortable === 'undefined') return;
+
+    const cells = document.querySelectorAll('#tableContainer td[data-date][data-hour]');
+    cells.forEach(cell => {
+      const s = Sortable.create(cell, {
+        group: 'calendar',
+        animation: 150,
+        ghostClass: 'sortable-ghost',
+        dragClass: 'sortable-drag',
+        filter: '.is-fixed',
+        onStart: () => {
+          document.querySelectorAll('#tableContainer td[data-date]').forEach(c => c.classList.add('drag-over-target'));
+        },
+        onEnd: (evt) => {
+          document.querySelectorAll('.drag-over-target').forEach(c => c.classList.remove('drag-over-target'));
+
+          const itemEl = evt.item;
+          const fromEl = evt.from;
+          const toEl = evt.to;
+
+          if (fromEl === toEl) return;
+
+          const scheduleId = itemEl.dataset.scheduleId || itemEl.dataset.itemId;
+          const oldDate = itemEl.dataset.targetDate;
+          const newDate = toEl.dataset.date;
+          const newHour = toEl.dataset.hour;
+
+          if (!scheduleId || !newDate || !newHour) return;
+
+          google.script.run
+            .withSuccessHandler(() => {
+              console.log('移動完了');
+              loadData();
+            })
+            .withFailureHandler(err => {
+              alert('移動に失敗しました: ' + err.message);
+              loadData();
+            })
+            .updateItemDate(scheduleId, oldDate, newDate, newHour);
+        }
+      });
+      SORTABLES.push(s);
+    });
+  }
+
+  function destroyDragAndDrop() {
+    SORTABLES.forEach(s => {
+      if (s && typeof s.destroy === 'function') s.destroy();
+    });
+    SORTABLES = [];
+  }
+
+  function renderScheduleGrid() {
+    const container = document.getElementById('tableContainer');
+    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
+    const startInput = document.getElementById('startInput');
+    const searchInput = document.getElementById('searchInput');
+    const start = startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(new Date());
+    const keyword = String(searchInput.value || '').trim().toLowerCase();
+    const dates = buildDates(start, 7);
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    const holidayDates = getHolidayDateSet();
+
+    if (!startInput.value) {
+      startInput.value = formatDateForInput(start);
+    }
+
+    const filtered = schedule.filter(row => {
+      if (!keyword) return true;
+      return [
+        row.mail_name,
+        row.weekday,
+        row.hour,
+        row.category,
+        row.cycle,
+        row.format,
+        row.assignee,
+        row.reviewer,
+        row.source_sheet
+      ]
+        .map(value => String(value || '').toLowerCase())
+        .join(' ')
+        .includes(keyword);
+    });
+
+    let html = '<table><thead><tr><th class="time-col" rowspan="2">時間</th>';
+    dates.forEach((date, index) => {
+      const cycleInfo = getCycleInfo(date);
+      const monthEndInfo = getMonthEndInfo(date);
+      const dateStr = formatDate(date);
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+      const isHoliday = holidayDates.has(dateStr);
+      const headerClasses = [
+        monthEndInfo.isInWindow ? 'month-end-header' : '',
+        isWeekend ? 'is-weekend' : '',
+        isHoliday ? 'is-holiday' : ''
+      ].filter(Boolean).join(' ');
+      const label = `${date.getMonth() + 1}/${date.getDate()} (${weekdays[date.getDay()]})`;
+      const headerDateControl = index === 0
+        ? `<input type="date" class="date-header-picker ${isWeekend || isHoliday ? 'is-emphasis-date' : ''}" value="${formatDateForInput(date)}" onchange="setCalendarStartDate(this.value)" aria-label="開始日">`
+        : `<div class="date-title">${label}</div>`;
+      html += `
+        <th class="${headerClasses}">
+          <div class="date-header">
+            ${headerDateControl}
+            ${monthEndInfo.isInWindow ? '<div class="date-note">月末配信期間</div>' : ''}
+            <div class="date-cycles">
+              <span class="cycle-chip cycle-chip-${cycleInfo.weekGroup}">${cycleInfo.weekLabel}</span>
+              <span class="cycle-chip cycle-chip-${cycleInfo.threeWeekNum}">${cycleInfo.threeWeekNum}週目</span>
+            </div>
+          </div>
+        </th>
+      `;
+    });
+    html += '</tr><tr>';
+    dates.forEach(() => {
+      html += `
+        <th class="grid-header-cell" style="padding:0; border-top:none;">
+          <div class="grid-header">
+            <div class="col-name">内容</div>
+            <div class="col-count">通数</div>
+            <div class="col-setter">設定</div>
+            <div class="col-checker">確認</div>
+          </div>
+        </th>
+      `;
+    });
+    html += '</tr></thead><tbody>';
+
+    for (let hour = 8; hour <= 21; hour++) {
+      html += `<tr><td class="time-col">${hour}:00</td>`;
+      dates.forEach(date => {
+        const dateStr = formatDate(date);
+        const dayLabel = weekdays[date.getDay()];
+        const monthEndInfo = getMonthEndInfo(date);
+        const entries = filtered.filter(row => {
+          const rowHour = String(row.hour || '').split(':')[0].trim();
+          const startDate = normalizeDateString(row.start_date);
+          const endDate = normalizeDateString(row.end_date);
+          const prStates = getPrStates(row, dateStr);
+          const weekday = normalizeWeekdayLabel(row.weekday);
+          const category = String(row.category || '').trim();
+          const rowCycle = normalizeCycleLabel(row.cycle);
+          const rowCycleNum = extractCycleNumber(rowCycle);
+          const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
+
+          if (isInactive(row)) return false;
+
+          // この日付/時間における「有効」な状態
+          const moveOverride = getMoveOverrideForDate(row, dateStr);
+          let isMatch = false;
+
+          if (moveOverride) {
+            const effectiveHour = String(moveOverride.hour || '').split(':')[0].trim();
+            isMatch = effectiveHour === String(hour);
+          } else {
+            // 移動先ではない場合、元のスケジュール通りか確認
+            // ただし、もし他の日時に移動されている場合はこの枠には出さない
+            if (isMovedOriginalOccurrence(row, dateStr)) return false;
+
+            isMatch = (isWithinScheduleRange || prStates.length > 0) &&
+              weekday === dayLabel &&
+              rowHour === String(hour);
+
+            // サイクル判定も本来の日程で行う
+            if (isMatch) {
+              if (category.includes('毎月') && !monthEndInfo.isInWindow) isMatch = false;
+              else if (rowCycle === 'A' || rowCycle === 'B') {
+                if (rowCycle !== getCycleForRow(row, date)) isMatch = false;
+              } else if (rowCycleNum != null) {
+                const expectedCycle = getCycleForRow(row, date);
+                if (typeof expectedCycle !== 'number' || !cycleContains(row.cycle, expectedCycle)) isMatch = false;
+              } else if (rowCycle && rowCycle !== '毎週') {
+                isMatch = false;
+              }
+            }
+          }
+          return isMatch;
+        }); html += `<td data-date="${dateStr}" data-hour="${hour}:00" style="padding:0;">`;
+        if (entries.length) {
+          const renderedPrIds = new Set();
+          entries.forEach(entry => {
+            const entryForDate = Object.assign({}, entry, { target_date: dateStr });
+            const payload = escapeAttribute(encodeURIComponent(JSON.stringify(entryForDate)));
+            const scheduleId = entry.schedule_id || 'unknown';
+            const checkItemId = getCheckItemId(entryForDate);
+            const subCategoryClass = getSubCategoryClass(entry);
+            const itemBg = getBgColor(entry);
+            const fixed = isFixed(entry, dateStr);
+            const stopped = !fixed && isStopped(entryForDate);
+            const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
+            const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
+            const jobAlert = getJobCountAlert(entry);
+            const jobAlertIcon = renderJobAlertIcon(jobAlert);
+            const rowTitle = jobAlert ? ` title="${escapeAttribute(getJobAlertTooltip(jobAlert))}"` : '';
+            const prLabel = getPrStates(entry, dateStr)
+              .filter(prState => {
+                const key = normalizeText(prState.pr_id);
+                if (!key || renderedPrIds.has(key)) return false;
+                renderedPrIds.add(key);
+                return true;
+              })
+              .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
+              .join('');
+            html += `
+            <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" style="background-color: ${itemBg};" onclick="openModal('${payload}')"${rowTitle}>
+              <div class="col-name">
+                <div class="mail-name">
+                  ${jobAlertIcon}
+                  ${escapeHtml(entry.mail_name)}
+                  ${fixedBadge}
+                  ${stoppedBadge}
+                  ${renderCommentBadge(entryForDate)}
+                </div>
+                ${prLabel}
+              </div>
+              <div class="col-count">${escapeHtml(entry.delivery_count)}</div>
+              ${renderCheckStatusCell(checkItemId, 'setter', entry.assignee, 'col-setter', entryForDate)}
+              ${renderCheckStatusCell(checkItemId, 'checker', entry.reviewer, 'col-checker', entryForDate)}
+            </div>
+          `;
+          });
+        } else {
+          html += '&nbsp;';
+        }
+        html += '</td>';
+      });
+      html += '</tr>';
+    }
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function switchTab(tabName) {
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.classList.toggle('active', button.dataset.tab === tabName);
+    });
+
+    document.getElementById('view-calendar').classList.toggle('active', tabName === 'calendar');
+    document.getElementById('view-master').classList.toggle('active', tabName !== 'calendar');
+
+    if (tabName !== 'calendar') {
+      ACTIVE_MASTER = tabName;
+      setupMasterView(tabName);
+      loadActiveMaster();
+    }
+  }
+
+  function setupMasterView(tabName) {
+    const config = MASTER_CONFIG[tabName];
+    if (!config) return;
+
+    document.getElementById('masterTitle').textContent = config.title;
+    document.getElementById('masterDescription').textContent = config.description;
+
+    const select = document.getElementById('masterSheetSelect');
+    select.innerHTML = config.sheets
+      .map(sheet => `<option value="${escapeAttribute(sheet.name)}">${escapeHtml(sheet.label)}</option>`)
+      .join('');
+    document.getElementById('masterSheetField').style.display = config.sheets.length > 1 ? 'grid' : 'none';
+  }
+
+  function loadActiveMaster() {
+    const sheetName = document.getElementById('masterSheetSelect').value || getActiveMasterSheetName();
+    const container = document.getElementById('masterTableContainer');
+    container.innerHTML = '<div class="empty-state">読み込み中...</div>';
+
+    const successHandler = data => {
+      try {
+        MASTER_DATA = data || { sheetName, headers: [], rows: [] };
+        if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
+        if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
+        renderMasterFilterChips();
+        renderMasterTable();
+      } catch (error) {
+        container.innerHTML = '<div class="empty-state">マスタ表示の描画に失敗しました: ' + escapeHtml(error.message || String(error)) + '</div>';
+        console.error(error);
+      }
+    };
+    const failureHandler = err => {
+      container.innerHTML = '<div class="empty-state">マスタの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
+    };
+
+    if (sheetName === 'app_pr') {
+      google.script.run
+        .withSuccessHandler(successHandler)
+        .withFailureHandler(failureHandler)
+        .getPRData();
+    } else {
+      google.script.run
+        .withSuccessHandler(successHandler)
+        .withFailureHandler(failureHandler)
+        .getMasterData(sheetName);
+    }
+  }
+
+  function renderMasterFilterChips() {
+    const container = document.getElementById('masterFilterChips');
+    if (!container) return;
+
+    if (MASTER_DATA.sheetName !== 'app_schedule') {
+      container.innerHTML = '';
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'flex';
+    const chips = [
+      { id: 'format:自動求人特集', label: '形式:自動求人特集' },
+      { id: 'category:イレギュラー', label: '種別:イレギュラー' },
+      { id: 'category:検証', label: '種別:検証' }
+    ];
+
+    container.innerHTML = chips.map(chip => `
+      <div class="filter-chip ${MASTER_FILTERS[chip.id] ? 'active' : ''}" onclick="toggleMasterFilter('${chip.id}')">
+        ${escapeHtml(chip.label)}
+      </div>
+    `).join('');
+  }
+
+  function toggleMasterFilter(id) {
+    MASTER_FILTERS[id] = !MASTER_FILTERS[id];
+    renderMasterFilterChips();
+    renderMasterTable();
+  }
+
+  function getActiveMasterSheetName() {
+    const config = MASTER_CONFIG[ACTIVE_MASTER] || MASTER_CONFIG.schedule;
+    return config.sheets[0].name;
+  }
+
+  function renderMasterTable() {
+    const container = document.getElementById('masterTableContainer');
+    const headers = MASTER_DATA.headers || [];
+    const visibleHeaders = getVisibleMasterHeaders(headers);
+    const searchInput = document.getElementById('masterSearchInput');
+    const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
+
+    const activeFilters = Object.keys(MASTER_FILTERS).filter(k => MASTER_FILTERS[k]);
+
+    const rows = (MASTER_DATA.rows || []).filter(row => {
+      // 検索キーワードフィルター
+      if (keyword && !headers.map(header => row[header] == null ? '' : String(row[header])).join(' ').toLowerCase().includes(keyword)) {
+        return false;
+      }
+
+      // チップフィルター (app_schedule のみ適用)
+      if (activeFilters.length > 0 && MASTER_DATA.sheetName === 'app_schedule') {
+        const matches = activeFilters.some(filterKey => {
+          const [field, value] = filterKey.split(':');
+          const aliases = (field === 'format') ? ['format', '形式'] : ['category', '種別'];
+          const actualHeader = headers.find(h => aliases.includes(String(h).trim()));
+          return actualHeader && String(row[actualHeader] || '').trim() === value;
+        });
+        if (!matches) return false;
+      }
+
+      return true;
+    });
+
+    if (!headers.length) {
+      container.innerHTML = '<div class="empty-state">ヘッダー行がありません。</div>';
+      return;
+    }
+
+    const visibleRows = rows.slice(0, MASTER_RENDER_LIMIT);
+    const isLimited = rows.length > visibleRows.length;
+
+    let html = `
+      <div class="master-result-summary">
+        ${escapeHtml(String(rows.length))}件中 ${escapeHtml(String(visibleRows.length))}件を表示
+        ${isLimited ? `<span>表示を絞るには検索またはフィルタを使ってください。</span>` : ''}
+      </div>
+      <table class="master-table"><thead><tr><th class="actions-col">操作</th>
+    `;
+
+    // PR管理画面では紐づいたメルマガを最後に1列だけ表示する。
+    const targetHeader = MASTER_DATA.sheetName === 'app_pr' ? 'target_mails' : '';
+    const tableHeaders = visibleHeaders.filter(h => {
+      if (!targetHeader) return true;
+      return h !== 'target_mails' && h !== 'mail_name';
+    });
+    tableHeaders.forEach(header => {
+      html += `<th title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</th>`;
+    });
+    if (targetHeader) html += `<th>紐づいたメルマガ</th>`;
+    html += '</tr></thead><tbody>';
+
+    visibleRows.forEach(row => {
+      const linkedNames = row.target_mails || row.mail_name || '（未設定）';
+      const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
+
+      html += `
+      <tr>
+      <td class="actions-col">
+        <button type="button" class="table-action-button" onclick="openMasterModal('${encodedRow}')">編集</button>
+        <button type="button" class="table-action-button danger" onclick="deleteMasterRow('${escapeAttribute(row.__rowNumber)}')">削除</button>
+      </td>
+    `;
+
+      tableHeaders.forEach(h => {
+        html += `<td>${escapeHtml(row[h] || '')}</td>`;
+      });
+
+      if (targetHeader) html += `<td>${escapeHtml(linkedNames)}</td>`;
+      html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function getNewsletterNameMap_() { // 509行目：独立した関数として開始
+    const map = {};
+    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
+    schedule.forEach(row => {
+      const id = String(getValueByKeys(row, ['schedule_id', 'id'])).trim();
+      if (id) map[id] = row.mail_name || id;
+    });
+    return map;
+  }
+
+  function openMasterModal(encodedRow) {
+    const row = encodedRow ? JSON.parse(decodeURIComponent(encodedRow)) : {};
+    const headers = MASTER_DATA.headers || [];
+    const visibleHeaders = getVisibleMasterHeaders(headers);
+    const form = document.getElementById('masterForm');
+
+    document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
+    document.getElementById('master-row-number').value = row.__rowNumber || '';
+
+    let html = visibleHeaders.map(header => {
+      // PR管理画面の target_ids (PRが入るメルマガ) と 配信停止 は別レンダリング
+      if (MASTER_DATA.sheetName === 'app_pr' && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
+      if (isHiddenMasterInputHeader(header)) return '';
+
+      const value = row[header] || '';
+      const isLong = String(value).length > 80 || String(value).includes('\n');
+      
+      let input = '';
+      if (isWeekdayHeader(header)) {
+        input = renderSelectInput(header, value, ['', '月', '火', '水', '木', '金', '土', '日']);
+      } else if (isFormatHeader(header)) {
+        input = renderSelectInput(header, value, ['', 'フリー', '抽出', '自動求人特集']);
+      } else if (isAssigneeHeader(header) || isReviewerHeader(header)) {
+        input = renderSelectInput(header, value, getAdminOptionValues());
+      } else if (isTimeHeader(header)) {
+        input = renderSelectInput(header, normalizeMasterHourValue(value), buildHourOptions());
+      } else if (isDateTimeHeader(header)) {
+        input = `<input type="datetime-local" data-header="${escapeAttribute(header)}" value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
+      } else if (isDateHeader(header)) {
+        input = `<input type="date" data-header="${escapeAttribute(header)}" value="${escapeAttribute(normalizeDateString(value))}">`;
+      } else if (isLong) {
+        input = `<textarea data-header="${escapeAttribute(header)}">${escapeHtml(value)}</textarea>`;
+      } else {
+        input = `<input type="text" data-header="${escapeAttribute(header)}" value="${escapeAttribute(value)}">`;
+      }
+      return `<label class="field"><span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</span>${input}</label>`;
+    }).join('');
+
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      html += renderNewsletterSelector_(row.pr_id);
+    }
+
+    form.innerHTML = html;
+
+    // 後から挿入する要素がある場合、ここでの設定に注意。現在はinnerHTML後に描画しているのでOKなはずだが、念のためイベントリスナー等を保証
+    const modal = document.getElementById('masterModal');
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function renderNewsletterSelector_(prId) {
+    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
+    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
+
+    // 現在紐付いているメルマガ名のセットを作成
+    const linkedMailNames = new Set(
+      prTargets.filter(t => String(t.pr_id) === String(prId)).map(t => String(t.mail_name))
+    );
+
+    // メルマガ一覧を mail_name でユニーク化
+    const uniqueNewsletters = [];
+    const seenNames = new Set();
+    schedule.forEach(item => {
+      const name = String(item.mail_name || '').trim();
+      if (name && !seenNames.has(name)) {
+        uniqueNewsletters.push({ name });
+        seenNames.add(name);
+      }
+    });
+
+    uniqueNewsletters.sort((a, b) => a.name.localeCompare(b.name));
+
+    return `
+      <div class="newsletter-selector">
+        <div class="newsletter-selector-header">
+          <strong>PRが入るメルマガを選択 (全${uniqueNewsletters.length}件)</strong>
+          <input type="text" class="newsletter-selector-search" placeholder="メルマガ名で検索..." oninput="filterNewsletterList_(this.value)">
+        </div>
+        <div id="newsletterList" class="newsletter-list">
+          ${uniqueNewsletters.map(nl => `
+            <label class="newsletter-item">
+              <input type="checkbox" data-target-name="${escapeAttribute(nl.name)}" ${linkedMailNames.has(nl.name) ? 'checked' : ''}>
+              <span>${escapeHtml(nl.name)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  function filterNewsletterList_(keyword) {
+    const k = keyword.trim().toLowerCase();
+    document.querySelectorAll('#newsletterList .newsletter-item').forEach(item => {
+      const text = item.textContent.toLowerCase();
+      item.style.display = text.includes(k) ? 'flex' : 'none';
+    });
+  };
+
+  function closeMasterModal() {
+    const modal = document.getElementById('masterModal');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function saveMasterEdit() {
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = '保存中...';
+
+    const payload = { __rowNumber: document.getElementById('master-row-number').value };
+
+    // 通常のフィールド取得
+    document.querySelectorAll('#masterForm [data-header]').forEach(input => {
+      payload[input.dataset.header] = input.value;
+    });
+
+    // PR管理の場合のみ、target_ids (PRが入るメルマガ) を取得して savePRData を呼ぶ
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      const selectedNewsletters = [];
+      document.querySelectorAll('#newsletterList input[type="checkbox"]:checked').forEach(cb => {
+        const mailName = cb.dataset.targetName;
+        // source_row は APP_DATA.schedule から検索
+        const rowData = APP_DATA.schedule.find(s => String(s.mail_name || '').trim() === mailName);
+        selectedNewsletters.push({
+          mail_name: mailName,
+          source_row: rowData ? rowData.source_row : ''
+        });
+      });
+      payload.target_ids = selectedNewsletters.map(n => n.mail_name).join(',');
+
+      google.script.run
+        .withSuccessHandler(() => {
+          closeMasterModal();
+          loadActiveMaster();
+          loadData();
+          btn.disabled = false;
+          btn.textContent = '保存';
+        })
+        .withFailureHandler(err => {
+          alert('保存に失敗しました: ' + (err.message || err));
+          btn.disabled = false;
+          btn.textContent = '保存';
+        })
+        .savePRData(payload, selectedNewsletters);
+    } else {
+      google.script.run
+        .withSuccessHandler(() => {
+          closeMasterModal();
+          loadActiveMaster();
+          loadData();
+          btn.disabled = false;
+          btn.textContent = '保存';
+        })
+        .withFailureHandler(err => {
+          alert('保存に失敗しました: ' + (err.message || err));
+          btn.disabled = false;
+          btn.textContent = '保存';
+        })
+        .saveMasterData(MASTER_DATA.sheetName, payload);
+    }
+  }
+
+  function deleteMasterRow(rowNumber) {
+    if (!rowNumber || !confirm('この行を削除しますか？')) return;
+
+    google.script.run
+      .withSuccessHandler(() => {
+        loadActiveMaster();
+        loadData();
+      })
+      .withFailureHandler(err => {
+        alert('削除に失敗しました: ' + (err.message || err));
+      })
+      .deleteMasterData(MASTER_DATA.sheetName, rowNumber);
+  }
+
+  function openModal(encodedEntry) {
+    const entry = JSON.parse(decodeURIComponent(encodedEntry));
+    CURRENT_ENTRY = entry;
+
+    const modal = document.getElementById('editModal');
+    const assigneeSelect = document.getElementById('edit-assignee');
+    const reviewerSelect = document.getElementById('edit-reviewer');
+    const options = buildAssigneeOptions();
+
+    [assigneeSelect, reviewerSelect].forEach(select => {
+      select.innerHTML = '<option value="">選択してください</option>' + options;
+    });
+
+    document.getElementById('edit-id').value = entry.schedule_id || '';
+    document.getElementById('edit-name').value = entry.mail_name || '';
+    document.getElementById('edit-count').value = entry.delivery_count || '';
+    document.getElementById('edit-notes').value = entry.notes || '';
+
+    // 紐付いているPR情報を表示
+    const prDetails = getPrRecordsForSchedule(entry);
+    const prContainer = document.getElementById('edit-pr-details');
+    if (prContainer) {
+      if (prDetails.length > 0) {
+        const prList = prDetails.map(pr => {
+          const prData = (APP_DATA.pr || []).find(p => String(p.pr_id) === String(pr.pr_id));
+          const startDate = pr.start_date || (prData ? prData.start_date : '');
+          const endDate = pr.end_date || (prData ? prData.end_date : '');
+
+          // 現在の日付が対象期間内かを判定
+          const targetDate = new Date(entry.target_date);
+          const start = startDate ? new Date(normalizeDateString(startDate)) : null;
+          const end = endDate ? new Date(normalizeDateString(endDate)) : null;
+          const isActive = (!start || start <= targetDate) && (!end || end >= targetDate);
+
+          return `
+            <div class="pr-info-item ${isActive ? 'active-pr' : 'inactive-pr'}">
+              <strong>ID:</strong> ${escapeHtml(pr.pr_id)}<br>
+              <strong>タイトル:</strong> ${escapeHtml(prData ? prData.name : '不明')}<br>
+              <strong>期間:</strong> ${escapeHtml(startDate || '未設定')} ～ ${escapeHtml(endDate || '未設定')}<br>
+              <strong>テキスト:</strong> ${escapeHtml(prData ? prData.pr_text : 'なし')}
+            </div>
+          `;
+        }).join('<hr>');
+        prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
+      } else {
+        prContainer.innerHTML = '<h4>紐付いているPR</h4><p>なし</p>';
+      }
+    }
+
+    document.getElementById('new-comment').value = '';
+    renderJobAlertGuidance(entry);
+    renderComments([]);
+    loadCommentsForCurrentEntry();
+    assigneeSelect.value = entry.assignee || '';
+    reviewerSelect.value = entry.reviewer || '';
+    setEditState(isFixed(entry), isStopped(entry));
+
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeModal() {
+    const modal = document.getElementById('editModal');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function saveEdit() {
+    if (CURRENT_ENTRY && isFixed(CURRENT_ENTRY)) {
+      alert('確定済みの配信は編集できません');
+      return;
+    }
+    if (CURRENT_ENTRY && isStopped(CURRENT_ENTRY)) {
+      alert('配信停止中の配信は編集できません。再開してから編集してください。');
+      return;
+    }
+
+    const payload = {
+      schedule_id: document.getElementById('edit-id').value,
+      source_row: CURRENT_ENTRY ? CURRENT_ENTRY.source_row : '',
+      target_date: CURRENT_ENTRY ? CURRENT_ENTRY.target_date : '',
+      mail_name: document.getElementById('edit-name').value,
+      delivery_count: document.getElementById('edit-count').value,
+      assignee: document.getElementById('edit-assignee').value,
+      reviewer: document.getElementById('edit-reviewer').value,
+      notes: document.getElementById('edit-notes').value
+    };
+
+    google.script.run
+      .withSuccessHandler(() => {
+        closeModal();
+        loadData();
+      })
+      .withFailureHandler(err => {
+        alert('保存に失敗しました: ' + (err.message || err));
+      })
+      .upsertScheduleData(payload);
+  }
+
+  function stopCurrentDelivery() {
+    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id || !CURRENT_ENTRY.target_date) return;
+    if (isFixed(CURRENT_ENTRY)) {
+      alert('確定済みの配信は停止状態を変更できません');
+      return;
+    }
+    if (!confirm('この週の配信を停止し、カレンダーをグレーアウトします。よろしいですか？')) return;
+
+    google.script.run
+      .withSuccessHandler(() => {
+        setStoppedOccurrence(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date, true);
+        setEditState(false, true);
+        renderScheduleGrid();
+      })
+      .withFailureHandler(err => {
+        alert('配信停止に失敗しました: ' + (err.message || err));
+      })
+      .stopDelivery(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
+  }
+
+  function resumeCurrentDelivery() {
+    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id || !CURRENT_ENTRY.target_date) return;
+    if (isFixed(CURRENT_ENTRY)) {
+      alert('確定済みの配信は停止状態を変更できません');
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(() => {
+        setStoppedOccurrence(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date, false);
+        setEditState(false, false);
+        renderScheduleGrid();
+      })
+      .withFailureHandler(err => {
+        alert('配信再開に失敗しました: ' + (err.message || err));
+      })
+      .resumeDelivery(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
+  }
+
+  function loadCommentsForCurrentEntry() {
+    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id) {
+      renderComments([]);
+      return;
+    }
+
+    document.getElementById('comment-thread').innerHTML = '<div class="empty-state">コメントを読み込み中...</div>';
+    google.script.run
+      .withSuccessHandler(comments => {
+        renderComments(Array.isArray(comments) ? comments : []);
+      })
+      .withFailureHandler(err => {
+        document.getElementById('comment-thread').innerHTML =
+          '<div class="empty-state">コメントの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
+      })
+      .getCommentsByScheduleId(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
+  }
+
+  function postComment() {
+    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id) return;
+
+    const input = document.getElementById('new-comment');
+    const commentText = input.value.trim();
+    if (!commentText) return;
+
+    google.script.run
+      .withSuccessHandler(() => {
+        input.value = '';
+        incrementCommentCount(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
+        renderScheduleGrid();
+        loadCommentsForCurrentEntry();
+      })
+      .withFailureHandler(err => {
+        alert('コメントの送信に失敗しました: ' + (err.message || err));
+      })
+      .saveComment(CURRENT_ENTRY.schedule_id, commentText, CURRENT_ENTRY.target_date);
+  }
+
+  function renderComments(comments) {
+    const thread = document.getElementById('comment-thread');
+    const countLabel = document.getElementById('comment-count-label');
+    countLabel.textContent = `${comments.length}件`;
+
+    if (!comments.length) {
+      thread.innerHTML = '<div class="empty-state">コメントはまだありません。</div>';
+      return;
+    }
+
+    thread.innerHTML = comments.map(comment => `
+      <div class="comment-item">
+        <div class="comment-meta">${escapeHtml(comment.timestamp)} - ${escapeHtml(comment.user || 'ユーザー')}</div>
+        <div class="comment-text">${escapeHtml(comment.comment_text).replace(/\n/g, '<br>')}</div>
+      </div>
+    `).join('');
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function renderCommentBadge(row) {
+    const count = getCommentCount(row);
+    return count ? `<span class="comment-badge" title="コメント ${count}件">${count}</span>` : '';
+  }
+
+  function getCommentCount(row) {
+    const scheduleId = row && row.schedule_id;
+    const targetDate = row && row.target_date;
+    const counts = APP_DATA.commentCounts || {};
+    return Number(counts[getCommentKey(scheduleId, targetDate)] || 0);
+  }
+
+  function incrementCommentCount(scheduleId, targetDate) {
+    if (!APP_DATA.commentCounts) APP_DATA.commentCounts = {};
+    const key = getCommentKey(scheduleId, targetDate);
+    APP_DATA.commentCounts[key] = Number(APP_DATA.commentCounts[key] || 0) + 1;
+  }
+
+  function getCommentKey(scheduleId, targetDate) {
+    return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
+  }
+
+  function getCheckItemId(row) {
+    return [
+      row && row.schedule_id,
+      row && row.target_date,
+    ].map(value => String(value || '').trim().replace(/\s+/g, ' ')).join('|');
+  }
+
+  function isArchivedDate(dateStr) {
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diff = (today.getTime() - d.getTime()) / DAY_MS;
+    return diff >= 14;
+  }
+
+  function renderCheckStatusCell(itemId, field, value, className, row) {
+    const active = isCheckStatusActive(itemId, field);
+    const archived = isArchivedDate(row.target_date);
+    const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
+    const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
+
+    const onclick = archived ? '' : `onclick="toggleCheckStatus(event, '${escapeAttribute(encodedItemId)}', '${escapeAttribute(field)}')"`;
+    const cursor = archived ? 'default' : 'pointer';
+
+    return `
+      <div
+        class="${className} check-status-cell ${active ? 'is-active-red' : ''} ${archived ? 'archived-cell' : ''}"
+        data-item-id="${escapeAttribute(itemId)}"
+        data-check-field="${escapeAttribute(field)}"
+        data-log-payload="${escapeAttribute(logPayload)}"
+        ${onclick}
+        style="cursor: ${cursor}"
+        title="${archived ? '過去14日以上前のデータは編集できません' : 'クリックで赤塗りを切り替え'}"
+      >${escapeHtml(value)}</div>
+    `;
+  }
+
+  function toggleCheckStatus(event, encodedItemId, field) {
+    event.stopPropagation();
+    const itemId = decodeURIComponent(encodedItemId);
+    const nextActive = !isCheckStatusActive(itemId, field);
+    const cell = event.currentTarget;
+    const payload = parseCheckLogPayload(cell.dataset.logPayload);
+    setLocalCheckStatus(itemId, field, nextActive);
+    cell.classList.toggle('is-active-red', nextActive);
+
+    google.script.run
+      .withSuccessHandler(result => {
+        const savedActive = !!(result && result.active);
+        setLocalCheckStatus(itemId, field, savedActive);
+        cell.classList.toggle('is-active-red', savedActive);
+      })
+      .withFailureHandler(err => {
+        setLocalCheckStatus(itemId, field, !nextActive);
+        cell.classList.toggle('is-active-red', !nextActive);
+        alert('チェック状態の保存に失敗しました: ' + (err.message || String(err)));
+      })
+      .saveCheckStatus(itemId, field, nextActive, payload);
+  }
+
+  function buildCheckLogPayload(itemId, field, row) {
+    return {
+      item_id: itemId,
+      field,
+      delivery_date: row && row.target_date,
+      hour: row && row.hour,
+      mail_name: row && row.mail_name,
+      job_url: row && row.job_url,
+      current_job_count: row && row.current_job_count
+    };
+  }
+
+  function parseCheckLogPayload(encodedPayload) {
+    if (!encodedPayload) return {};
+    try {
+      return JSON.parse(decodeURIComponent(encodedPayload));
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function isCheckStatusActive(itemId, field) {
+    const statuses = APP_DATA.checkStatuses || {};
+    return !!statuses[getCheckStatusKey(itemId, field)];
+  }
+
+  function setLocalCheckStatus(itemId, field, active) {
+    if (!APP_DATA.checkStatuses) APP_DATA.checkStatuses = {};
+    const key = getCheckStatusKey(itemId, field);
+    if (active) {
+      APP_DATA.checkStatuses[key] = true;
+    } else {
+      delete APP_DATA.checkStatuses[key];
+    }
+  }
+
+  function getCheckStatusKey(itemId, field) {
+    return `${String(itemId || '').trim()}|${String(field || '').trim()}`;
+  }
+
+  function buildAssigneeOptions() {
+    const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
+    return rows.map(row => {
+      const value = row.initial || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
+      const label = row.full_name || row.fullName || row.name || row['氏名'] || row['名前'] || value;
+      return `<option value="${escapeAttribute(value)}">${escapeHtml(value)}${label && label !== value ? ` (${escapeHtml(label)})` : ''}</option>`;
+    }).join('');
+  }
+
+  function getAdminOptionValues() {
+    const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
+    return [''].concat(rows
+      .map(row => {
+        const value = row.initial || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
+        const label = row.full_name || row.fullName || row.name || row['氏名'] || row['名前'] || value;
+        return value ? { value, label: label && label !== value ? `${value} (${label})` : value } : null;
+      })
+      .filter(Boolean));
+  }
+
+  function renderSelectInput(header, currentValue, options) {
+    const normalizedCurrent = String(currentValue == null ? '' : currentValue).trim();
+    const normalizedOptions = options.map(option => {
+      if (option && typeof option === 'object') {
+        return {
+          value: String(option.value == null ? '' : option.value).trim(),
+          label: String(option.label == null ? option.value : option.label)
+        };
+      }
+      return { value: String(option == null ? '' : option).trim(), label: String(option == null ? '空白' : option) || '空白' };
+    });
+    if (normalizedCurrent && !normalizedOptions.some(option => option.value === normalizedCurrent)) {
+      normalizedOptions.push({ value: normalizedCurrent, label: normalizedCurrent });
+    }
+
+    const optionHtml = normalizedOptions.map(option => `
+      <option value="${escapeAttribute(option.value)}" ${option.value === normalizedCurrent ? 'selected' : ''}>${escapeHtml(option.label || '空白')}</option>
+    `).join('');
+    return `<select data-header="${escapeAttribute(header)}">${optionHtml}</select>`;
+  }
+
+  function buildHourOptions() {
+    const options = [''];
+    for (let hour = 8; hour <= 21; hour++) {
+      options.push(`${hour}:00`);
+    }
+    return options;
+  }
+
+  function normalizeMasterHourValue(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const match = text.match(/^(\d{1,2})(?::\d{2})?/);
+    if (!match) return text;
+    return `${Number(match[1])}:00`;
+  }
+
+  function getBgColor(row) {
+    const category = String(row && row.category != null ? row.category : '').trim();
+    const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
+    const format = String(row && row.format != null ? row.format : '').trim();
+    const text = [category, cycle, format].join(' ');
+    const rowCycle = normalizeCycleLabel(cycle);
+    const rowCycleNum = extractCycleNumber(rowCycle);
+
+    if (text.includes('毎月')) return '#FFF0F5';
+    if (text.includes('特殊') || text.includes('特段')) return '#E6E6FA';
+    if (text.includes('隔週A') || rowCycle === 'A') return '#E0FFE0';
+    if (text.includes('隔週B') || rowCycle === 'B') return '#FFD1DC';
+    if (text.includes('自動求人') || text.includes('その他') || rowCycleNum != null) return '#E0FFFF';
+    return '#FFFFFF';
+  }
+
+  function getSubCategoryClass(row) {
+    const className = String(row && row.sub_category_class != null ? row.sub_category_class : '').trim();
+    if (['is-special', 'is-product', 'is-others'].includes(className)) return className;
+
+    const text = String(row && row.sub_category != null ? row.sub_category : '').trim();
+    if (text.includes('特殊')) return 'is-special';
+    if (text.includes('商品')) return 'is-product';
+    if (text.includes('その他') || text.includes('他部署')) return 'is-others';
+    return text ? 'is-others' : '';
+  }
+
+  function isPositionMatch(row) {
+    const category = String(row && row.category != null ? row.category : '').trim();
+    const mailName = String(row && row.mail_name != null ? row.mail_name : '').trim();
+    const notes = String(row && row.notes != null ? row.notes : '').trim();
+    const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
+    const text = [category, mailName, notes].join(' ');
+
+    // キーワードが含まれているか、もしくはサイクルが数値（1,2,3）であれば3週サイクルとみなす
+    return text.includes('ポジションマッチ') || extractCycleNumber(normalizeCycleLabel(cycle)) != null;
+  }
+
+  function getJobCountAlert(row) {
+    const countText = String(row && row.current_job_count != null ? row.current_job_count : '').replace(/,/g, '').trim();
+    if (countText === '') return null;
+
+    const count = Number(countText);
+    const hasUrl = !!String(row && row.job_url != null ? row.job_url : '').trim();
+
+    if (!hasUrl) return null;
+    if (!Number.isFinite(count)) return null;
+    if (count === 0) {
+      return {
+        level: 'critical',
+        icon: '[！！]',
+        count,
+        updatedAt: row && row.job_count_updated_at,
+        message: '求人数が0件です'
+      };
+    }
+    return null;
+  }
+
+  function renderJobAlertIcon(alert) {
+    if (!alert) return '';
+    return `<span class="job-alert-icon job-alert-${alert.level}" title="${escapeAttribute(getJobAlertTooltip(alert))}">${escapeHtml(alert.icon)}</span>`;
+  }
+
+  function getJobAlertTooltip(alert) {
+    if (!alert) return '';
+    const countText = alert.count == null ? '取得不可' : `${alert.count.toLocaleString()}件`;
+    const updatedAt = alert.updatedAt ? String(alert.updatedAt) : '未取得';
+    return `最終取得日時：${updatedAt}、件数：${countText} / ${alert.message}`;
+  }
+
+  function renderJobAlertGuidance(row) {
+    const alert = getJobCountAlert(row);
+    const panel = document.getElementById('job-alert-guidance');
+    if (!panel) return;
+    if (!alert) {
+      panel.style.display = 'none';
+      panel.textContent = '';
+      panel.className = 'job-alert-guidance';
+      return;
+    }
+    panel.className = `job-alert-guidance job-alert-guidance-${alert.level}`;
+    panel.textContent = getJobAlertTooltip(alert);
+    panel.style.display = 'block';
+  }
+
+  function getPrStates(row, targetDateString) {
+    const records = getPrRecordsForSchedule(row);
+    const states = records
+      .map(record => getPrState(record, targetDateString))
+      .filter(Boolean);
+    return collapsePrStates_(states);
+  }
+
+  function getPrState(record, targetDateString) {
+    const prId = String(record && record.pr_id != null ? record.pr_id : '').trim();
+    if (!prId) return null;
+
+    const startDate = normalizeDateString(record.start_date);
+    const endDate = normalizeDateString(record.end_date);
+    const targetMs = dateStringToMs(targetDateString);
+    const startMs = dateStringToMs(startDate);
+    const endMs = dateStringToMs(endDate);
+    if (targetMs == null) return null;
+
+    let status = '';
+    let action = '';
+    if (startMs != null && targetMs >= startMs && targetMs < startMs + 7 * DAY_MS) {
+      status = 'add';
+      action = '追加';
+    } else if (endMs != null && targetMs > endMs - 7 * DAY_MS && targetMs <= endMs) {
+      status = 'remove';
+      action = '削除';
+    } else if (startMs != null && endMs != null && targetMs >= startMs && targetMs <= endMs) {
+      status = 'active';
+      action = '掲出中';
+    } else if (startMs != null && endMs == null && targetMs >= startMs + 7 * DAY_MS) {
+      status = 'active';
+      action = '掲出中';
+    }
+
+    return status ? { pr_id: prId, status, label: `└PR[${prId}]${action}` } : null;
+  }
+
+  function collapsePrStates_(states) {
+    const priority = { add: 3, remove: 2, active: 1 };
+    const byPrId = new Map();
+
+    states.forEach(state => {
+      const key = normalizeText(state.pr_id);
+      if (!key) return;
+      const current = byPrId.get(key);
+      if (!current || priority[state.status] > priority[current.status]) {
+        byPrId.set(key, state);
+      }
+    });
+
+    return Array.from(byPrId.values());
+  }
+
+  function getPrRecordsForSchedule(row) {
+    if (!row) return [];
+
+    const scheduleId = String(getValueByKeys(row, ['schedule_id', 'id'])).trim();
+    const mailName = normalizeText(row.mail_name);
+    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr : [];
+
+    // 1. target_ids (schedule_id) での紐付け (新方式)
+    const matchedPrs = prRows.filter(prRow => {
+      const targetIds = String(getValueByKeys(prRow, ['target_ids', '紐付けID']) || '').split(',').map(s => s.trim());
+      if (scheduleId && targetIds.includes(scheduleId)) return true;
+
+      // 互換性: メルマガ名での検索
+      if (mailName) {
+        return Object.keys(prRow).some(key => normalizeText(prRow[key]) === mailName);
+      }
+      return false;
+    });
+
+    const records = matchedPrs.map(prRow => ({
+      pr_id: getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id']),
+      start_date: getPrStartDate_(prRow),
+      end_date: getPrEndDate_(prRow)
+    })).filter(record => record.pr_id);
+
+    // 2. app_pr_targets からの紐付け (旧方式・互換性)
+    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
+    const prById = new Map(prRows.map(prRow => [normalizeText(getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id'])), prRow]));
+
+    const targetRecords = mailName ? prTargets
+      .filter(target => normalizeText(getValueByKeys(target, ['mail_name', 'メルマガ内容', 'target_mail_name', '対象メルマガ'])) === mailName)
+      .map(target => buildPrRecordFromTarget_(target, prById))
+      .filter(Boolean) : [];
+
+    // 3. schedule シートの直書き PR 列 (互換性)
+    const directPrId = getValueByKeys(row, ['pr', 'PR', 'pr_id', 'PR_ID']);
+    const directRecord = directPrId ? [{
+      pr_id: directPrId,
+      start_date: getPrStartDate_(row),
+      end_date: getPrEndDate_(row)
+    }] : [];
+
+    return dedupePrRecords_(records.concat(targetRecords, directRecord));
+  }
+
+  function buildPrRecordFromTarget_(target, prById) {
+    const prId = normalizeText(getValueByKeys(target, ['pr_id', 'PR', 'pr', 'id']));
+    if (!prId) return null;
+
+    const prRow = prById.get(prId) || {};
+    return {
+      pr_id: prId,
+      start_date: getPrStartDate_(prRow) || getPrStartDate_(target),
+      end_date: getPrEndDate_(prRow) || getPrEndDate_(target)
+    };
+  }
+
+  function getPrRecordsByScanningPrRows_(mailName, prRows) {
+    return prRows
+      .filter(prRow => Object.keys(prRow).some(key => normalizeText(prRow[key]) === mailName))
+      .map(prRow => ({
+        pr_id: getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id']),
+        start_date: getPrStartDate_(prRow),
+        end_date: getPrEndDate_(prRow)
+      }))
+      .filter(record => record.pr_id);
+  }
+
+  function getPrStartDate_(row) {
+    return getValueByKeys(row, PR_START_DATE_KEYS);
+  }
+
+  function getPrEndDate_(row) {
+    return getValueByKeys(row, PR_END_DATE_KEYS);
+  }
+
+  function dedupePrRecords_(records) {
+    const seen = new Set();
+    return records.filter(record => {
+      const key = [record.pr_id, normalizeDateString(record.start_date), normalizeDateString(record.end_date)].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function getValueByKeys(obj, keys) {
+    for (const key of keys) {
+      if (obj && obj[key] != null && String(obj[key]).trim() !== '') return obj[key];
+    }
+    return '';
+  }
+
+  function normalizeText(value) {
+    return String(value == null ? '' : value).trim();
+  }
+
+  function getDisplayName(key) {
+    const text = String(key == null ? '' : key).trim();
+    return DISPLAY_NAMES[text] || DISPLAY_NAMES[text.toLowerCase()] || text;
+  }
+
+  function getVisibleMasterHeaders(headers) {
+    const systemHeaders = ['source_sheet', 'source_row', '元シート', '元行', 'is_inactive', '配信停止', 'schedule_action'];
+    const visible = headers.filter(header => {
+      const h = String(header).trim();
+      return !isMasterIdHeader(header) && (!systemHeaders.includes(h) || h === 'target_ids');
+    });
+    // PR管理画面では紐づいたメルマガを一覧の最後に別列表示する
+    if (MASTER_DATA.sheetName === 'app_pr' && !visible.includes('target_mails')) {
+      visible.push('target_mails');
+    }
+    return visible;
+  }
+
+  function isMasterIdHeader(header) {
+    const idHeaders = MASTER_ID_HEADERS[MASTER_DATA.sheetName] || [];
+    return idHeaders.includes(String(header || '').trim());
+  }
+
+  function getCycleInfo(date) {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const base = new Date(CYCLE_BASE_DATE.getFullYear(), CYCLE_BASE_DATE.getMonth(), CYCLE_BASE_DATE.getDate());
+    const elapsedDays = Math.floor((target.getTime() - base.getTime()) / DAY_MS);
+    const diffWeeks = Math.floor(elapsedDays / 7);
+    const weekGroup = getBiweeklyCycle(diffWeeks);
+    const positionMatchCycle = getPositionMatchCycle(target);
+    return {
+      weekGroup,
+      threeWeekNum: positionMatchCycle,
+      positionMatchCycle,
+      weekLabel: `${weekGroup}週`
+    };
+  }
+
+  function getCycleForRow(row, targetDate) {
+    const diffWeeks = getDiffWeeks(targetDate);
+    if (isPositionMatch(row)) {
+      return ((diffWeeks % 3) + 3) % 3 + 1;
+    }
+    return getBiweeklyCycle(diffWeeks);
+  }
+
+  function cycleContains(cycleValue, targetCycle) {
+    return String(cycleValue == null ? '' : cycleValue).indexOf(String(targetCycle)) !== -1;
+  }
+
+  function parseScheduleDate_(value) {
+    if (!value) return new Date();
+    if (value instanceof Date) return value;
+    const parts = String(value).split('/');
+    if (parts.length === 3) {
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    return new Date(value);
+  }
+
+  function getDiffWeeks(targetDate) {
+    // 基準日(2026-04-27月曜)を基準にすると、火曜始まり週の計算が複雑になるため、
+    // 「直近の火曜日」を基準にした週番号計算に変更する
+    const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+
+    // 火曜日を起点(0)とするためのオフセット計算
+    // 2026-04-27(月) は基準日。次の火曜は 2026-04-28。
+    // その週を第0週とする。
+    const baseTuesday = new Date(2026, 3, 28);
+    const diffDays = Math.floor((target.getTime() - baseTuesday.getTime()) / DAY_MS);
+
+    // 火曜始まりの週番号を計算
+    return Math.floor(diffDays / 7);
+  }
+
+  function getBiweeklyCycle(diffWeeks) {
+    return ((diffWeeks % 2) + 2) % 2 === 0 ? 'A' : 'B';
+  }
+
+  function getPositionMatchCycle(targetDate) {
+    const diffWeeks = getDiffWeeks(targetDate);
+    return ((diffWeeks % 3) + 3) % 3 + 1;
+  }
+
+  function getCurrentWeekNum(date) {
+    return getCycleInfo(date).threeWeekNum;
+  }
+
+  function getWeeklyGroup(date) {
+    return getCycleInfo(date).weekGroup;
+  }
+
+  function getMonthEndInfo(date) {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const windowStart = new Date(monthEnd);
+    windowStart.setDate(monthEnd.getDate() - 6);
+    const startMs = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate()).getTime();
+    const endMs = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate()).getTime();
+    return {
+      isInWindow: target.getTime() >= startMs && target.getTime() <= endMs,
+      windowStart,
+      monthEnd
+    };
+  }
+
+  function getMonthEndWindowStart(date) {
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const windowStart = new Date(monthEnd);
+    windowStart.setDate(monthEnd.getDate() - 6);
+    return windowStart;
+  }
+
+  function getHolidayDateSet() {
+    const set = new Set();
+    const holidayRows = []
+      .concat(Array.isArray(APP_DATA.japaneseHolidays) ? APP_DATA.japaneseHolidays : [])
+      .concat(Array.isArray(APP_DATA.holidays) ? APP_DATA.holidays : []);
+
+    holidayRows.forEach(row => {
+      const value = row && typeof row === 'object'
+        ? getValueByKeys(row, ['date', 'holiday_date', 'target_date', '日付', '祝日'])
+        : row;
+      const date = normalizeDateString(value);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) set.add(date);
+    });
+    return set;
+  }
+
+  function jumpToCurrentWeek() {
+    const startInput = document.getElementById('startInput');
+    startInput.value = formatDateForInput(getTuesdayWeekStart(new Date()));
+    loadData();
+  }
+
+  function getTuesdayWeekStart(date) {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffToTuesday = (target.getDay() + 5) % 7;
+    target.setDate(target.getDate() - diffToTuesday);
+    return target;
+  }
+
+  function setCalendarStartDate(value) {
+    if (!value) return;
+    document.getElementById('startInput').value = value;
+    loadData();
+  }
+
+  function buildDates(start, count) {
+    const dates = [];
+    for (let i = 0; i < count; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  }
+
+  function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDateForInput(date) {
+    return formatDate(date);
+  }
+
+  function isDateTimeHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return [
+      'timestamp',
+      'updated_at',
+      'confirmed_at',
+      'job_count_updated_at'
+    ].includes(key) || key.includes('日時');
+  }
+
+  function isHiddenMasterInputHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'job_count_updated_at' ||
+      key === 'is_fixed' ||
+      key === '求人数最終取得日時' ||
+      key === '確定済';
+  }
+
+  function isWeekdayHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'weekday' || key === '曜日';
+  }
+
+  function isFormatHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'format' || key === '形式';
+  }
+
+  function isAssigneeHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'assignee' || key === '設定者';
+  }
+
+  function isReviewerHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'reviewer' || key === '確認者';
+  }
+
+  function isDateHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    if (!key || isDateTimeHeader(key)) return false;
+    return key === 'date' ||
+      key.endsWith('_date') ||
+      key.includes('date') ||
+      key.includes('日付') ||
+      key.includes('開始') ||
+      key.includes('終了') ||
+      key.includes('期限') ||
+      key.includes('掲載日') ||
+      key.includes('配信日');
+  }
+
+  function isTimeHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'hour' || key === 'time' || key.includes('時間') || key.includes('時刻');
+  }
+
+  function normalizeDateString(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(text)) {
+      const parts = text.split('/');
+      return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
+    }
+    if (/^\d+(\.\d+)?$/.test(text)) {
+      const serial = Number(text);
+      if (!Number.isNaN(serial) && serial > 20000) {
+        const utc = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+        return formatDate(utc);
+      }
+    }
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return text;
+    return formatDate(parsed);
+  }
+
+  function normalizeDateTimeLocalString(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const normalized = text.replace(/\//g, '-').replace(' ', 'T');
+    const match = normalized.match(/^(\d{4}-\d{1,2}-\d{1,2})T(\d{1,2}):(\d{2})/);
+    if (match) {
+      const date = normalizeDateString(match[1]);
+      return `${date}T${String(match[2]).padStart(2, '0')}:${match[3]}`;
+    }
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return '';
+    const hours = String(parsed.getHours()).padStart(2, '0');
+    const minutes = String(parsed.getMinutes()).padStart(2, '0');
+    return `${formatDate(parsed)}T${hours}:${minutes}`;
+  }
+
+  function normalizeTimeString(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const match = text.match(/^(\d{1,2})(?::(\d{2}))?/);
+    if (!match) return text;
+    return `${String(match[1]).padStart(2, '0')}:${match[2] || '00'}`;
+  }
+
+  function dateStringToMs(value) {
+    const dateString = normalizeDateString(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return null;
+    const parts = dateString.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+  }
+
+  function normalizeWeekdayLabel(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const lower = text.toLowerCase();
+    const map = {
+      sun: '日',
+      sunday: '日',
+      '日': '日',
+      mon: '月',
+      monday: '月',
+      '月': '月',
+      tue: '火',
+      tues: '火',
+      tuesday: '火',
+      '火': '火',
+      wed: '水',
+      wednesday: '水',
+      '水': '水',
+      thu: '木',
+      thur: '木',
+      thurs: '木',
+      thursday: '木',
+      '木': '木',
+      fri: '金',
+      friday: '金',
+      '金': '金',
+      sat: '土',
+      saturday: '土',
+      '土': '土'
+    };
+    return map[lower] || map[text] || text;
+  }
+
+  function normalizeCycleLabel(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text || text === '毎週') return '';
+    if (text.includes('隔週A') || text === 'A') return 'A';
+    if (text.includes('隔週B') || text === 'B') return 'B';
+    const match = text.match(/(\d+)/);
+    return match ? String(Number(match[1])) : text;
+  }
+
+  function extractCycleNumber(value) {
+    const text = String(value == null ? '' : value).trim();
+    const match = text.match(/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }
+
+  function isInactive(row) {
+    const value = String(row && row.is_inactive != null ? row.is_inactive : '').trim().toLowerCase();
+    return ['true', 'yes', '1', '停止', '配信停止'].includes(value);
+  }
+
+  function isFixed(row, targetDate) {
+    const sourceRow = row && row.source_row;
+    const date = targetDate || (row && row.target_date);
+    const fixedOccurrences = APP_DATA.fixedOccurrences || {};
+    return !!fixedOccurrences[`${sourceRow}|${date}`];
+  }
+
+  function isStopped(row, targetDate) {
+    const scheduleId = row && row.schedule_id;
+    const date = targetDate || (row && row.target_date);
+    const stoppedOccurrences = APP_DATA.stoppedOccurrences || {};
+    return !!stoppedOccurrences[getStoppedKey(scheduleId, date)];
+  }
+
+  function setStoppedOccurrence(scheduleId, targetDate, stopped) {
+    if (!APP_DATA.stoppedOccurrences) APP_DATA.stoppedOccurrences = {};
+    const key = getStoppedKey(scheduleId, targetDate);
+    if (stopped) {
+      APP_DATA.stoppedOccurrences[key] = true;
+    } else {
+      delete APP_DATA.stoppedOccurrences[key];
+    }
+  }
+
+  function getStoppedKey(scheduleId, targetDate) {
+    return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
+  }
+
+  function getMoveOverrideForDate(row, targetDate) {
+    const scheduleId = String(row && row.schedule_id || '').trim();
+    if (!scheduleId || !targetDate) return null;
+    return Object.values(APP_DATA.checkStatuses || {}).find(status => {
+      return status &&
+        typeof status === 'object' &&
+        status.field === 'move_override' &&
+        status.is_active === true &&
+        String(status.schedule_id || '').trim() === scheduleId &&
+        normalizeDateString(status.delivery_date) === targetDate;
+    }) || null;
+  }
+
+  function isMovedOriginalOccurrence(row, targetDate) {
+    const scheduleId = String(row && row.schedule_id || '').trim();
+    if (!scheduleId || !targetDate) return false;
+    return Object.values(APP_DATA.checkStatuses || {}).some(status => {
+      return status &&
+        typeof status === 'object' &&
+        status.field === 'move_override' &&
+        status.is_active === true &&
+        String(status.schedule_id || '').trim() === scheduleId &&
+        normalizeDateString(status.original_date) === targetDate;
+    });
+  }
+
+  function setEditState(fixed, stopped) {
+    const locked = fixed || stopped;
+    const modalCard = document.querySelector('#editModal .modal-card');
+    if (modalCard) modalCard.classList.toggle('is-stopped-edit', !!stopped && !fixed);
+
+    document.querySelectorAll('#editModal input, #editModal select, #editModal textarea').forEach(field => {
+      if (field.id === 'new-comment') return;
+      if (field.tagName === 'SELECT') {
+        field.disabled = locked;
+      } else {
+        field.readOnly = locked;
+        field.disabled = false;
+      }
+    });
+    const saveButton = document.querySelector('#editModal .modal-actions .primary-button');
+    saveButton.disabled = locked;
+    saveButton.style.display = locked ? 'none' : '';
+
+    const stopButton = document.getElementById('stop-delivery-button');
+    const resumeButton = document.getElementById('resume-delivery-button');
+    if (stopButton && resumeButton) {
+      stopButton.style.display = !fixed && !stopped ? '' : 'none';
+      resumeButton.style.display = !fixed && stopped ? '' : 'none';
+      const jobAlert = getJobCountAlert(CURRENT_ENTRY);
+      stopButton.classList.toggle('is-critical', !!jobAlert && jobAlert.level === 'critical');
+    }
+
+    let notice = document.getElementById('fixedNotice');
+    if (!notice) {
+      notice = document.createElement('div');
+      notice.id = 'fixedNotice';
+      notice.className = 'fixed-notice';
+      document.querySelector('#editModal .modal-card').insertBefore(notice, document.querySelector('#editModal .modal-actions'));
+    }
+    notice.textContent = fixed
+      ? 'この配信は確定済みのため編集できません。コメントの追加は可能です。'
+      : stopped
+        ? 'この配信は手動で配信停止中です。再開すると編集できます。コメントの追加は可能です。'
+        : '';
+    notice.style.display = locked ? 'block' : 'none';
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? '' : value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value).replace(/`/g, '&#96;');
+  }
+
+  function wireEvents() {
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => switchTab(button.dataset.tab));
+    });
+    document.getElementById('startInput').addEventListener('change', loadData);
+    document.getElementById('searchInput').addEventListener('input', renderScheduleGrid);
+    document.getElementById('masterSearchInput').addEventListener('input', renderMasterTable);
+    document.getElementById('masterSheetSelect').addEventListener('change', loadActiveMaster);
+    document.getElementById('editModal').addEventListener('click', event => {
+      if (event.target.id === 'editModal') closeModal();
+    });
+    document.getElementById('masterModal').addEventListener('click', event => {
+      if (event.target.id === 'masterModal') closeMasterModal();
+    });
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') {
+        closeModal();
+        closeMasterModal();
+      }
+    });
+  }
+
+  wireEvents();
+  loadData();
+</script>
