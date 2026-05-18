@@ -50,9 +50,6 @@
     schedule_name: 'スケジュール名',
     target_mail_name: '対象メルマガ',
     mail_target: '対象メルマガ',
-    product_name: '商品名',
-    after_setting: '設定後条件',
-    after_volume: '設定後通数',
     timestamp: '投稿日時',
     user: '投稿者',
     comment_text: 'コメント',
@@ -61,16 +58,14 @@
   const MASTER_ID_HEADERS = {
     app_schedule: ['schedule_id', 'id'],
     app_pr: ['id'],
-    app_product: ['product_id', 'id'],
     app_pr_targets: ['pr_target_id', 'id']
   };
   const MASTER_CONFIG = {
     schedule: {
       title: 'メルマガ一覧',
-      description: 'app_schedule / app_product の配信マスタを編集します。',
+      description: 'app_schedule の配信マスタを編集します。',
       sheets: [
-        { label: '配信マスタ', name: 'app_schedule' },
-        { label: '商品条件', name: 'app_product' }
+        { label: '配信マスタ', name: 'app_schedule' }
       ]
     },
     pr: {

@@ -1,7 +1,7 @@
 **開発指示書**										
 										
-- **目的**: このブックに追加済みの `app_*` シートをデータソースとして、Apps Script のWebアプリで「配信マスタ検索・PR本文確認・休暇対応確認・商品系条件確認」ができるアプリを作成する。										
-- **前提データ**: 元シートではなく、アプリ用に整形済みの `app_schedule`, `app_pr`, `app_pr_targets`, `app_holidays`, `app_product`, `app_readme` を読む。										
+- **目的**: このブックに追加済みの `app_*` シートをデータソースとして、Apps Script のWebアプリで「配信マスタ検索・PR本文確認・休暇対応確認」ができるアプリを作成する。										
+- **前提データ**: 元シートではなく、アプリ用に整形済みの `app_schedule`, `app_pr`, `app_pr_targets`, `app_holidays`, `app_readme` を読む。										
 - **実装方式**: Apps Script Webアプリは `doGet(e)` または `doPost(e)` を持ち、`HtmlOutput` または `TextOutput` を返す必要があるため、画面UIは `HtmlService`、画面からサーバー処理呼び出しは `google.script.run` を使う構成にする。 ([ウェブアプリ  |  Apps Script  |  Google for Developers](https://developers.google.com/apps-script/guides/web?hl=ja&utm_source=openai))										
 										
 **推奨構成**										
@@ -17,7 +17,6 @@
 - `app_pr`: PR本文マスタ。主キーは `pr_id`、本文は `pr_text`。										
 - `app_pr_targets`: PRと対象メルマガの1対多対応表。`pr_id` と `mail_name` で紐付け。										
 - `app_holidays`: 長期休暇・祝日対応。`delivery_date`, `mail_name`, `delivery_status` を使用。										
-- `app_product`: 商品系メルマガの条件・通数マスタ。`mail_name`, `after_setting`, `after_volume` を使用。										
 										
 **サーバー側API仕様**										
 ```javascript										
@@ -37,8 +36,7 @@ function getInitialData() {
     schedule: getSheetObjects_('app_schedule'),										
     pr: getSheetObjects_('app_pr'),										
     prTargets: getSheetObjects_('app_pr_targets'),										
-    holidays: getSheetObjects_('app_holidays'),										
-    product: getSheetObjects_('app_product')										
+    holidays: getSheetObjects_('app_holidays')										
   };										
 }										
 										
@@ -65,7 +63,6 @@ function getSheetObjects_(sheetName) {
 - **有効/停止フィルタ**: `is_inactive` が `TRUE` / `true` の行は「停止・非表示」扱いにできるようトグルを用意。										
 - **PR確認**: `app_pr_targets.mail_name` から該当 `pr_id` を探し、`app_pr.pr_text` と `insert_position` を表示。										
 - **休暇対応確認**: `mail_name` または `delivery_date` で `app_holidays` を検索し、`delivery_status` と `contact_note` を表示。										
-- **商品条件確認**: `mail_name` で `app_product` を検索し、`after_setting`, `after_volume`, `notes` を表示。										
 - **コピー機能**: PR本文、配信条件、対象メルマガ名をワンクリックでコピーできるボタンを設置。										
 										
 **クライアント側呼び出し例**										

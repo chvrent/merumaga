@@ -9,12 +9,11 @@ const EXCEPTIONS_SHEET_NAME = 'app_exceptions';
 const CHECK_STATUS_SHEET_NAME = 'app_check_status';
 const LOG_ARCHIVE_RETENTION_DAYS = 90;
 const JOB_COUNT_REFRESH_INTERVAL_HOURS = 12;
-const EDITABLE_MASTER_SHEETS = ['app_schedule', 'app_product', 'app_pr', 'app_pr_targets'];
+const EDITABLE_MASTER_SHEETS = ['app_schedule', 'app_pr', 'app_pr_targets'];
 const CYCLE_BASE_DATE = new Date(2026, 3, 28); // 火曜日
 const MASTER_ID_CONFIG = {
   app_schedule: { aliases: ['schedule_id', 'id'], prefix: 'SCH' },
   app_pr: { aliases: ['pr_id', 'PR', 'id'], prefix: 'PR' },
-  app_product: { aliases: ['product_id', 'id'], prefix: 'PROD' },
   app_pr_targets: { aliases: ['pr_target_id', 'id'], prefix: 'PRT' }
 };
 
@@ -61,7 +60,6 @@ function getInitialData(options) {
     prTargets: getSheetObjects_('app_pr_targets', true),
     holidays: getSheetObjects_('app_holidays', true),
     japaneseHolidays: getJapaneseHolidays_(),
-    product: getSheetObjects_('app_product', true),
     commentCounts: getCommentCounts_(dateRange),
     fixedOccurrences: getFixedOccurrences_(dateRange),
     stoppedOccurrences: getStoppedOccurrences_(dateRange),
