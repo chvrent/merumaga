@@ -6,6 +6,7 @@
   let IS_MOVE_MODE = false;
   let SORTABLES = [];
   const MASTER_RENDER_LIMIT = 300;
+  let MASTER_SUBCATEGORY_FILTER = '';
   let MASTER_FILTERS = {
     'format:自動求人特集': false,
     'category:イレギュラー': false,
@@ -438,21 +439,43 @@
     if (MASTER_DATA.sheetName !== 'app_schedule') {
       container.innerHTML = '';
       container.style.display = 'none';
+      MASTER_SUBCATEGORY_FILTER = '';
       return;
     }
 
     container.style.display = 'flex';
+    const headers = MASTER_DATA.headers || [];
+    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
+    const subCategories = subCategoryHeader
+      ? Array.from(new Set((MASTER_DATA.rows || [])
+          .map(row => String((row && row[subCategoryHeader]) || '').trim())
+          .filter(Boolean)))
+          .sort((a, b) => a.localeCompare(b, 'ja'))
+      : [];
+
     const chips = [
       { id: 'format:自動求人特集', label: '形式:自動求人特集' },
       { id: 'category:イレギュラー', label: '種別:イレギュラー' },
       { id: 'category:検証', label: '種別:検証' }
     ];
 
-    container.innerHTML = chips.map(chip => `
+    const subCategorySelect = subCategories.length ? `
+      <select id="masterSubCategorySelect" class="filter-select" onchange="setMasterSubCategoryFilter(this.value)">
+        <option value="">サブカテゴリ: すべて</option>
+        ${subCategories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_SUBCATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+      </select>
+    ` : '';
+
+    container.innerHTML = subCategorySelect + chips.map(chip => `
       <div class="filter-chip ${MASTER_FILTERS[chip.id] ? 'active' : ''}" onclick="toggleMasterFilter('${chip.id}')">
         ${escapeHtml(chip.label)}
       </div>
     `).join('');
+  }
+
+  function setMasterSubCategoryFilter(value) {
+    MASTER_SUBCATEGORY_FILTER = String(value || '');
+    renderMasterTable();
   }
 
   function toggleMasterFilter(id) {
@@ -474,11 +497,17 @@
     const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
 
     const activeFilters = Object.keys(MASTER_FILTERS).filter(k => MASTER_FILTERS[k]);
+    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       // 検索キーワードフィルター
       if (keyword && !headers.map(header => row[header] == null ? '' : String(row[header])).join(' ').toLowerCase().includes(keyword)) {
         return false;
+      }
+
+      // サブカテゴリフィルター (app_schedule のみ適用)
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER && subCategoryHeader) {
+        if (String(row[subCategoryHeader] || '').trim() !== MASTER_SUBCATEGORY_FILTER) return false;
       }
 
       // チップフィルター (app_schedule のみ適用)
@@ -814,7 +843,7 @@
       schedule_id: document.getElementById('edit-id').value,
       source_row: CURRENT_ENTRY ? CURRENT_ENTRY.source_row : '',
       target_date: CURRENT_ENTRY ? CURRENT_ENTRY.target_date : '',
-      mail_name: document.getElementById('edit-name').value,
+      mail_name: CURRENT_ENTRY ? CURRENT_ENTRY.mail_name : document.getElementById('edit-name').value,
       delivery_count: document.getElementById('edit-count').value,
       assignee: document.getElementById('edit-assignee').value,
       reviewer: document.getElementById('edit-reviewer').value,
@@ -1378,8 +1407,8 @@
       weekGroup,
       threeWeekNum: positionMatchCycle,
       positionMatchCycle,
-      weekLabel: `${weekGroup}週`,
-      threeWeekLabel: `${weekGroup}${positionMatchCycle}${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
+      weekLabel: `隔週${weekGroup}`,
+      threeWeekLabel: `特殊${positionMatchCycle}週目${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
     };
   }
 
@@ -1784,6 +1813,26 @@
     return escapeHtml(value).replace(/`/g, '&#96;');
   }
 
+  function copyTextToClipboard_(text) {
+    const value = String(text == null ? '' : text);
+    if (!value) return;
+
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      navigator.clipboard.writeText(value).catch(() => {});
+      return;
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(textarea);
+  }
+
   function wireEvents() {
     document.querySelectorAll('.tab-button').forEach(button => {
       button.addEventListener('click', () => switchTab(button.dataset.tab));
@@ -1795,6 +1844,10 @@
     document.getElementById('editModal').addEventListener('click', event => {
       if (event.target.id === 'editModal') closeModal();
     });
+    const editName = document.getElementById('edit-name');
+    if (editName) {
+      editName.addEventListener('click', () => copyTextToClipboard_(editName.value));
+    }
     document.getElementById('masterModal').addEventListener('click', event => {
       if (event.target.id === 'masterModal') closeMasterModal();
     });

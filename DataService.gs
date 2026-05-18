@@ -183,6 +183,32 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
   const sheet = ss.getSheetByName(safeSheetName);
   if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
   if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
+
+  // PR本文マスタ(app_pr)を削除した場合、紐づいている対象メルマガ(app_pr_targets)も削除する
+  if (safeSheetName === 'app_pr') {
+    const lastCol = sheet.getLastColumn();
+    const prHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
+    const prIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(prHeaders), PR_FIELD_ALIASES.pr_id);
+    const prId = prIdIndex == null ? '' : normalizeCell_(sheet.getRange(targetRow, prIdIndex + 1).getDisplayValue());
+
+    if (prId) {
+      const targetsSheet = ss.getSheetByName('app_pr_targets');
+      if (targetsSheet) {
+        const targetValues = targetsSheet.getDataRange().getDisplayValues();
+        if (targetValues.length >= 2) {
+          const targetHeaders = targetValues[0].map(h => String(h || '').trim());
+          const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_FIELD_ALIASES.pr_id);
+          if (targetPrIdIndex != null) {
+            for (let r = targetValues.length; r >= 2; r--) {
+              const rowPrId = normalizeCell_(targetValues[r - 1][targetPrIdIndex]);
+              if (rowPrId && rowPrId === prId) targetsSheet.deleteRow(r);
+            }
+          }
+        }
+      }
+    }
+  }
+
   sheet.deleteRow(targetRow);
   return { success: true, action: 'delete', rowNumber: targetRow };
 }
