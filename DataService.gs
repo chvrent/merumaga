@@ -864,10 +864,11 @@ function setupWeeklyJobCountTrigger() {
 
   ScriptApp.newTrigger('updateAllJobCounts')
     .timeBased()
-    .everyHours(1)
+    .onWeekDay(ScriptApp.WeekDay.TUESDAY)
+    .atHour(4)
     .create();
 
-  return { success: true, handler: 'updateAllJobCounts', frequency: 'EVERY_HOUR' };
+  return { success: true, handler: 'updateAllJobCounts', weekday: 'TUESDAY', hour: 4 };
 }
 
 function setupHourlyJobCountTrigger() {

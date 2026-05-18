@@ -128,8 +128,8 @@
 - 取得できた場合は数値を返す。
 - 取得失敗、HTTPエラー、数字未検出の場合は `null` を返し、既存の `current_job_count` は上書きしない。
 - `updateAllJobCounts()` は `app_schedule` を走査し、`job_url` がある行だけ `current_job_count` と `job_count_updated_at` を更新する。
-- `setupWeeklyJobCountTrigger()` / `setupHourlyJobCountTrigger()` は互換名として残し、どちらも `updateAllJobCounts()` を1時間ごとに実行する時間主導型トリガーを作成する。
-- 初回のトリガー作成はGASエディタから `setupHourlyJobCountTrigger()` を実行する。
+- `setupWeeklyJobCountTrigger()` / `setupHourlyJobCountTrigger()` は互換名として残し、どちらも「毎週火曜4時」に `updateAllJobCounts()` を実行する時間主導型トリガーを作成する。
+- 初回のトリガー作成はGASエディタから `setupHourlyJobCountTrigger()`（互換名）を実行する。
 - `app_schedule` のマスタ保存時にも `updateAllJobCounts()` を実行する。
 
 ### カレンダー警告
