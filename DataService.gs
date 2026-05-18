@@ -837,18 +837,22 @@ function saveCheckStatusUnlocked_(itemId, field, active, payload) {
 
 function archiveOccurrenceIfBothChecksActive_(itemId, changedField, active, payload) {
   if (changedField !== 'setter' && changedField !== 'checker') return { archived: 0, skipped: 'not_confirmation_field' };
-  if (!active) return { archived: 0, skipped: 'inactive' };
-
-  const statusMap = getCheckStatusActiveMap_(itemId);
-  if (!statusMap.setter || !statusMap.checker) return { archived: 0, skipped: 'waiting_for_both_checks' };
 
   const safePayload = payload || {};
   const scheduleId = normalizeScheduleIdForMove_(safePayload.schedule_id || String(itemId).split('|')[0]);
   const targetDate = normalizeCommentTargetDate_(safePayload.delivery_date || String(itemId).split('|')[1]);
-  if (!scheduleId || !targetDate) return { archived: 0, skipped: 'missing_schedule_or_date' };
+  if (!scheduleId || !targetDate) return { archived: 0, deleted: 0, skipped: 'missing_schedule_or_date' };
 
   const sourceRow = getSourceRowByScheduleId_(scheduleId);
-  if (!sourceRow) return { archived: 0, skipped: 'source_row_not_found' };
+  if (!sourceRow) return { archived: 0, deleted: 0, skipped: 'source_row_not_found' };
+
+  if (!active) {
+    return deleteSingleDayArchive_(sourceRow, targetDate);
+  }
+
+  const statusMap = getCheckStatusActiveMap_(itemId);
+  if (!statusMap.setter || !statusMap.checker) return { archived: 0, skipped: 'waiting_for_both_checks' };
+
   if (isArchivedOccurrenceFixed_(sourceRow, targetDate)) return { archived: 0, skipped: 'already_archived' };
 
   const ss = getSourceSpreadsheet_();
@@ -874,6 +878,40 @@ function archiveOccurrenceIfBothChecksActive_(itemId, changedField, active, payl
   ].concat(row.slice(0, headers.length))]);
 
   return { archived: 1, source_row: sourceRow, target_date: targetDate };
+}
+
+function deleteSingleDayArchive_(sourceRow, targetDate) {
+  const ss = getSourceSpreadsheet_();
+  const archiveSheet = ss.getSheetByName(SCHEDULE_ARCHIVE_SHEET_NAME);
+  if (!archiveSheet || archiveSheet.getLastRow() < 2) return { archived: 0, deleted: 0, skipped: 'archive_not_found' };
+
+  const values = archiveSheet.getDataRange().getDisplayValues();
+  const headers = values[0].map(header => String(header || '').trim());
+  const sourceRowIndex = headers.indexOf('source_row');
+  const weekStartIndex = headers.indexOf('fixed_week_start');
+  const weekEndIndex = headers.indexOf('fixed_week_end');
+  if (sourceRowIndex < 0 || weekStartIndex < 0 || weekEndIndex < 0) {
+    return { archived: 0, deleted: 0, skipped: 'archive_headers_missing' };
+  }
+
+  let deleted = 0;
+  for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
+    const row = values[rowIndex];
+    const rowSource = normalizeCell_(row[sourceRowIndex]);
+    const start = normalizeCommentTargetDate_(row[weekStartIndex]);
+    const end = normalizeCommentTargetDate_(row[weekEndIndex]);
+
+    if (
+      rowSource === normalizeCell_(sourceRow) &&
+      start === targetDate &&
+      end === targetDate
+    ) {
+      archiveSheet.deleteRow(rowIndex + 1);
+      deleted++;
+    }
+  }
+
+  return { archived: 0, deleted, source_row: sourceRow, target_date: targetDate };
 }
 
 function getCheckStatusActiveMap_(itemId) {

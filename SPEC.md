@@ -197,6 +197,8 @@
 - 同じ `schedule_id + target_date` で `設定` と `確認` が両方有効になった時点で、その発生分を `app_schedule_archives` へ単日バックアップする。
 - 単日バックアップは `fixed_week_start` と `fixed_week_end` に同じ日付を保存し、その日だけ確定済みとして扱う。
 - 配信編集モーダルで日付別差分（`occurrence_override`）がある場合は、差分適用後の内容をバックアップする。
+- `設定` または `確認` の赤塗りを解除した場合は、同じ `source_row + target_date` の単日バックアップを削除する。ただし週次バックアップ（`fixed_week_start` と `fixed_week_end` が異なる行）は削除しない。
+- 確定バックアップはリアルタイムで行い、後からメルマガ一覧でマスタを変更しても、確定済みの当日分がマスタ変更に引きずられないようにする。
 - `.is-active-red` は `background-color: #ffcccc !important;` とする。
 
 ## 6. PRラベル仕様
