@@ -402,6 +402,181 @@ function resumeDelivery(scheduleId, targetDate) {
   return withScriptLock_(() => resumeDeliveryUnlocked_(scheduleId, targetDate));
 }
 
+function stopAllDeliveriesForDay(dateStr, scheduleIds) {
+  return withScriptLock_(() => {
+    const safeDateStr = normalizeCommentTargetDate_(dateStr);
+    if (!safeDateStr) throw new Error('日付が指定されていません');
+    if (!Array.isArray(scheduleIds) || scheduleIds.length === 0) return { success: true, count: 0 };
+
+    const sheet = getExceptionsSheet_();
+    const headers = getExceptionHeaders_(sheet);
+
+    // 既存の停止レコード（当日分）を一度だけ読み、重複書き込みを避ける
+    const existingStoppedForDay = new Set();
+    const existingValues = sheet.getDataRange().getValues();
+    if (existingValues.length >= 2) {
+      const sheetHeaders = existingValues[0].map(header => String(header || '').trim());
+      const scheduleIndex = sheetHeaders.indexOf('schedule_id');
+      const dateIndex = sheetHeaders.indexOf('target_date');
+      const statusIndex = sheetHeaders.indexOf('status');
+      if (scheduleIndex >= 0 && dateIndex >= 0) {
+        existingValues.slice(1).forEach(row => {
+          const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
+          if (rowDate !== safeDateStr) return;
+          const rowStatus = statusIndex >= 0 ? normalizeCell_(row[statusIndex]) : 'stopped';
+          if (rowStatus && rowStatus !== 'stopped') return;
+          const scheduleId = normalizeCell_(row[scheduleIndex]);
+          if (scheduleId) existingStoppedForDay.add(scheduleId);
+        });
+      }
+    }
+
+    // 確定済み（固定）判定を一括化して、IDごとのスプレッドシート走査を避ける
+    const fixedScheduleIdsForDay = buildFixedScheduleIdsForDate_(safeDateStr, scheduleIds);
+
+    const uniqueScheduleIds = Array.from(new Set(scheduleIds.map(id => normalizeCell_(id)).filter(Boolean)));
+    const rowsToAppend = [];
+    const results = [];
+    uniqueScheduleIds.forEach(scheduleId => {
+      if (existingStoppedForDay.has(scheduleId)) return;
+      if (fixedScheduleIdsForDay.has(scheduleId)) return;
+
+      const row = headers.map(header => {
+        switch (header) {
+          case 'schedule_id': return scheduleId;
+          case 'target_date': return safeDateStr;
+          case 'status': return 'stopped';
+          default: return '';
+        }
+      });
+      rowsToAppend.push(row);
+      results.push(scheduleId);
+    });
+
+    if (rowsToAppend.length) {
+      const startRow = sheet.getLastRow() + 1;
+      sheet.getRange(startRow, 1, rowsToAppend.length, headers.length).setValues(rowsToAppend);
+    }
+
+    return { success: true, stoppedIds: results, count: results.length };
+  });
+}
+
+function resumeAllDeliveriesForDay(dateStr) {
+  return withScriptLock_(() => {
+    const safeDateStr = normalizeCommentTargetDate_(dateStr);
+    if (!safeDateStr) throw new Error('日付が指定されていません');
+
+    const sheet = getExceptionsSheet_();
+    const values = sheet.getDataRange().getValues();
+    if (values.length < 2) return { success: true, deleted: 0 };
+
+    const headers = values[0].map(header => String(header || '').trim());
+    const dateIndex = headers.indexOf('target_date');
+    const statusIndex = headers.indexOf('status');
+    const scheduleIndex = headers.indexOf('schedule_id');
+
+    if (dateIndex < 0) return { success: true, deleted: 0 };
+
+    // 対象日の停止レコードだけ抽出し、確定済みは残す（固定判定も一括化）
+    const candidateScheduleIds = [];
+    for (let index = 1; index < values.length; index++) {
+      const row = values[index];
+      const rowStatus = statusIndex >= 0 ? normalizeCell_(row[statusIndex]) : 'stopped';
+      const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
+      if (rowDate !== safeDateStr) continue;
+      if (rowStatus && rowStatus !== 'stopped') continue;
+      const safeScheduleId = scheduleIndex >= 0 ? normalizeCell_(row[scheduleIndex]) : '';
+      if (safeScheduleId) candidateScheduleIds.push(safeScheduleId);
+    }
+    const fixedScheduleIdsForDay = buildFixedScheduleIdsForDate_(safeDateStr, candidateScheduleIds);
+
+    const newValues = [values[0]];
+    let deleted = 0;
+    for (let index = 1; index < values.length; index++) {
+      const row = values[index];
+      const rowStatus = statusIndex >= 0 ? normalizeCell_(row[statusIndex]) : 'stopped';
+      const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
+      const safeScheduleId = scheduleIndex >= 0 ? normalizeCell_(row[scheduleIndex]) : '';
+      const isTarget = rowDate === safeDateStr && (!rowStatus || rowStatus === 'stopped');
+
+      if (isTarget && safeScheduleId && !fixedScheduleIdsForDay.has(safeScheduleId)) {
+        deleted++;
+        continue;
+      }
+      newValues.push(row);
+    }
+
+    // 書き戻し（deleteRowループを避ける）
+    sheet.clearContents();
+    sheet.getRange(1, 1, newValues.length, headers.length).setValues(newValues);
+    return { success: true, deleted };
+  });
+}
+
+function buildFixedScheduleIdsForDate_(targetDateStr, scheduleIds) {
+  const fixed = new Set();
+  const safeDateStr = normalizeCommentTargetDate_(targetDateStr);
+  if (!safeDateStr) return fixed;
+
+  const uniqueScheduleIds = Array.from(new Set((scheduleIds || []).map(id => normalizeCell_(id)).filter(Boolean)));
+  if (!uniqueScheduleIds.length) return fixed;
+
+  const targetDate = parseScheduleDate_(safeDateStr);
+  if (!targetDate) return fixed;
+  const day = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  const dateRange = { start: day, end: day };
+
+  const fixedOccurrences = getFixedOccurrences_(dateRange);
+  if (!fixedOccurrences || Object.keys(fixedOccurrences).length === 0) return fixed;
+
+  const scheduleIdToSourceRow = buildSourceRowMapForScheduleIds_(uniqueScheduleIds);
+  uniqueScheduleIds.forEach(scheduleId => {
+    const sourceRow = scheduleIdToSourceRow[scheduleId];
+    if (!sourceRow) return;
+    if (fixedOccurrences[buildFixedOccurrenceKey_(sourceRow, safeDateStr)]) {
+      fixed.add(scheduleId);
+    }
+  });
+  return fixed;
+}
+
+function buildSourceRowMapForScheduleIds_(scheduleIds) {
+  const map = {};
+  const uniqueScheduleIds = Array.from(new Set((scheduleIds || []).map(id => normalizeCell_(id)).filter(Boolean)));
+  if (!uniqueScheduleIds.length) return map;
+
+  // "app_schedule:123" の形式は即決
+  uniqueScheduleIds.forEach(scheduleId => {
+    const match = scheduleId.match(/^app_schedule:(\\d+)$/);
+    if (match) map[scheduleId] = match[1];
+  });
+
+  const unresolved = uniqueScheduleIds.filter(id => !map[id]);
+  if (!unresolved.length) return map;
+
+  const ss = getSourceSpreadsheet_();
+  const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
+  if (!sheet) return map;
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return map;
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const idIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.schedule_id);
+  if (idIndex == null) return map;
+
+  const unresolvedSet = new Set(unresolved);
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    const scheduleId = normalizeCell_(values[rowIndex][idIndex]);
+    if (!scheduleId || !unresolvedSet.has(scheduleId)) continue;
+    map[scheduleId] = String(rowIndex + 1);
+    unresolvedSet.delete(scheduleId);
+    if (unresolvedSet.size === 0) break;
+  }
+  return map;
+}
+
 function resumeDeliveryUnlocked_(scheduleId, targetDate) {
   const safeScheduleId = normalizeCell_(scheduleId);
   const safeTargetDate = normalizeCommentTargetDate_(targetDate);

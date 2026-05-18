@@ -209,25 +209,38 @@
     });
 
     let html = '<table><thead><tr><th class="time-col" rowspan="2">時間</th>';
+    const todayStr = formatDate(new Date());
+
     dates.forEach((date, index) => {
       const cycleInfo = getCycleInfo(date);
       const monthEndInfo = getMonthEndInfo(date);
       const dateStr = formatDate(date);
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
       const isHoliday = holidayDates.has(dateStr);
+      const isToday = dateStr === todayStr;
       const headerClasses = [
         monthEndInfo.isInWindow ? 'month-end-header' : '',
         isWeekend ? 'is-weekend' : '',
-        isHoliday ? 'is-holiday' : ''
+        isHoliday ? 'is-holiday' : '',
+        isToday ? 'is-today' : ''
       ].filter(Boolean).join(' ');
       const label = `${date.getMonth() + 1}/${date.getDate()} (${weekdays[date.getDay()]})`;
       const headerDateControl = index === 0
-        ? `<input type="date" class="date-header-picker ${isWeekend || isHoliday ? 'is-emphasis-date' : ''}" value="${formatDateForInput(date)}" onchange="setCalendarStartDate(this.value)" aria-label="開始日">`
+        ? `<input type="date" class="date-header-picker ${isWeekend || isHoliday ? 'is-emphasis-date' : ''} ${isToday ? 'is-today' : ''}" value="${formatDateForInput(date)}" onchange="setCalendarStartDate(this.value)" aria-label="開始日">`
         : `<div class="date-title">${label}</div>`;
+      
+      const bulkActions = `
+        <div class="day-bulk-actions">
+           <button type="button" class="bulk-stop-button" onclick="stopAllForDay('${dateStr}')" title="この日の配信予定をすべて停止します">全停止</button>
+           <button type="button" class="bulk-resume-button" onclick="resumeAllForDay('${dateStr}')" title="この日の停止設定をすべて解除します">再開</button>
+        </div>
+      `;
+
       html += `
         <th class="${headerClasses}">
           <div class="date-header">
             ${headerDateControl}
+            ${bulkActions}
             ${monthEndInfo.isInWindow ? '<div class="date-note">月末配信期間</div>' : ''}
             <div class="date-cycles">
               <span class="cycle-chip cycle-chip-${cycleInfo.weekGroup}">${cycleInfo.weekLabel}</span>
@@ -238,9 +251,11 @@
       `;
     });
     html += '</tr><tr>';
-    dates.forEach(() => {
+    dates.forEach((date) => {
+      const dateStr = formatDate(date);
+      const isToday = dateStr === todayStr;
       html += `
-        <th class="grid-header-cell" style="padding:0; border-top:none;">
+        <th class="grid-header-cell ${isToday ? 'is-today' : ''}" style="padding:0; border-top:none;">
           <div class="grid-header">
             <div class="col-name">内容</div>
             <div class="col-count">通数</div>
@@ -256,6 +271,7 @@
       html += `<tr><td class="time-col">${hour}:00</td>`;
       dates.forEach(date => {
         const dateStr = formatDate(date);
+        const isToday = dateStr === todayStr;
         const dayLabel = weekdays[date.getDay()];
         const monthEndInfo = getMonthEndInfo(date);
         const entries = filtered.filter(row => {
@@ -301,7 +317,7 @@
             }
           }
           return isMatch;
-        }); html += `<td data-date="${dateStr}" data-hour="${hour}:00" style="padding:0;">`;
+        }); html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
         if (entries.length) {
           const renderedPrIds = new Set();
           entries.forEach(entry => {
@@ -1368,7 +1384,7 @@
       threeWeekNum: positionMatchCycle,
       positionMatchCycle,
       weekLabel: `${weekGroup}週`,
-      threeWeekLabel: `A${positionMatchCycle}${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
+      threeWeekLabel: `${weekGroup}${positionMatchCycle}${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
     };
   }
 
@@ -1793,6 +1809,49 @@
         closeMasterModal();
       }
     });
+  }
+
+  function stopAllForDay(dateStr) {
+    const ids = [];
+    document.querySelectorAll(`td[data-date="${dateStr}"] .delivery-row`).forEach(row => {
+       const id = row.getAttribute('data-item-id');
+       if (id && !row.classList.contains('is-fixed') && !row.classList.contains('is-stopped')) {
+          ids.push(id);
+       }
+    });
+    
+    if (ids.length === 0) {
+      alert('停止可能な配信予定がありません。');
+      return;
+    }
+    
+    if (!confirm(`${dateStr} の全${ids.length}件を一括で配信停止にしますか？\n（確定済みのものは除外されます）`)) return;
+    
+    document.getElementById('tableContainer').innerHTML = '<div class="empty-state">一括停止処理中...</div>';
+    google.script.run
+      .withSuccessHandler(() => {
+        loadData();
+      })
+      .withFailureHandler(err => {
+        alert('一括停止に失敗しました: ' + err.message);
+        loadData();
+      })
+      .stopAllDeliveriesForDay(dateStr, ids);
+  }
+
+  function resumeAllForDay(dateStr) {
+    if (!confirm(`${dateStr} の停止設定をすべて解除し、再開しますか？\n（確定済みのものは除外されます）`)) return;
+    
+    document.getElementById('tableContainer').innerHTML = '<div class="empty-state">一括再開処理中...</div>';
+    google.script.run
+      .withSuccessHandler(() => {
+        loadData();
+      })
+      .withFailureHandler(err => {
+        alert('一括再開に失敗しました: ' + err.message);
+        loadData();
+      })
+      .resumeAllDeliveriesForDay(dateStr);
   }
 
   wireEvents();

@@ -18,6 +18,11 @@
     - その他：#e0ffff (水色)
 - **フィルタリング**: 「隔週A/B」「3週サイクル」「月末1週間判定」のロジックは厳密に守り、既存の条件を上書きして消さないこと。
 
+## 3. デプロイ・同期の絶対ルール（全AI共通）
+- **URLの固定と更新**: 修正を反映する際は、単に `clasp push` するだけでなく、必ず新しい「バージョン」を作成し、**既存のWebアプリURL（デプロイID）がその最新バージョンを指すように更新（redeploy）すること。**
+- **自動化の徹底**: ユーザーに「最新版にしてください」と言わせず、AI側でデプロイ作業まで完結させること。
+- **デプロイIDの維持**: 特段の理由がない限り、新しいURLを発行せず、既存のURL（例: `AKfycbzfuy...`）を維持したまま中身を最新化すること。
+
 ## 4. Data Operation Conventions
 - **Header-based Property Mapping**: All future data operations (fetching/saving) MUST use the spreadsheet's 1st row (header) values as the canonical property names in the application code. Avoid relying on hardcoded language aliases or dynamic translation maps where the header itself can be used directly as the object key. This ensures code remains maintainable and consistent with the spreadsheet structure.
 1. **修正前**: `read_file` で現状のコード全体を必ず確認する。
