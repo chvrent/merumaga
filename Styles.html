@@ -19,6 +19,47 @@
     color: var(--text);
     background: var(--bg);
   }
+  body.is-busy {
+    overflow: hidden;
+  }
+  .busy-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(15, 23, 42, 0.25);
+    backdrop-filter: blur(2px);
+  }
+  .busy-overlay.is-active {
+    display: flex;
+  }
+  .busy-card {
+    display: grid;
+    gap: 10px;
+    justify-items: center;
+    min-width: 180px;
+    padding: 18px 20px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .busy-spinner {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #dbeafe;
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: busy-spin 0.8s linear infinite;
+  }
+  @keyframes busy-spin {
+    to { transform: rotate(360deg); }
+  }
   .app-shell {
     min-height: 100vh;
     padding: 16px;

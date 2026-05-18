@@ -6,6 +6,12 @@
     <?!= include('Styles'); ?>
   </head>
   <body>
+    <div id="busyOverlay" class="busy-overlay" aria-hidden="true">
+      <div class="busy-card">
+        <div class="busy-spinner"></div>
+        <div id="busyMessage">処理中...</div>
+      </div>
+    </div>
     <div class="app-shell">
       <nav class="app-tabs" aria-label="画面切り替え">
         <button type="button" class="tab-button active" data-tab="calendar">配信カレンダー</button>

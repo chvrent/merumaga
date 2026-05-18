@@ -6,6 +6,7 @@
   let MASTER_DATA = { sheetName: '', headers: [], rows: [] };
   let IS_MOVE_MODE = false;
   let IS_R_FILL = false;
+  let BUSY_COUNT = 0;
   let SORTABLES = [];
   const MASTER_RENDER_LIMIT = 300;
   let MASTER_SUBCATEGORY_FILTER = '';
@@ -88,6 +89,7 @@
   };
 
   function loadData() {
+    showBusy('データを読み込み中...');
     const startInput = document.getElementById('startInput');
     const start = startInput && startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(new Date());
     const rangeStart = formatDate(start);
@@ -100,10 +102,12 @@
         APP_DATA = data || {};
         renderScheduleGrid();
         if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
+        hideBusy();
       })
       .withFailureHandler(err => {
         document.getElementById('tableContainer').innerHTML =
           '<div class="empty-state">データの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
+        hideBusy();
       })
       .getInitialData({ startDate: rangeStart, endDate: rangeEnd });
   }
@@ -126,11 +130,65 @@
     }
   }
 
+  function showBusy(message) {
+    BUSY_COUNT++;
+    const overlay = document.getElementById('busyOverlay');
+    const messageEl = document.getElementById('busyMessage');
+    if (messageEl) messageEl.textContent = message || '処理中...';
+    if (overlay) {
+      overlay.classList.add('is-active');
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    document.body.classList.add('is-busy');
+  }
+
+  function hideBusy() {
+    BUSY_COUNT = Math.max(0, BUSY_COUNT - 1);
+    if (BUSY_COUNT > 0) return;
+    const overlay = document.getElementById('busyOverlay');
+    if (overlay) {
+      overlay.classList.remove('is-active');
+      overlay.setAttribute('aria-hidden', 'true');
+    }
+    document.body.classList.remove('is-busy');
+  }
+
   function toggleRFill() {
-    IS_R_FILL = !IS_R_FILL;
-    const btn = document.getElementById('rFillToggle');
-    if (btn) btn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
-    renderScheduleGrid();
+    const nextActive = !IS_R_FILL;
+    const updates = [];
+    document.querySelectorAll('#tableContainer .check-status-cell[data-check-field="setter"]').forEach(cell => {
+      if (String(cell.textContent || '').trim() !== 'R') return;
+      if (cell.classList.contains('archived-cell')) return;
+      updates.push({
+        itemId: cell.dataset.itemId,
+        field: 'setter',
+        active: nextActive,
+        payload: parseCheckLogPayload(cell.dataset.logPayload)
+      });
+    });
+
+    if (!updates.length) {
+      IS_R_FILL = nextActive;
+      const emptyBtn = document.getElementById('rFillToggle');
+      if (emptyBtn) emptyBtn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
+      renderScheduleGrid();
+      return;
+    }
+
+    showBusy(nextActive ? 'R設定を一括確定中...' : 'R設定の一括解除中...');
+    google.script.run
+      .withSuccessHandler(() => {
+        IS_R_FILL = nextActive;
+        const btn = document.getElementById('rFillToggle');
+        if (btn) btn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
+        hideBusy();
+        loadData();
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        alert('Rの一括更新に失敗しました: ' + (err.message || String(err)));
+      })
+      .saveCheckStatuses(updates);
   }
 
   function initDragAndDrop() {
@@ -164,12 +222,15 @@
 
           if (!scheduleId || !newDate || !newHour) return;
 
+          showBusy('配信日時を移動中...');
           google.script.run
             .withSuccessHandler(() => {
               console.log('移動完了');
+              hideBusy();
               loadData();
             })
             .withFailureHandler(err => {
+              hideBusy();
               alert('移動に失敗しました: ' + err.message);
               loadData();
             })
@@ -910,6 +971,7 @@
     const btn = event.target;
     btn.disabled = true;
     btn.textContent = '保存中...';
+    showBusy('マスタを保存中...');
 
     const payload = { __rowNumber: document.getElementById('master-row-number').value };
 
@@ -939,11 +1001,13 @@
           loadData();
           btn.disabled = false;
           btn.textContent = '保存';
+          hideBusy();
         })
         .withFailureHandler(err => {
           alert('保存に失敗しました: ' + (err.message || err));
           btn.disabled = false;
           btn.textContent = '保存';
+          hideBusy();
         })
         .savePRData(payload, selectedNewsletters);
     } else {
@@ -954,11 +1018,13 @@
           loadData();
           btn.disabled = false;
           btn.textContent = '保存';
+          hideBusy();
         })
         .withFailureHandler(err => {
           alert('保存に失敗しました: ' + (err.message || err));
           btn.disabled = false;
           btn.textContent = '保存';
+          hideBusy();
         })
         .saveMasterData(MASTER_DATA.sheetName, payload);
     }
@@ -967,12 +1033,15 @@
   function deleteMasterRow(rowNumber) {
     if (!rowNumber || !confirm('この行を削除しますか？')) return;
 
+    showBusy('行を削除中...');
     google.script.run
       .withSuccessHandler(() => {
+        hideBusy();
         loadActiveMaster();
         loadData();
       })
       .withFailureHandler(err => {
+        hideBusy();
         alert('削除に失敗しました: ' + (err.message || err));
       })
       .deleteMasterData(MASTER_DATA.sheetName, rowNumber);
@@ -1101,12 +1170,15 @@
     });
     payload.override_fields = overrideFields.join(',');
 
+    showBusy('配信内容を保存中...');
     google.script.run
       .withSuccessHandler(() => {
+        hideBusy();
         closeModal();
         loadData();
       })
       .withFailureHandler(err => {
+        hideBusy();
         alert('保存に失敗しました: ' + (err.message || err));
       })
       .saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
@@ -1120,13 +1192,16 @@
     }
     if (!confirm('この週の配信を停止し、カレンダーをグレーアウトします。よろしいですか？')) return;
 
+    showBusy('配信停止を保存中...');
     google.script.run
       .withSuccessHandler(() => {
+        hideBusy();
         setStoppedOccurrence(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date, true);
         setEditState(false, true);
         renderScheduleGrid();
       })
       .withFailureHandler(err => {
+        hideBusy();
         alert('配信停止に失敗しました: ' + (err.message || err));
       })
       .stopDelivery(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
@@ -1139,13 +1214,16 @@
       return;
     }
 
+    showBusy('配信再開を保存中...');
     google.script.run
       .withSuccessHandler(() => {
+        hideBusy();
         setStoppedOccurrence(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date, false);
         setEditState(false, false);
         renderScheduleGrid();
       })
       .withFailureHandler(err => {
+        hideBusy();
         alert('配信再開に失敗しました: ' + (err.message || err));
       })
       .resumeDelivery(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
@@ -1274,6 +1352,7 @@
     const nextActive = !isCheckStatusActive(itemId, field);
     const cell = event.currentTarget;
     const payload = parseCheckLogPayload(cell.dataset.logPayload);
+    showBusy('チェック状態を保存中...');
     setLocalCheckStatus(itemId, field, nextActive);
     cell.classList.toggle('is-active-red', nextActive);
 
@@ -1282,10 +1361,14 @@
         const savedActive = !!(result && result.active);
         setLocalCheckStatus(itemId, field, savedActive);
         cell.classList.toggle('is-active-red', savedActive);
+        applyArchiveResult_(result && result.archive);
+        hideBusy();
+        if (result && result.archive && (result.archive.archived || result.archive.deleted)) renderScheduleGrid();
       })
       .withFailureHandler(err => {
         setLocalCheckStatus(itemId, field, !nextActive);
         cell.classList.toggle('is-active-red', !nextActive);
+        hideBusy();
         alert('チェック状態の保存に失敗しました: ' + (err.message || String(err)));
       })
       .saveCheckStatus(itemId, field, nextActive, payload);
@@ -1295,12 +1378,27 @@
     return {
       item_id: itemId,
       field,
+      schedule_id: row && row.schedule_id,
+      source_row: row && row.source_row,
       delivery_date: row && row.target_date,
       hour: row && row.hour,
       mail_name: row && row.mail_name,
+      assignee: row && row.assignee,
+      reviewer: row && row.reviewer,
       job_url: row && row.job_url,
       current_job_count: row && row.current_job_count
     };
+  }
+
+  function applyArchiveResult_(archive) {
+    if (!archive || !archive.source_row || !archive.target_date) return;
+    if (!APP_DATA.fixedOccurrences) APP_DATA.fixedOccurrences = {};
+    const key = `${archive.source_row}|${archive.target_date}`;
+    if (archive.archived) {
+      APP_DATA.fixedOccurrences[key] = true;
+    } else if (archive.deleted) {
+      delete APP_DATA.fixedOccurrences[key];
+    }
   }
 
   function parseCheckLogPayload(encodedPayload) {
@@ -2166,12 +2264,15 @@
     
     if (!confirm(`${dateStr} の全${ids.length}件を一括で配信停止にしますか？\n（確定済みのものは除外されます）`)) return;
     
+    showBusy('一括停止処理中...');
     document.getElementById('tableContainer').innerHTML = '<div class="empty-state">一括停止処理中...</div>';
     google.script.run
       .withSuccessHandler(() => {
+        hideBusy();
         loadData();
       })
       .withFailureHandler(err => {
+        hideBusy();
         alert('一括停止に失敗しました: ' + err.message);
         loadData();
       })
@@ -2181,12 +2282,15 @@
   function resumeAllForDay(dateStr) {
     if (!confirm(`${dateStr} の停止設定をすべて解除し、再開しますか？\n（確定済みのものは除外されます）`)) return;
     
+    showBusy('一括再開処理中...');
     document.getElementById('tableContainer').innerHTML = '<div class="empty-state">一括再開処理中...</div>';
     google.script.run
       .withSuccessHandler(() => {
+        hideBusy();
         loadData();
       })
       .withFailureHandler(err => {
+        hideBusy();
         alert('一括再開に失敗しました: ' + err.message);
         loadData();
       })

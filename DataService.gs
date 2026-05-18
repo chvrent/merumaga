@@ -9,6 +9,7 @@ const EXCEPTIONS_SHEET_NAME = 'app_exceptions';
 const CHECK_STATUS_SHEET_NAME = 'app_check_status';
 const LOG_ARCHIVE_RETENTION_DAYS = 90;
 const JOB_COUNT_REFRESH_INTERVAL_HOURS = 12;
+const WEEKLY_ARCHIVE_ENABLED = false;
 const EDITABLE_MASTER_SHEETS = ['app_schedule', 'app_pr', 'app_pr_targets'];
 const CYCLE_BASE_DATE = new Date(2026, 3, 28); // 火曜日
 const MASTER_ID_CONFIG = {
@@ -227,6 +228,10 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
 }
 
 function backupAndLockTwoWeeksAgo() {
+  if (!WEEKLY_ARCHIVE_ENABLED) {
+    return { success: true, skipped: true, reason: 'Realtime confirmation archive is enabled; weekly archive is disabled.' };
+  }
+
   const ss = getSourceSpreadsheet_();
   const masterSheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
   if (!masterSheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
@@ -308,6 +313,10 @@ function setupWeeklyBackupTrigger() {
   ScriptApp.getProjectTriggers()
     .filter(trigger => trigger.getHandlerFunction() === 'backupAndLockTwoWeeksAgo')
     .forEach(trigger => ScriptApp.deleteTrigger(trigger));
+
+  if (!WEEKLY_ARCHIVE_ENABLED) {
+    return { success: true, handler: 'backupAndLockTwoWeeksAgo', disabled: true, reason: 'Realtime confirmation archive is enabled.' };
+  }
 
   ScriptApp.newTrigger('backupAndLockTwoWeeksAgo')
     .timeBased()
@@ -793,6 +802,18 @@ function saveCheckStatus(itemId, field, active, payload) {
   return withScriptLock_(() => saveCheckStatusUnlocked_(itemId, field, active, payload));
 }
 
+function saveCheckStatuses(updates) {
+  return withScriptLock_(() => {
+    const rows = Array.isArray(updates) ? updates : [];
+    return rows.map(update => saveCheckStatusUnlocked_(
+      update && update.itemId,
+      update && update.field,
+      update && update.active,
+      update && update.payload
+    ));
+  });
+}
+
 function saveCheckStatusUnlocked_(itemId, field, active, payload) {
   const safeItemId = normalizeCell_(itemId);
   const safeField = normalizeCell_(field);
@@ -846,12 +867,17 @@ function archiveOccurrenceIfBothChecksActive_(itemId, changedField, active, payl
   const sourceRow = getSourceRowByScheduleId_(scheduleId);
   if (!sourceRow) return { archived: 0, deleted: 0, skipped: 'source_row_not_found' };
 
+  const isRAssignee = normalizeCell_(safePayload.assignee) === 'R';
+
   if (!active) {
+    if (isRAssignee && changedField === 'checker') {
+      return { archived: 0, deleted: 0, skipped: 'r_assignee_checker_not_required' };
+    }
     return deleteSingleDayArchive_(sourceRow, targetDate);
   }
 
   const statusMap = getCheckStatusActiveMap_(itemId);
-  if (!statusMap.setter || !statusMap.checker) return { archived: 0, skipped: 'waiting_for_both_checks' };
+  if (!statusMap.setter || (!statusMap.checker && !isRAssignee)) return { archived: 0, skipped: 'waiting_for_required_checks' };
 
   if (isArchivedOccurrenceFixed_(sourceRow, targetDate)) return { archived: 0, skipped: 'already_archived' };
 
