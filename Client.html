@@ -231,7 +231,7 @@
             ${monthEndInfo.isInWindow ? '<div class="date-note">月末配信期間</div>' : ''}
             <div class="date-cycles">
               <span class="cycle-chip cycle-chip-${cycleInfo.weekGroup}">${cycleInfo.weekLabel}</span>
-              <span class="cycle-chip cycle-chip-${cycleInfo.threeWeekNum}">${cycleInfo.threeWeekNum}週目</span>
+              <span class="cycle-chip cycle-chip-${cycleInfo.threeWeekNum}">${cycleInfo.threeWeekLabel}</span>
             </div>
           </div>
         </th>
@@ -1367,7 +1367,8 @@
       weekGroup,
       threeWeekNum: positionMatchCycle,
       positionMatchCycle,
-      weekLabel: `${weekGroup}週`
+      weekLabel: `${weekGroup}週`,
+      threeWeekLabel: `A${positionMatchCycle}${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
     };
   }
 

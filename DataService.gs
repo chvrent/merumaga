@@ -58,7 +58,7 @@ function getInitialData(options) {
   return {
     schedule: getScheduleRows_(ss),
     pr: getSheetObjects_('app_pr'),
-    prTargets: getSheetObjects_('app_pr_targets'),
+    prTargets: getSheetObjects_('app_pr_targets', true),
     holidays: getSheetObjects_('app_holidays', true),
     japaneseHolidays: getJapaneseHolidays_(),
     product: getSheetObjects_('app_product', true),
@@ -1481,7 +1481,7 @@ function isScheduleRowInWeek_(headers, row, weekStart, weekEnd) {
 
 function isScheduleCycleActiveOnDate_(headers, row, date) {
   const category = normalizeCell_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.category));
-  if (category.indexOf('豈取怦') !== -1 && !getMonthEndInfo_(date).isInWindow) return false;
+  if (category.indexOf('毎月') !== -1 && !getMonthEndInfo_(date).isInWindow) return false;
 
   const rowCycle = normalizeCycleLabelForBackup_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle));
   const rowCycleNum = extractCycleNumberForBackup_(rowCycle);
@@ -1494,7 +1494,7 @@ function isScheduleCycleActiveOnDate_(headers, row, date) {
     if (typeof expectedCycle !== 'number') return false;
     return cycleContainsForBackup_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle), expectedCycle);
   }
-  return !rowCycle || rowCycle === '豈朱ｱ';
+  return !rowCycle || rowCycle === '毎週';
 }
 
 function isPositionMatchForBackup_(headers, row) {
@@ -1508,9 +1508,9 @@ function isPositionMatchForBackup_(headers, row) {
 
 function normalizeCycleLabelForBackup_(value) {
   const text = normalizeCell_(value);
-  if (!text || text === '豈朱ｱ') return '';
-  if (text.indexOf('髫秘ｱA') !== -1 || text === 'A') return 'A';
-  if (text.indexOf('髫秘ｱB') !== -1 || text === 'B') return 'B';
+  if (!text || text === '毎週') return '';
+  if (text.indexOf('隔週A') !== -1 || text === 'A') return 'A';
+  if (text.indexOf('隔週B') !== -1 || text === 'B') return 'B';
   const match = text.match(/(\d+)/);
   return match ? String(Number(match[1])) : text;
 }
