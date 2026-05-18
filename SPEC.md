@@ -61,13 +61,20 @@
 
 ### 配信編集
 
-配信編集では以下を保存対象とする。
+配信編集では、対象日・対象メルマガの発生分だけを保存対象とする。`app_schedule` 本体は更新せず、`app_check_status` の `occurrence_override` として差分を保存する。
 
-- メルマガ名
 - 通数
 - 設定者
 - 確認者
 - 備考
+- 曜日、時間、開始、終了
+- 種別、サブカテゴリ、PR、形式
+- 対象年齢、対象現住所
+- 自動求人特集ID
+- 自動求人特集URL
+- 新規、サイクル
+
+メルマガ名は編集不可とし、クリック時にメルマガ名をクリップボードへコピーする。設定者が `R` の場合、確認者は空欄のまま選択不可とする。
 
 コメントは `app_schedule` には保存せず、`app_comments` に履歴として保存する。
 
@@ -141,7 +148,7 @@
 
 ## 5.2 自動求人件数チェック
 
-`自動求人` の配信事故を防ぐため、`app_schedule` の求人URLから現在求人数を取得し、カレンダー上に警告を表示する。
+`自動求人` の配信事故を防ぐため、`app_schedule` の自動求人特集URLから現在求人数を取得し、カレンダー上に警告を表示する。
 
 ### `app_schedule` 利用列
 
@@ -527,14 +534,17 @@ schedule_id|yyyy-MM-dd
 
 `openModal(encodedEntry)` は以下を行う。
 
-1. 配信行データを `CURRENT_ENTRY` に保持する。
+1. 配信行データを `CURRENT_ENTRY_BASE` / `CURRENT_ENTRY` に保持する。
 2. 設定者・確認者の選択肢を `adminMaster` から作る。
 3. メルマガ名、通数、設定者、確認者、備考をフォームへセットする。
-4. コメント欄を初期化する。
-5. `loadCommentsForCurrentEntry()` でコメント履歴を読み込む。
-6. `setEditLocked(isFixed(entry))` で確定済みなら編集欄をロックする。
+4. `app_schedule` のヘッダーに合わせて、マスタ新規追加と同等の追加項目を `editExtraFields` に生成する。
+5. メルマガ名は常に読み取り専用にし、クリックでコピーできるようにする。
+6. 設定者が `R` の場合、確認者は空欄にし、選択不可にする。
+7. コメント欄を初期化する。
+8. `loadCommentsForCurrentEntry()` でコメント履歴を読み込む。
+9. 確定済みまたは配信停止中なら編集欄をロックする。
 
-`saveEdit()` は `upsertScheduleData()` を呼ぶ。送信時には `schedule_id`, `source_row`, `target_date` も渡すため、サーバー側で日付単位の確定判定ができる。
+`saveEdit()` は `saveCheckStatus(itemId, 'occurrence_override', active, payload)` を呼ぶ。`itemId` は `schedule_id + target_date` であり、同じメルマガの別日付には変更を波及させない。変更された項目名は `override_fields` に保存し、カレンダー再描画時に該当発生分だけ上書き表示する。
 
 ### 13.10 コメント機能の実挙動
 

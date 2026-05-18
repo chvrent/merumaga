@@ -43,6 +43,9 @@ const SCHEDULE_FIELD_ALIASES = {
   notes: ['notes', '備考'],
   job_url: ['job_url', '自動求人特集URL', '求人URL', 'URL'],
   auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID'],
+  target_age: ['target_age', '対象年齢'],
+  target_address: ['target_address', '対象現住所'],
+  new_flag: ['new_flag', '新規'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数'],
   job_count_updated_at: ['job_count_updated_at', '求人数最終取得日時', '最終取得日時'],
   cycle: ['cycle', 'サイクル'],
@@ -57,6 +60,7 @@ function getInitialData(options) {
   const dateRange = buildOperationalDateRange_(options);
   return {
     schedule: getScheduleRows_(ss),
+    scheduleHeaders: getSheetHeaders_(ss, SCHEDULE_SHEET_NAME),
     pr: getSheetObjects_('app_pr'),
     prTargets: getSheetObjects_('app_pr_targets', true),
     holidays: getSheetObjects_('app_holidays', true),
@@ -68,6 +72,14 @@ function getInitialData(options) {
     readme: getSheetObjects_('app_readme', true),
     adminMaster: getSheetObjectsByNames_(['app_admin_master', 'app_name_master'], true)
   };
+}
+
+function getSheetHeaders_(ss, sheetName) {
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet || sheet.getLastRow() < 1) return [];
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0]
+    .map(header => String(header || '').trim())
+    .filter(Boolean);
 }
 
 function getMasterData(sheetName) {
@@ -845,10 +857,26 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCommentTargetDate_(safePayload.delivery_date);
       case 'hour':
         return normalizeCell_(safePayload.hour);
+      case 'weekday':
+        return normalizeCell_(safePayload.weekday);
+      case 'start_date':
+        return normalizeCell_(safePayload.start_date);
+      case 'end_date':
+        return normalizeCell_(safePayload.end_date);
+      case 'cycle':
+        return normalizeCell_(safePayload.cycle);
       case 'mail_name':
         return normalizeCell_(safePayload.mail_name);
       case 'job_url':
         return normalizeCell_(safePayload.job_url);
+      case 'auto_job_feature_id':
+        return normalizeCell_(safePayload.auto_job_feature_id);
+      case 'target_age':
+        return normalizeCell_(safePayload.target_age);
+      case 'target_address':
+        return normalizeCell_(safePayload.target_address);
+      case 'new_flag':
+        return normalizeCell_(safePayload.new_flag);
       case 'current_job_count':
         return normalizeCell_(safePayload.current_job_count);
       case 'override_fields':
@@ -1484,8 +1512,16 @@ function getCheckStatusHeaders_(sheet) {
     'original_date',
     'delivery_date',
     'hour',
+    'weekday',
+    'start_date',
+    'end_date',
+    'cycle',
     'mail_name',
     'job_url',
+    'auto_job_feature_id',
+    'target_age',
+    'target_address',
+    'new_flag',
     'current_job_count',
     'override_fields',
     'delivery_count',
@@ -2039,6 +2075,10 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     pr: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.pr),
     notes: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.notes),
     job_url: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_url),
+    auto_job_feature_id: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.auto_job_feature_id),
+    target_age: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_age),
+    target_address: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_address),
+    new_flag: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.new_flag),
     current_job_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_job_count),
     job_count_updated_at: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_count_updated_at),
     current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),
@@ -2046,6 +2086,10 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     is_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_inactive),
     is_fixed: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_fixed)
   };
+  headers.forEach((header, index) => {
+    if (!header || Object.prototype.hasOwnProperty.call(record, header)) return;
+    record[header] = normalizeCell_(row[index]);
+  });
   record.sub_category_class = getSubCategoryClass_(record.sub_category);
 
   if (!record.mail_name) return null;

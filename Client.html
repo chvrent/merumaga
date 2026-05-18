@@ -48,6 +48,9 @@
     notes: '備考',
     job_url: '自動求人特集URL',
     auto_job_feature_id: '自動求人特集ID',
+    target_age: '対象年齢',
+    target_address: '対象現住所',
+    new_flag: '新規',
     current_job_count: '現在求人数',
     job_count_updated_at: '求人数最終取得日時',
     is_inactive: '配信停止',
@@ -770,52 +773,129 @@
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
   }
 
+  function normalizeScheduleEditKey_(header) {
+    const key = String(header == null ? '' : header).trim();
+    const lower = key.toLowerCase();
+    const map = {
+      'メルマガ内容': 'mail_name',
+      '通数': 'delivery_count',
+      '設定者': 'assignee',
+      '確認者': 'reviewer',
+      '備考': 'notes',
+      '種別': 'category',
+      'サブカテゴリ': 'sub_category',
+      '形式': 'format',
+      '曜日': 'weekday',
+      '時間': 'hour',
+      '開始': 'start_date',
+      '開始日': 'start_date',
+      '終了': 'end_date',
+      '終了日': 'end_date',
+      '自動求人特集URL': 'job_url',
+      '求人URL': 'job_url',
+      '自動求人特集ID': 'auto_job_feature_id',
+      '対象年齢': 'target_age',
+      '対象現住所': 'target_address',
+      '新規': 'new_flag',
+      'サイクル': 'cycle',
+      'PR': 'pr'
+    };
+    if (map[key]) return map[key];
+    if ([
+      'schedule_id',
+      'mail_name',
+      'delivery_count',
+      'assignee',
+      'reviewer',
+      'notes',
+      'category',
+      'sub_category',
+      'format',
+      'weekday',
+      'hour',
+      'start_date',
+      'end_date',
+      'job_url',
+      'auto_job_feature_id',
+      'target_age',
+      'target_address',
+      'new_flag',
+      'cycle',
+      'pr'
+    ].includes(lower)) return lower;
+    return key;
+  }
+
+  function getScheduleEditHeaders_() {
+    const sourceHeaders = Array.isArray(APP_DATA.scheduleHeaders) && APP_DATA.scheduleHeaders.length
+      ? APP_DATA.scheduleHeaders
+      : Object.keys(CURRENT_ENTRY || {});
+    const excluded = new Set([
+      'schedule_id', 'id', 'source_sheet', 'source_row', 'sub_category_class',
+      'is_inactive', '配信停止', 'is_fixed', '確定済',
+      'current_job_count', '現在求人数',
+      'job_count_updated_at', '求人数最終取得日時',
+      'current_week_cycle', '今週サイクル(内部)',
+      'current_week_inactive', '今週非配信(内部)',
+      'schedule_action'
+    ]);
+    return sourceHeaders.filter(header => {
+      const key = normalizeScheduleEditKey_(header);
+      if (!header || excluded.has(header) || excluded.has(key)) return false;
+      return key !== 'mail_name' && key !== 'delivery_count' && key !== 'assignee' && key !== 'reviewer' && key !== 'notes';
+    });
+  }
+
+  function renderEditInput_(header, key, value) {
+    const dataAttr = `data-edit-key="${escapeAttribute(key)}" data-edit-header="${escapeAttribute(header)}"`;
+    if (isWeekdayHeader(header) || key === 'weekday') {
+      return renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']).replace('data-header=', `${dataAttr} data-header=`);
+    }
+    if (isFormatHeader(header) || key === 'format') {
+      return renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集']).replace('data-header=', `${dataAttr} data-header=`);
+    }
+    if (isTimeHeader(header) || key === 'hour') {
+      return renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions()).replace('data-header=', `${dataAttr} data-header=`);
+    }
+    if (isDateTimeHeader(header)) {
+      return `<input type="datetime-local" ${dataAttr} value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
+    }
+    if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
+      return `<input type="date" ${dataAttr} value="${escapeAttribute(normalizeDateString(value))}">`;
+    }
+    const text = String(value == null ? '' : value);
+    if (text.length > 80 || text.includes('\n')) {
+      return `<textarea ${dataAttr}>${escapeHtml(text)}</textarea>`;
+    }
+    return `<input type="text" ${dataAttr} value="${escapeAttribute(text)}">`;
+  }
+
   function renderEditExtraFields_(entry) {
     const container = document.getElementById('editExtraFields');
     if (!container) return;
 
-    const categoryOptions = [''].concat(buildUniqueScheduleValues_('category'));
-    const subCategoryOptions = [''].concat(buildUniqueScheduleValues_('sub_category'));
-    const formatOptions = [''].concat(buildUniqueScheduleValues_('format'));
-
-    container.innerHTML = `
-      <label class="field">
-        <span>種別</span>
-        ${renderSelectInput('category', entry.category || '', categoryOptions)}
-      </label>
-      <label class="field">
-        <span>サブカテゴリ</span>
-        ${renderSelectInput('sub_category', entry.sub_category || '', subCategoryOptions)}
-      </label>
-      <label class="field">
-        <span>形式</span>
-        ${renderSelectInput('format', entry.format || '', formatOptions)}
-      </label>
-      <label class="field">
-        <span>PR</span>
-        <input type="text" id="edit-pr" value="${escapeAttribute(entry.pr || '')}">
-      </label>
-      <label class="field">
-        <span>求人URL</span>
-        <input type="text" id="edit-job-url" value="${escapeAttribute(entry.job_url || '')}">
-      </label>
-    `;
-
-    // renderSelectInput は data-header を付与するため、edit用にIDを付け直す
-    const selects = container.querySelectorAll('select[data-header]');
-    selects.forEach(select => {
-      const header = select.dataset.header;
-      if (header === 'category') select.id = 'edit-category';
-      if (header === 'sub_category') select.id = 'edit-sub-category';
-      if (header === 'format') select.id = 'edit-format';
-      select.removeAttribute('data-header');
-    });
+    container.innerHTML = getScheduleEditHeaders_().map(header => {
+      const key = normalizeScheduleEditKey_(header);
+      const value = entry[key] != null ? entry[key] : entry[header];
+      return `
+        <label class="field">
+          <span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(key))}</span>
+          ${renderEditInput_(header, key, value)}
+        </label>
+      `;
+    }).join('');
   }
 
   function syncReviewerLock_() {
     const assigneeEl = document.getElementById('edit-assignee');
     const reviewerEl = document.getElementById('edit-reviewer');
     if (!assigneeEl || !reviewerEl) return;
+
+    const locked = CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY));
+    if (locked) {
+      reviewerEl.disabled = true;
+      return;
+    }
 
     const assignee = String(assigneeEl.value || '').trim();
     if (assignee === 'R') {
@@ -961,8 +1041,8 @@
     loadCommentsForCurrentEntry();
     assigneeSelect.value = CURRENT_ENTRY.assignee || '';
     reviewerSelect.value = CURRENT_ENTRY.reviewer || '';
-    syncReviewerLock_();
     setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
+    syncReviewerLock_();
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
@@ -991,13 +1071,11 @@
       delivery_count: document.getElementById('edit-count').value,
       assignee: document.getElementById('edit-assignee').value,
       reviewer: document.getElementById('edit-reviewer').value,
-      notes: document.getElementById('edit-notes').value,
-      category: (document.getElementById('edit-category') || {}).value,
-      sub_category: (document.getElementById('edit-sub-category') || {}).value,
-      format: (document.getElementById('edit-format') || {}).value,
-      pr: (document.getElementById('edit-pr') || {}).value,
-      job_url: (document.getElementById('edit-job-url') || {}).value
+      notes: document.getElementById('edit-notes').value
     };
+    document.querySelectorAll('#editExtraFields [data-edit-key]').forEach(input => {
+      nextValues[input.dataset.editKey] = input.value;
+    });
 
     if (String(nextValues.assignee || '').trim() === 'R') {
       nextValues.reviewer = '';
@@ -1962,6 +2040,11 @@
 
     document.querySelectorAll('#editModal input, #editModal select, #editModal textarea').forEach(field => {
       if (field.id === 'new-comment') return;
+      if (field.id === 'edit-name') {
+        field.readOnly = true;
+        field.disabled = false;
+        return;
+      }
       if (field.tagName === 'SELECT') {
         field.disabled = locked;
       } else {
