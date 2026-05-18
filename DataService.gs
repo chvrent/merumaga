@@ -333,6 +333,7 @@ function saveCommentUnlocked_(scheduleId, commentText, targetDate, user) {
     }
   });
   sheet.appendRow(row);
+  invalidateCommentCaches_(safeScheduleId, safeTargetDate);
 
   return {
     success: true,
@@ -349,13 +350,52 @@ function getCommentsByScheduleId(scheduleId, targetDate) {
   const safeTargetDate = normalizeCommentTargetDate_(targetDate);
   if (!safeScheduleId) return [];
 
-  return getSheetObjects_(COMMENTS_SHEET_NAME, true)
-    .filter(comment => {
-      if (normalizeCell_(comment.schedule_id) !== safeScheduleId) return false;
-      if (!safeTargetDate) return true;
-      return normalizeCommentTargetDate_(comment.target_date) === safeTargetDate;
-    })
-    .sort((a, b) => getCommentTime_(a.timestamp) - getCommentTime_(b.timestamp));
+  const cache = CacheService.getScriptCache();
+  const cacheKey = buildCommentsCacheKey_(safeScheduleId, safeTargetDate);
+  const cached = cache.get(cacheKey);
+  if (cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      // ignore cache parse errors
+    }
+  }
+
+  const sheet = getCommentsSheet_();
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return [];
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const scheduleIndex = headers.indexOf('schedule_id');
+  const dateIndex = headers.indexOf('target_date');
+  const timestampIndex = headers.indexOf('timestamp');
+  const userIndex = headers.indexOf('user');
+  const textIndex = headers.indexOf('comment_text');
+  if (scheduleIndex < 0 || dateIndex < 0) return [];
+
+  const results = [];
+  values.slice(1).forEach(row => {
+    if (normalizeCell_(row[scheduleIndex]) !== safeScheduleId) return;
+    const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
+    if (safeTargetDate && rowDate !== safeTargetDate) return;
+    results.push({
+      schedule_id: safeScheduleId,
+      target_date: rowDate,
+      timestamp: timestampIndex >= 0 ? normalizeCell_(row[timestampIndex]) : '',
+      user: userIndex >= 0 ? normalizeCell_(row[userIndex]) : '',
+      comment_text: textIndex >= 0 ? normalizeCell_(row[textIndex]) : ''
+    });
+  });
+  results.sort((a, b) => getCommentTime_(a.timestamp) - getCommentTime_(b.timestamp));
+
+  // 1件あたりが小さい想定なので短めにキャッシュ（最新投稿はUI側でも即時反映する）
+  try {
+    cache.put(cacheKey, JSON.stringify(results), 300);
+  } catch (error) {
+    // ignore cache errors (size limits etc.)
+  }
+  return results;
 }
 
 function isStopped(scheduleId, targetDate) {
@@ -376,7 +416,9 @@ function stopDeliveryUnlocked_(scheduleId, targetDate) {
   if (isScheduleOccurrenceFixedById_(safeScheduleId, safeTargetDate)) {
     throw new Error('確定済みの配信日は停止できません');
   }
-  if (isStopped(safeScheduleId, safeTargetDate)) {
+  
+  const existing = getStoppedOccurrences_();
+  if (existing[buildStoppedOccurrenceKey_(safeScheduleId, safeTargetDate)]) {
     return { success: true, action: 'already_stopped' };
   }
 
@@ -384,14 +426,10 @@ function stopDeliveryUnlocked_(scheduleId, targetDate) {
   const headers = getExceptionHeaders_(sheet);
   const row = headers.map(header => {
     switch (header) {
-      case 'schedule_id':
-        return safeScheduleId;
-      case 'target_date':
-        return safeTargetDate;
-      case 'status':
-        return 'stopped';
-      default:
-        return '';
+      case 'schedule_id': return safeScheduleId;
+      case 'target_date': return safeTargetDate;
+      case 'status': return 'stopped';
+      default: return '';
     }
   });
   sheet.appendRow(row);
@@ -1213,15 +1251,46 @@ function isDateInOperationalRange_(value, dateRange) {
 }
 
 function getCommentCounts_(dateRange) {
+  const cache = CacheService.getScriptCache();
+  const cacheKey = buildCommentCountsCacheKey_(dateRange);
+  if (cacheKey) {
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (error) {
+        // ignore cache parse errors
+      }
+    }
+  }
+
   const counts = {};
-  getSheetObjects_(COMMENTS_SHEET_NAME, true).forEach(comment => {
-    const scheduleId = normalizeCell_(comment.schedule_id);
-    const targetDate = normalizeCommentTargetDate_(comment.target_date);
+  const sheet = getCommentsSheet_();
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return counts;
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const scheduleIndex = headers.indexOf('schedule_id');
+  const dateIndex = headers.indexOf('target_date');
+  if (scheduleIndex < 0 || dateIndex < 0) return counts;
+
+  values.slice(1).forEach(row => {
+    const scheduleId = normalizeCell_(row[scheduleIndex]);
+    const targetDate = normalizeCommentTargetDate_(row[dateIndex]);
     if (!isDateInOperationalRange_(targetDate, dateRange)) return;
     if (!scheduleId || !targetDate) return;
     const key = buildCommentKey_(scheduleId, targetDate);
     counts[key] = (counts[key] || 0) + 1;
   });
+
+  if (cacheKey) {
+    try {
+      cache.put(cacheKey, JSON.stringify(counts), 300);
+    } catch (error) {
+      // ignore cache errors
+    }
+  }
   return counts;
 }
 
@@ -2100,6 +2169,38 @@ function normalizeCell_(value) {
   if (value == null) return '';
   const text = String(value).trim();
   return text === '#REF!' || text === '#VALUE!' ? '' : text;
+}
+
+function buildCommentsCacheKey_(scheduleId, targetDate) {
+  const safeScheduleId = normalizeCell_(scheduleId);
+  const safeTargetDate = normalizeCommentTargetDate_(targetDate) || '';
+  if (!safeScheduleId) return '';
+  return `comments:${safeScheduleId}:${safeTargetDate || '*'}`;
+}
+
+function buildCommentCountsCacheKey_(dateRange) {
+  if (!dateRange || !dateRange.start || !dateRange.end) return '';
+  const start = formatDate_(dateRange.start);
+  const end = formatDate_(dateRange.end);
+  if (!start || !end) return '';
+  return `commentCounts:${start}:${end}`;
+}
+
+function invalidateCommentCaches_(scheduleId, targetDate) {
+  try {
+    const cache = CacheService.getScriptCache();
+    const keys = [];
+    const safeScheduleId = normalizeCell_(scheduleId);
+    const safeTargetDate = normalizeCommentTargetDate_(targetDate);
+    if (safeScheduleId) {
+      keys.push(buildCommentsCacheKey_(safeScheduleId, safeTargetDate));
+      keys.push(buildCommentsCacheKey_(safeScheduleId, '')); // schedule_idのみの一覧も想定
+    }
+    if (keys.length) cache.removeAll(keys);
+    // commentCounts は範囲キーなので特定できない。短TTL(5分)で自然更新させる。
+  } catch (error) {
+    // ignore cache errors
+  }
 }
 
 function withScriptLock_(callback) {
