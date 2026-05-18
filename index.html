@@ -29,6 +29,7 @@
             <div class="legend-item"><span class="legend-color" style="background-color: #FFD1DC;"></span>隔週B</div>
             <div class="legend-item"><span class="legend-color" style="background-color: #E0FFFF;"></span>自動求人/その他</div>
           </div>
+          <button type="button" id="rFillToggle" class="secondary-button toolbar-button" onclick="toggleRFill()">Rをすべて塗りつぶす: OFF</button>
           <button type="button" id="moveModeToggle" class="secondary-button toolbar-button" onclick="toggleMoveMode()">移動: OFF</button>
           <button type="button" class="secondary-button toolbar-button" onclick="jumpToCurrentWeek()">今週</button>
           <label class="field">
@@ -98,6 +99,7 @@
           <span>備考</span>
           <textarea id="edit-notes"></textarea>
         </label>
+        <div id="editExtraFields" class="edit-extra-fields"></div>
         <div id="edit-pr-details" class="pr-info-container"></div>
         <section class="comment-panel" aria-label="コメントスレッド">
           <div class="comment-panel-header">

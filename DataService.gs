@@ -850,6 +850,24 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.job_url);
       case 'current_job_count':
         return normalizeCell_(safePayload.current_job_count);
+      case 'override_fields':
+        return normalizeCell_(safePayload.override_fields);
+      case 'delivery_count':
+        return normalizeCell_(safePayload.delivery_count);
+      case 'assignee':
+        return normalizeCell_(safePayload.assignee);
+      case 'reviewer':
+        return normalizeCell_(safePayload.reviewer);
+      case 'notes':
+        return normalizeCell_(safePayload.notes);
+      case 'category':
+        return normalizeCell_(safePayload.category);
+      case 'sub_category':
+        return normalizeCell_(safePayload.sub_category);
+      case 'format':
+        return normalizeCell_(safePayload.format);
+      case 'pr':
+        return normalizeCell_(safePayload.pr);
       case 'confirmed_by':
         return confirmedBy;
       case 'confirmed_at':
@@ -1357,6 +1375,26 @@ function getCheckStatuses_(dateRange) {
         hour: normalizeCell_(status.hour),
         is_active: true
       };
+    } else if (field === 'occurrence_override' && isTruthy_(status.is_active)) {
+      const overrideFields = normalizeCell_(status.override_fields)
+        .split(',')
+        .map(v => String(v || '').trim())
+        .filter(Boolean);
+      const obj = {
+        item_id: itemId,
+        field,
+        schedule_id: normalizeScheduleIdForMove_(status.schedule_id || itemId),
+        original_date: normalizeCommentTargetDate_(status.original_date),
+        delivery_date: normalizeCommentTargetDate_(status.delivery_date),
+        hour: normalizeCell_(status.hour),
+        mail_name: normalizeCell_(status.mail_name),
+        is_active: true,
+        override_fields: overrideFields
+      };
+      overrideFields.forEach(k => {
+        obj[k] = normalizeCell_(status[k]);
+      });
+      statuses[key] = obj;
     } else {
       statuses[key] = isTruthy_(status.is_active);
     }
@@ -1448,6 +1486,15 @@ function getCheckStatusHeaders_(sheet) {
     'mail_name',
     'job_url',
     'current_job_count',
+    'override_fields',
+    'delivery_count',
+    'assignee',
+    'reviewer',
+    'notes',
+    'category',
+    'sub_category',
+    'format',
+    'pr',
     'confirmed_by',
     'confirmed_at'
   ];

@@ -185,6 +185,11 @@
     background: #f8fafc;
     cursor: copy;
   }
+  .edit-extra-fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
   .legend-container {
     display: flex;
     gap: 12px;
@@ -234,6 +239,15 @@
     background: #fff;
     font-size: 11px;
     cursor: pointer;
+  }
+  .master-table td.expandable-cell {
+    cursor: pointer;
+  }
+  .master-table td.expandable-cell.is-expanded {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: unset;
+    word-break: break-word;
   }
   .filter-chip {
     border: 1px solid var(--border-strong);

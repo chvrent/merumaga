@@ -1,12 +1,16 @@
 <script>
   let APP_DATA = {};
   let CURRENT_ENTRY = null;
+  let CURRENT_ENTRY_BASE = null;
   let ACTIVE_MASTER = 'schedule';
   let MASTER_DATA = { sheetName: '', headers: [], rows: [] };
   let IS_MOVE_MODE = false;
+  let IS_R_FILL = false;
   let SORTABLES = [];
   const MASTER_RENDER_LIMIT = 300;
   let MASTER_SUBCATEGORY_FILTER = '';
+  let MASTER_FORMAT_FILTER = '';
+  let MASTER_CATEGORY_FILTER = '';
   let MASTER_FILTERS = {
     'format:自動求人特集': false,
     'category:イレギュラー': false,
@@ -115,6 +119,13 @@
     } else {
       destroyDragAndDrop();
     }
+  }
+
+  function toggleRFill() {
+    IS_R_FILL = !IS_R_FILL;
+    const btn = document.getElementById('rFillToggle');
+    if (btn) btn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
+    renderScheduleGrid();
   }
 
   function initDragAndDrop() {
@@ -318,19 +329,23 @@
           const renderedPrIds = new Set();
           entries.forEach(entry => {
             const entryForDate = Object.assign({}, entry, { target_date: dateStr });
-            const payload = escapeAttribute(encodeURIComponent(JSON.stringify(entryForDate)));
-            const scheduleId = entry.schedule_id || 'unknown';
+            const moveOverride = getMoveOverrideForDate(entry, dateStr);
+            if (moveOverride && moveOverride.hour) entryForDate.hour = moveOverride.hour;
+
+            const effectiveEntry = applyOccurrenceOverrideToEntry(entryForDate);
+            const payload = escapeAttribute(encodeURIComponent(JSON.stringify(effectiveEntry)));
+            const scheduleId = effectiveEntry.schedule_id || 'unknown';
             const checkItemId = getCheckItemId(entryForDate);
-            const subCategoryClass = getSubCategoryClass(entry);
-            const itemBg = getBgColor(entry);
+            const subCategoryClass = getSubCategoryClass(effectiveEntry);
+            const itemBg = getBgColor(effectiveEntry);
             const fixed = isFixed(entry, dateStr);
             const stopped = !fixed && isStopped(entryForDate);
             const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
             const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
-            const jobAlert = getJobCountAlert(entry);
+            const jobAlert = getJobCountAlert(effectiveEntry);
             const jobAlertIcon = renderJobAlertIcon(jobAlert);
             const rowTitle = jobAlert ? ` title="${escapeAttribute(getJobAlertTooltip(jobAlert))}"` : '';
-            const prLabel = getPrStates(entry, dateStr)
+            const prLabel = getPrStates(effectiveEntry, dateStr)
               .filter(prState => {
                 const key = normalizeText(prState.pr_id);
                 if (!key || renderedPrIds.has(key)) return false;
@@ -344,16 +359,16 @@
               <div class="col-name">
                 <div class="mail-name">
                   ${jobAlertIcon}
-                  ${escapeHtml(entry.mail_name)}
+                  ${escapeHtml(effectiveEntry.mail_name)}
                   ${fixedBadge}
                   ${stoppedBadge}
                   ${renderCommentBadge(entryForDate)}
                 </div>
                 ${prLabel}
               </div>
-              <div class="col-count">${escapeHtml(entry.delivery_count)}</div>
-              ${renderCheckStatusCell(checkItemId, 'setter', entry.assignee, 'col-setter', entryForDate)}
-              ${renderCheckStatusCell(checkItemId, 'checker', entry.reviewer, 'col-checker', entryForDate)}
+              <div class="col-count">${escapeHtml(effectiveEntry.delivery_count)}</div>
+              ${renderCheckStatusCell(checkItemId, 'setter', effectiveEntry.assignee, 'col-setter', entryForDate)}
+              ${renderCheckStatusCell(checkItemId, 'checker', effectiveEntry.reviewer, 'col-checker', entryForDate)}
             </div>
           `;
           });
@@ -440,41 +455,66 @@
       container.innerHTML = '';
       container.style.display = 'none';
       MASTER_SUBCATEGORY_FILTER = '';
+      MASTER_FORMAT_FILTER = '';
+      MASTER_CATEGORY_FILTER = '';
       return;
     }
 
     container.style.display = 'flex';
     const headers = MASTER_DATA.headers || [];
     const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
-    const subCategories = subCategoryHeader
-      ? Array.from(new Set((MASTER_DATA.rows || [])
-          .map(row => String((row && row[subCategoryHeader]) || '').trim())
-          .filter(Boolean)))
-          .sort((a, b) => a.localeCompare(b, 'ja'))
-      : [];
+    const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
+    const categoryHeader = headers.find(h => ['category', '種別'].includes(String(h || '').trim())) || '';
 
-    const chips = [
-      { id: 'format:自動求人特集', label: '形式:自動求人特集' },
-      { id: 'category:イレギュラー', label: '種別:イレギュラー' },
-      { id: 'category:検証', label: '種別:検証' }
-    ];
+    const uniqValues = header => {
+      if (!header) return [];
+      const set = new Set();
+      (MASTER_DATA.rows || []).forEach(row => {
+        const v = String((row && row[header]) || '').trim();
+        if (v) set.add(v);
+      });
+      return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+    };
+
+    const subCategories = uniqValues(subCategoryHeader);
+    const formats = uniqValues(formatHeader);
+    const categories = uniqValues(categoryHeader);
 
     const subCategorySelect = subCategories.length ? `
       <select id="masterSubCategorySelect" class="filter-select" onchange="setMasterSubCategoryFilter(this.value)">
         <option value="">サブカテゴリ: すべて</option>
+        <option value="__contains:商品" ${MASTER_SUBCATEGORY_FILTER === '__contains:商品' ? 'selected' : ''}>サブカテゴリ: 商品</option>
         ${subCategories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_SUBCATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
       </select>
     ` : '';
+    const formatSelect = formats.length ? `
+      <select id="masterFormatSelect" class="filter-select" onchange="setMasterFormatFilter(this.value)">
+        <option value="">形式: すべて</option>
+        ${formats.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_FORMAT_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+      </select>
+    ` : '';
+    const categorySelect = categories.length ? `
+      <select id="masterCategorySelect" class="filter-select" onchange="setMasterCategoryFilter(this.value)">
+        <option value="">種別: すべて</option>
+        ${categories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_CATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+      </select>
+    ` : '';
 
-    container.innerHTML = subCategorySelect + chips.map(chip => `
-      <div class="filter-chip ${MASTER_FILTERS[chip.id] ? 'active' : ''}" onclick="toggleMasterFilter('${chip.id}')">
-        ${escapeHtml(chip.label)}
-      </div>
-    `).join('');
+    container.innerHTML = [subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterSubCategoryFilter(value) {
     MASTER_SUBCATEGORY_FILTER = String(value || '');
+    renderMasterTable();
+  }
+
+  function setMasterFormatFilter(value) {
+    MASTER_FORMAT_FILTER = String(value || '');
+    renderMasterTable();
+  }
+
+  function setMasterCategoryFilter(value) {
+    MASTER_CATEGORY_FILTER = String(value || '');
     renderMasterTable();
   }
 
@@ -496,8 +536,9 @@
     const searchInput = document.getElementById('masterSearchInput');
     const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
 
-    const activeFilters = Object.keys(MASTER_FILTERS).filter(k => MASTER_FILTERS[k]);
     const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
+    const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
+    const categoryHeader = headers.find(h => ['category', '種別'].includes(String(h || '').trim())) || '';
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       // 検索キーワードフィルター
@@ -507,18 +548,22 @@
 
       // サブカテゴリフィルター (app_schedule のみ適用)
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER && subCategoryHeader) {
-        if (String(row[subCategoryHeader] || '').trim() !== MASTER_SUBCATEGORY_FILTER) return false;
+        const v = String(row[subCategoryHeader] || '').trim();
+        if (MASTER_SUBCATEGORY_FILTER === '__contains:商品') {
+          if (!v.includes('商品')) return false;
+        } else if (v !== MASTER_SUBCATEGORY_FILTER) {
+          return false;
+        }
       }
 
-      // チップフィルター (app_schedule のみ適用)
-      if (activeFilters.length > 0 && MASTER_DATA.sheetName === 'app_schedule') {
-        const matches = activeFilters.some(filterKey => {
-          const [field, value] = filterKey.split(':');
-          const aliases = (field === 'format') ? ['format', '形式'] : ['category', '種別'];
-          const actualHeader = headers.find(h => aliases.includes(String(h).trim()));
-          return actualHeader && String(row[actualHeader] || '').trim() === value;
-        });
-        if (!matches) return false;
+      // 形式フィルター (app_schedule のみ適用)
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_FORMAT_FILTER && formatHeader) {
+        if (String(row[formatHeader] || '').trim() !== MASTER_FORMAT_FILTER) return false;
+      }
+
+      // 種別フィルター (app_schedule のみ適用)
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER && categoryHeader) {
+        if (String(row[categoryHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
       }
 
       return true;
@@ -565,7 +610,9 @@
     `;
 
       tableHeaders.forEach(h => {
-        html += `<td>${escapeHtml(row[h] || '')}</td>`;
+        const cellValue = row[h] == null ? '' : String(row[h]);
+        const isExpandable = cellValue.length > 60 || cellValue.includes('\n');
+        html += `<td class="${isExpandable ? 'expandable-cell' : ''}" ${isExpandable ? 'onclick="toggleCellExpand(event)"' : ''} title="${escapeAttribute(cellValue)}">${escapeHtml(cellValue)}</td>`;
       });
 
       if (targetHeader) html += `<td>${escapeHtml(linkedNames)}</td>`;
@@ -690,6 +737,74 @@
     modal.setAttribute('aria-hidden', 'true');
   }
 
+  function buildUniqueScheduleValues_(key) {
+    const set = new Set();
+    (APP_DATA.schedule || []).forEach(row => {
+      const v = String((row && row[key]) || '').trim();
+      if (v) set.add(v);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+  }
+
+  function renderEditExtraFields_(entry) {
+    const container = document.getElementById('editExtraFields');
+    if (!container) return;
+
+    const categoryOptions = [''].concat(buildUniqueScheduleValues_('category'));
+    const subCategoryOptions = [''].concat(buildUniqueScheduleValues_('sub_category'));
+    const formatOptions = [''].concat(buildUniqueScheduleValues_('format'));
+
+    container.innerHTML = `
+      <label class="field">
+        <span>種別</span>
+        ${renderSelectInput('category', entry.category || '', categoryOptions)}
+      </label>
+      <label class="field">
+        <span>サブカテゴリ</span>
+        ${renderSelectInput('sub_category', entry.sub_category || '', subCategoryOptions)}
+      </label>
+      <label class="field">
+        <span>形式</span>
+        ${renderSelectInput('format', entry.format || '', formatOptions)}
+      </label>
+      <label class="field">
+        <span>PR</span>
+        <input type="text" id="edit-pr" value="${escapeAttribute(entry.pr || '')}">
+      </label>
+      <label class="field">
+        <span>求人URL</span>
+        <input type="text" id="edit-job-url" value="${escapeAttribute(entry.job_url || '')}">
+      </label>
+    `;
+
+    // renderSelectInput は data-header を付与するため、edit用にIDを付け直す
+    const selects = container.querySelectorAll('select[data-header]');
+    selects.forEach(select => {
+      const header = select.dataset.header;
+      if (header === 'category') select.id = 'edit-category';
+      if (header === 'sub_category') select.id = 'edit-sub-category';
+      if (header === 'format') select.id = 'edit-format';
+      select.removeAttribute('data-header');
+    });
+  }
+
+  function syncReviewerLock_() {
+    const assigneeEl = document.getElementById('edit-assignee');
+    const reviewerEl = document.getElementById('edit-reviewer');
+    if (!assigneeEl || !reviewerEl) return;
+
+    const isLocked = reviewerEl.disabled && (CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY)));
+    if (isLocked) return;
+
+    const assignee = String(assigneeEl.value || '').trim();
+    if (assignee === 'R') {
+      reviewerEl.value = '';
+      reviewerEl.disabled = true;
+    } else {
+      reviewerEl.disabled = false;
+    }
+  }
+
   function saveMasterEdit() {
     const btn = event.target;
     btn.disabled = true;
@@ -764,7 +879,14 @@
 
   function openModal(encodedEntry) {
     const entry = JSON.parse(decodeURIComponent(encodedEntry));
-    CURRENT_ENTRY = entry;
+    const scheduleRow = (APP_DATA.schedule || []).find(row => String(row && row.schedule_id || '').trim() === String(entry && entry.schedule_id || '').trim());
+    const baseEntry = scheduleRow ? Object.assign({}, scheduleRow) : Object.assign({}, entry);
+    // 発生分（=日付単位）の情報はカレンダー側の値を採用
+    baseEntry.target_date = entry.target_date;
+    if (entry.hour) baseEntry.hour = entry.hour;
+    if (entry.source_row) baseEntry.source_row = entry.source_row;
+    CURRENT_ENTRY_BASE = baseEntry;
+    CURRENT_ENTRY = applyOccurrenceOverrideToEntry(baseEntry);
 
     const modal = document.getElementById('editModal');
     const assigneeSelect = document.getElementById('edit-assignee');
@@ -775,13 +897,14 @@
       select.innerHTML = '<option value="">選択してください</option>' + options;
     });
 
-    document.getElementById('edit-id').value = entry.schedule_id || '';
-    document.getElementById('edit-name').value = entry.mail_name || '';
-    document.getElementById('edit-count').value = entry.delivery_count || '';
-    document.getElementById('edit-notes').value = entry.notes || '';
+    document.getElementById('edit-id').value = CURRENT_ENTRY.schedule_id || '';
+    document.getElementById('edit-name').value = CURRENT_ENTRY.mail_name || '';
+    document.getElementById('edit-count').value = CURRENT_ENTRY.delivery_count || '';
+    document.getElementById('edit-notes').value = CURRENT_ENTRY.notes || '';
+    renderEditExtraFields_(CURRENT_ENTRY);
 
     // 紐付いているPR情報を表示
-    const prDetails = getPrRecordsForSchedule(entry);
+    const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
     const prContainer = document.getElementById('edit-pr-details');
     if (prContainer) {
       if (prDetails.length > 0) {
@@ -791,7 +914,7 @@
           const endDate = pr.end_date || (prData ? prData.end_date : '');
 
           // 現在の日付が対象期間内かを判定
-          const targetDate = new Date(entry.target_date);
+          const targetDate = new Date(CURRENT_ENTRY.target_date);
           const start = startDate ? new Date(normalizeDateString(startDate)) : null;
           const end = endDate ? new Date(normalizeDateString(endDate)) : null;
           const isActive = (!start || start <= targetDate) && (!end || end >= targetDate);
@@ -812,12 +935,13 @@
     }
 
     document.getElementById('new-comment').value = '';
-    renderJobAlertGuidance(entry);
+    renderJobAlertGuidance(CURRENT_ENTRY);
     renderComments([]);
     loadCommentsForCurrentEntry();
-    assigneeSelect.value = entry.assignee || '';
-    reviewerSelect.value = entry.reviewer || '';
-    setEditState(isFixed(entry), isStopped(entry));
+    assigneeSelect.value = CURRENT_ENTRY.assignee || '';
+    reviewerSelect.value = CURRENT_ENTRY.reviewer || '';
+    syncReviewerLock_();
+    setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
@@ -839,16 +963,44 @@
       return;
     }
 
-    const payload = {
-      schedule_id: document.getElementById('edit-id').value,
-      source_row: CURRENT_ENTRY ? CURRENT_ENTRY.source_row : '',
-      target_date: CURRENT_ENTRY ? CURRENT_ENTRY.target_date : '',
-      mail_name: CURRENT_ENTRY ? CURRENT_ENTRY.mail_name : document.getElementById('edit-name').value,
+    const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
+    const itemId = getCheckItemId(CURRENT_ENTRY);
+
+    const nextValues = {
       delivery_count: document.getElementById('edit-count').value,
       assignee: document.getElementById('edit-assignee').value,
       reviewer: document.getElementById('edit-reviewer').value,
-      notes: document.getElementById('edit-notes').value
+      notes: document.getElementById('edit-notes').value,
+      category: (document.getElementById('edit-category') || {}).value,
+      sub_category: (document.getElementById('edit-sub-category') || {}).value,
+      format: (document.getElementById('edit-format') || {}).value,
+      pr: (document.getElementById('edit-pr') || {}).value,
+      job_url: (document.getElementById('edit-job-url') || {}).value
     };
+
+    if (String(nextValues.assignee || '').trim() === 'R') {
+      nextValues.reviewer = '';
+    }
+
+    const overrideFields = [];
+    const payload = {
+      item_id: itemId,
+      schedule_id: CURRENT_ENTRY.schedule_id,
+      original_date: CURRENT_ENTRY.target_date,
+      delivery_date: CURRENT_ENTRY.target_date,
+      hour: CURRENT_ENTRY.hour,
+      mail_name: CURRENT_ENTRY.mail_name
+    };
+
+    Object.keys(nextValues).forEach(key => {
+      const next = String(nextValues[key] == null ? '' : nextValues[key]);
+      const prev = String(base[key] == null ? '' : base[key]);
+      if (next !== prev) {
+        overrideFields.push(key);
+        payload[key] = next;
+      }
+    });
+    payload.override_fields = overrideFields.join(',');
 
     google.script.run
       .withSuccessHandler(() => {
@@ -858,7 +1010,7 @@
       .withFailureHandler(err => {
         alert('保存に失敗しました: ' + (err.message || err));
       })
-      .upsertScheduleData(payload);
+      .saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
   }
 
   function stopCurrentDelivery() {
@@ -996,6 +1148,7 @@
 
   function renderCheckStatusCell(itemId, field, value, className, row) {
     const active = isCheckStatusActive(itemId, field);
+    const forceRed = field === 'setter' && IS_R_FILL && String(value || '').trim() === 'R';
     const archived = isArchivedDate(row.target_date);
     const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
     const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
@@ -1005,7 +1158,7 @@
 
     return `
       <div
-        class="${className} check-status-cell ${active ? 'is-active-red' : ''} ${archived ? 'archived-cell' : ''}"
+        class="${className} check-status-cell ${(active || forceRed) ? 'is-active-red' : ''} ${archived ? 'archived-cell' : ''}"
         data-item-id="${escapeAttribute(itemId)}"
         data-check-field="${escapeAttribute(field)}"
         data-log-payload="${escapeAttribute(logPayload)}"
@@ -1758,6 +1911,29 @@
     });
   }
 
+  function getOccurrenceOverrideForItemId(itemId) {
+    const key = getCheckStatusKey(itemId, 'occurrence_override');
+    const status = (APP_DATA.checkStatuses || {})[key];
+    if (!status || typeof status !== 'object') return null;
+    if (status.field !== 'occurrence_override' || status.is_active !== true) return null;
+    return status;
+  }
+
+  function applyOccurrenceOverrideToEntry(entry) {
+    const itemId = getCheckItemId(entry);
+    const override = getOccurrenceOverrideForItemId(itemId);
+    if (!override) return entry;
+
+    const next = Object.assign({}, entry);
+    const fields = Array.isArray(override.override_fields) ? override.override_fields : [];
+    fields.forEach(key => {
+      if (Object.prototype.hasOwnProperty.call(override, key)) {
+        next[key] = override[key];
+      }
+    });
+    return next;
+  }
+
   function setEditState(fixed, stopped) {
     const locked = fixed || stopped;
     const modalCard = document.querySelector('#editModal .modal-card');
@@ -1813,6 +1989,13 @@
     return escapeHtml(value).replace(/`/g, '&#96;');
   }
 
+  function toggleCellExpand(event) {
+    if (!event || !event.currentTarget) return;
+    // ボタン操作やテキスト選択を邪魔しない
+    if (event.target && (event.target.tagName === 'BUTTON' || event.target.tagName === 'A')) return;
+    event.currentTarget.classList.toggle('is-expanded');
+  }
+
   function copyTextToClipboard_(text) {
     const value = String(text == null ? '' : text);
     if (!value) return;
@@ -1847,6 +2030,10 @@
     const editName = document.getElementById('edit-name');
     if (editName) {
       editName.addEventListener('click', () => copyTextToClipboard_(editName.value));
+    }
+    const editAssignee = document.getElementById('edit-assignee');
+    if (editAssignee) {
+      editAssignee.addEventListener('change', syncReviewerLock_);
     }
     document.getElementById('masterModal').addEventListener('click', event => {
       if (event.target.id === 'masterModal') closeMasterModal();
