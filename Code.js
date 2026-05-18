@@ -2,8 +2,13 @@
  * Code.gs
  */
 function doGet(e) {
-  return HtmlService.createTemplateFromFile('Index')
-    .evaluate()
+  let template;
+  try {
+    template = HtmlService.createTemplateFromFile('Index');
+  } catch (error) {
+    template = HtmlService.createTemplateFromFile('index');
+  }
+  return template.evaluate()
     .setTitle('メルマガ配信マスタ')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
