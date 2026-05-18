@@ -1,80 +1,585 @@
-# メルマガ運用・開発仕様書 (SPEC.md)
+# メルマガ配信マスタ管理アプリ 仕様書
 
-## 1. プロジェクト概要
-- **名称**: mail-magazine-maker
-- **目的**: 社内用メルマガスケジュールの可視化と共有。
-- **基本方針**: ユーザーの指示に基づき、運用ルール、システム仕様を随時アップデート。
+最終更新: 2026-05-15
 
-## 2. 運用・表示ルール
-### 2.1 カレンダー表示仕様
-- **初期表示**: 週表示（火曜日始まり）。
-- **重なり制御**: 複数メルマガがある場合、重ならないよう縦に一行ずつ配置。
-- **隔週ローテーション**: 火曜始まりの週数で判定。偶数週を緑(Group A)、奇数週をピンク(Group B)で色分け。
-- **配信停止**: 編集版では除外せずに抽出し、`配信停止` 行はグレーで表示する。
-- **色**: 編集版のタイトルセルの背景色は、対応するマスタ（リスト/新規/特殊配信マスタ）の背景色を同期して合わせる。
+## 1. 目的
 
-### 2.2 データソース
-- **リスト / 新規 / 特殊配信マスタ**: スケジュール。
-- **リストの `O列`**: 手動チェックボックスで配信停止を管理する。
-- **PR管理**: タイトル内に `PRXXX` がある場合、内容を抽出して詳細に表示。
-- **PR(完全一致)**: `PR管理` の「PRが入るメルマガ」列は `リスト!メルマガ内容` と完全一致で運用し、`PR管理` の `完全一致チェック(リスト未登録)` が空でない場合はマスタ不整合。
-- **PR列の継承**: `PR管理` のメルマガ名列（G列以降）が増えても参照が壊れないこと。
-- **実装メモ（関数）**: `PR管理` に内部ヘルパー列 `PR_TARGET_MAIL(内部)` / `PR_TARGET_PR(内部)` を作り縦持ち化し、`リスト!PR` は列位置ではなくヘッダー名で参照する。
+スプレッドシート `【ウキ】新メルマガスケジュール` の `app_*` シート群をデータソースとして、メルマガ配信予定を週次カレンダーで確認・編集し、PR作業状態、コメント履歴、マスタ管理、確定済みデータの保全をWebアプリ上で扱う。
 
-### 2.3 完全一致ポリシー（重要）
-- 本運用は「完全一致（余計な空白・表記ゆれ含め不許可）」で統一する。
-- 「データの持ち方が違う」ときは、黙って空欄にしたり近似一致で吸収せず、エラーや不整合表示で“すぐ気づける”状態にする。
-  - `PR管理` の `完全一致チェック(リスト未登録)` は、リスト未登録のメルマガ名を検知して強調表示する。
-  - GASの `PR管理 → リスト(PR列)へ反映` は、同一メルマガ名が複数PRに紐付くなど曖昧さが出たらエラーで停止する（静かに上書きしない）。
+## 2. 技術構成
 
-### 2.4 配信停止（全シート統一）
-- 配信停止は「抽出から除外しない」。編集版・確定版・マスタいずれも、該当行はグレー表示で統一する。
-- “配信停止チェック列” はシートごとに異なる（列変更時は要更新）。現状の前提:
-  - リスト: K列（条件付き書式）/ O列（運用上の停止管理）
-  - 新規: O列
-  - 特殊配信マスタ: 配信停止列（ヘッダー名=`配信停止`）
-  - MAｓ: L列
+- 実行基盤: Google Apps Script Webアプリ
+- サーバー側: `Code.js`, `DataService.gs`
+- 画面側: `Index.html`, `Client.html`, `Styles.html`
+- デプロイ: `clasp push -f` 後、既存WebアプリデプロイIDを更新
+- 主データソース: `app_schedule`, `app_pr`, `app_pr_targets`, `app_product`, `app_comments`, `app_schedule_archives`
 
-### 2.5 編集版の抽出ルール（全体）
-- 編集版は「マスタの内容を自動抽出して表示する」ためのシートで、手入力での改変を前提にしない（修正はマスタ側へ戻す）。
-- 編集版のブロック構造は “時間 → セクション（毎週/新規/特殊）→ その配下のスロット行” の順で並ぶ。
-- 抽出対象は以下:
-  - 毎週: `リスト` から抽出（隔週A/B含む）
-  - 新規: `新規` から抽出（特定日ロジック含む）
-  - 特殊: `特殊配信マスタ` から抽出
-- 編集版の 1日あたりの列構成は5列固定:
-  - メルマガ内容 / 通数 / 計 / 設定者 / 確認者
-- 「通数・設定者・確認者」も必ずマスタから抽出する（編集版にだけ存在する手入力値は作らない）。
+## 3. 画面構成
 
-### 2.5.2 特殊配信マスタの持ち方（新・旧対応）
-- 目的: 「横持ち3列（メイン/2/関西）」の例外構造をやめ、1行=1配信の縦持ちに寄せてスッキリさせる。
-- **推奨（新）: 縦持ち（1行=1配信）**
-  - 必須ヘッダー: `曜日` / `時間` / `サイクル` / `メルマガ内容`
-  - 付随ヘッダー（編集版へ転記）: `通数` / `設定者` / `確認者` / `配信停止`
-  - 同じ(曜日,時間,サイクル)に複数配信がある場合は「複数行」で持つ。
-  - 「関西」などの例外も、通常の `メルマガ内容` の1行として持つ（cycle=3のみなどは行自体で管理する）。
-- **互換（旧）: 横持ち（1行に最大3タイトル）**
-  - `メルマガ内容(メイン)` / `メルマガ内容(2)` / `関西(3のみ)`（または表記ゆれ）を許容。
-  - GAS/式は新ヘッダーがあれば新形式を優先し、無ければ旧形式にフォールバックする。
+画面上部にタブを置く。
 
-### 2.5.1 抽出漏れ（未掲載）を防ぐ仕組み
-- “あるはずのメルマガが編集版に無い” を最優先で防ぐ。
-- 編集版更新後に、GASの `編集版の抽出漏れチェック` を実行し、`<編集版名>_検知` シートで不足を確認する。
-  - 不足が1件でもあれば運用NG（マスタの条件/枠数/表記ゆれ/完全一致不整合を疑う）。
-  - `枠数(編集版)` より `期待件数` が大きい場合は “溢れ” で静かに消えるため最優先で解消する（枠行追加 or 抽出条件見直し）。
+- 配信カレンダー
+- メルマガ一覧
+- 自動求人特集
+- PR管理
 
-### 2.6 書式・色のルール
-- “配信停止=グレー” は見た目ルール（抽出ロジックから除外しない）。
-- 編集版のタイトルセル背景色は「元マスタのタイトルセル背景色」を同期する。
-  - 例: 毎週は `リスト`、新規は `新規`、特殊は `特殊配信マスタ` のタイトルセル背景色
-- 条件付き書式は「列追加/行追加で範囲が欠けない」ように、可能な限り列全体・行全体指定で持つ。
+### 配信カレンダー
 
-### 2.7 追加・拡張に強い設計ルール（壊れやすい所）
-- 列追加やレイアウト変更が入る前提で、参照先は「列文字固定」ではなく「ヘッダー名でMATCH」や「テーブルの末尾（チェック列の手前）」で決める。
-- すべての行・列で、関数が入っているものは “新しい行/列が追加されたら一緒に引っ張られる” 状態にする。
-  - 配列数式（`ARRAYFORMULA`）で列全体を埋める、またはテーブル化して自動拡張させる。
-- “完全一致” のため、近似一致（TRUEのVLOOKUP等）は禁止。
+- 表示単位は7日間。
+- 運用週は火曜始まり、月曜終わりを基本とする。
+- カレンダー左端の日付ヘッダーに開始日入力を配置する。
+- `今週` ボタンは当日を含む週の火曜日へ移動する。
+- 色凡例は `今週` ボタンの左に表示する。
+- メルマガ名は省略せず、画面全体の横スクロールで確認できるようにする。
+- 時間帯は8:00〜21:00。
+- セル内の配信行は `内容 / 通数 / 設定 / 確認` の4カラムで表示する。
+- 配信行クリックで編集モーダルを開く。
 
-## 3. システム保守
-- **デプロイ**: `プッシュ用.bat` をダブルクリックしてGitHubへ反映。
-- **更新サイクル**: スプレッドシート側の「★管理メニュー」からGitHubへデータをプッシュし、その後GitHub Actionsで自動公開される。
+### マスタ管理タブ
+
+マスタ管理画面では、対象シートのヘッダーから表と編集フォームを自動生成する。
+
+- メルマガ一覧: `app_schedule`
+- 自動求人特集: `app_product`
+- PR管理: `app_pr`, `app_pr_targets`
+
+編集対象シートはサーバー側でホワイトリスト制限する。
+
+## 4. データ取得・保存
+
+### 初期取得
+
+`getInitialData()` は以下を取得する。
+
+- `schedule`: `app_schedule`
+- `pr`: `app_pr`
+- `prTargets`: `app_pr_targets`
+- `product`: `app_product`
+- `commentCounts`: `app_comments` の日付別件数集計
+- `fixedOccurrences`: `app_schedule_archives` から算出した確定済み発生分
+- `adminMaster`: `app_admin_master` または `app_name_master`
+
+### 配信編集
+
+配信編集では以下を保存対象とする。
+
+- メルマガ名
+- 通数
+- 設定者
+- 確認者
+- 備考
+
+コメントは `app_schedule` には保存せず、`app_comments` に履歴として保存する。
+
+## 5. ID管理
+
+ユーザーはPR以外のIDを入力・編集しない。
+
+### UI
+
+マスタ管理UIではPR以外のID列を非表示にする。保存時は既存IDを保持する。
+
+### 自動採番
+
+新規追加時にIDが空の場合、サーバー側で採番する。
+
+- `app_schedule`: `SCH_001`
+- `app_pr`: `PR_001`
+- `app_product`: `PROD_001`
+- `app_pr_targets`: `PRT_001`
+
+既存の日本語IDを英語連番へ移行するために `migrateLegacyIdsToEnglish()` を用意している。デフォルトはdry-runであり、本実行は `migrateLegacyIdsToEnglish(false)` とする。
+
+## 5.1 配信停止・再開
+
+手動の配信停止は `app_schedule` 本体を変更せず、`app_exceptions` に日付別例外として保存する。
+
+### `app_exceptions` ヘッダー
+
+- `schedule_id`
+- `target_date`
+- `status`
+
+`status` は停止中の場合 `stopped` とする。
+
+### 挙動
+
+- 停止キーは `schedule_id + target_date`。
+- `stopDelivery(scheduleId, targetDate)` は `app_exceptions` に停止行を追加する。
+- `resumeDelivery(scheduleId, targetDate)` は一致する停止行を削除する。
+- `isStopped(scheduleId, targetDate)` は停止中かどうかを返す。
+- 停止中の配信はカレンダー上でグレーアウトし、メルマガ名などを打ち消し線で表示する。
+- 停止中の配信編集モーダルでは停止ボタンではなく再開ボタンを表示し、編集フォームをグレーアウトする。
+- 確定済み配信は停止・再開できない。
+- 確定済み判定はUIだけでなくサーバー側の `stopDelivery()` / `resumeDelivery()` でも行い、直接呼び出しでも停止・再開を拒否する。
+
+## 5.2 自動求人件数チェック
+
+`自動求人` の配信事故を防ぐため、`app_schedule` の求人URLから現在求人数を取得し、カレンダー上に警告を表示する。
+
+### `app_schedule` 利用列
+
+- P列 `job_url`: 求人数取得対象URL。ユーザー入力。
+- Q列 `current_job_count`: GASが取得した最新求人数。システム自動書き込み。
+
+### GAS処理
+
+- `fetchJobCountFromUrl(url)` は `UrlFetchApp` でHTMLを取得し、旧 `IMPORTXML(job_url, "/html/body/form/div[1]/div[3]/main/div/div/div[2]/div/span[1]")` と同等の階層をGAS側で辿って件数を抽出する。XPath相当箇所で取れない場合だけ、ページ全体の `全 ... 件` から数字を抽出する。ページ全体から任意の `0件` を拾わないよう、XPath相当箇所以外では `全 ... 件` パターンだけを採用する。
+- 取得できた場合は数値を返す。
+- 取得失敗、HTTPエラー、数字未検出の場合は `null` を返し、既存の `current_job_count` は上書きしない。
+- `updateAllJobCounts()` は `app_schedule` を走査し、`job_url` がある行だけ `current_job_count` と `job_count_updated_at` を更新する。
+- `setupWeeklyJobCountTrigger()` / `setupHourlyJobCountTrigger()` は互換名として残し、どちらも `updateAllJobCounts()` を1時間ごとに実行する時間主導型トリガーを作成する。
+- 初回のトリガー作成はGASエディタから `setupHourlyJobCountTrigger()` を実行する。
+- `app_schedule` のマスタ保存時にも `updateAllJobCounts()` を実行する。
+
+### カレンダー警告
+
+`current_job_count` が空欄、null、非数値の場合は未取得としてアラートを表示しない。取得結果が数値の `0` の場合だけ、赤色太字 `[！！]` の `job-alert-icon` を表示する。
+
+警告アイコンはメルマガ名の直前に表示し、`title` 属性で `最終取得日時：yyyy/MM/dd HH:mm、件数：●件 / メッセージ` を表示する。
+
+## 5.3 設定・確認チェック状態
+
+カレンダー上の `設定` / `確認` セルはクリックで赤塗りを切り替えられる。状態はブラウザ内だけでなく、スプレッドシートの `app_check_status` に保存する。`app_check_status` は単なるフラグではなく配信ログとして扱い、確認セルの承認時点の配信情報も保持する。
+
+### `app_check_status` ヘッダー
+
+- `item_id`: `target_date_hour_mail_name` 形式のキー
+- `field`: `setter` または `checker`
+- `is_active`: 赤塗り状態
+- `updated_at`: 更新日時
+- `delivery_date`: 配信日
+- `hour`: 配信時間
+- `mail_name`: メルマガ名
+- `job_url`: 確認時点の求人URL
+- `current_job_count`: 確認時点の求人数
+- `confirmed_by`: 確認者
+- `confirmed_at`: 確認日時
+
+### 挙動
+
+- カレンダー描画時に `getInitialData()` が `checkStatuses` を返し、保存済みの赤塗りを復元する。
+- `設定` / `確認` セルクリック時に `saveCheckStatus(itemId, field, active)` を呼び、同時に `.is-active-red` を切り替える。
+- `確認` セルを有効化した場合は、`job_url`、`current_job_count`、確認者、確認日時を同じ行へ保存または上書きする。
+- `.is-active-red` は `background-color: #ffcccc !important;` とする。
+
+## 6. PRラベル仕様
+
+PRは `app_pr_targets.mail_name` と `app_pr.pr_id` を突き合わせて、配信行に紐付ける。配信行に直接PR情報がある場合も補助的に対応する。
+
+PR期間は `start_date / end_date` または `開始日 / 終了日` から自動計算する。`copy_add_date` / `copy_remove_date` は参照しない。
+
+### 表示条件
+
+1つのPRにつき、以下の優先順位で1つだけ表示する。
+
+1. 追加: `targetDate` が `start_date` から7日間以内
+2. 削除: `targetDate` が `end_date` の7日前〜当日
+3. 掲出中: 上記以外で `targetDate` が `start_date`〜`end_date` の間
+
+### 表示文言
+
+- 追加: `└PR[ID]追加`
+- 削除: `└PR[ID]削除`
+- 掲出中: `└PR[ID]掲出中`
+
+### 表示スタイル
+
+- 追加: 黄色背景、赤枠、太字
+- 削除: グレー背景、打ち消し線
+- 掲出中: 控えめな通常表示
+
+同一セル内では同じPR IDを1回だけ表示する。複数PRがある場合は1件1行で縦に並べる。
+
+## 7. コメント仕様
+
+コメントは `app_comments` に履歴として保存する。紐付けキーは `schedule_id` だけではなく、表示中の配信日 `target_date` も含める。
+
+### `app_comments` ヘッダー
+
+- `schedule_id`
+- `timestamp`
+- `user`
+- `comment_text`
+- `target_date`
+
+### 機能
+
+- 配信編集モーダル内にコメントスレッドを表示する。
+- 新規コメント投稿後、スレッドを再読込し、最新コメントまで自動スクロールする。
+- カレンダー行には、その配信日のコメント件数バッジを表示する。
+- 確定済み配信でもコメントの読み書きは可能。
+
+コメントは `schedule_id + target_date` に紐付く。同じメルマガ枠を翌週以降に使い回しても、別日のコメントは累計表示しない。
+
+## 8. 確定・バックアップ仕様
+
+### 運用週
+
+火曜〜月曜を1週間として扱う。
+
+例: 2026-05-14(木) 時点での締切週は 2026-04-28(火)〜2026-05-04(月)。この週を含み、それ以前の未アーカイブ週すべてが確定対象になる。
+
+### 自動処理
+
+`backupAndLockTwoWeeksAgo()` は、2週間前の火曜〜月曜を締切週として扱い、その週を含む過去すべての未アーカイブ配信発生分を `app_schedule_archives` に退避する。判定は「締切週だけ」ではなく `fixed_week_end` が締切週の月曜以前になる全週を対象にする。
+
+`app_schedule` の行は繰り返しマスタなので、行全体をロックしてはいけない。確定判定は `app_schedule_archives` の `source_row` と `fixed_week_start / fixed_week_end` から、表示中の日付単位で判定する。
+
+### `app_schedule_archives` 追加列
+
+- `archived_at`
+- `fixed_week_start`
+- `fixed_week_end`
+- `source_row`
+- 以降に `app_schedule` の全列スナップショット
+
+### ロック挙動
+
+- 確定済みの発生分だけカレンダー上でグレーアウトする。
+- 確定済みバッジを表示する。
+- 配信編集モーダルでは保存ボタンを非表示にする。
+- 配信編集欄は読み取り専用にする。
+- コメント欄だけは操作可能にする。
+- サーバー側でも `source_row + target_date` で確定済み発生分の更新を拒否する。
+
+### 表示優先順位
+
+カレンダー上の状態表示は以下の優先順位で決まる。
+
+1. 確定済み: `app_schedule_archives` に該当発生分がある場合。グレーアウトし、編集不可。
+2. 手動停止: `app_exceptions` に `schedule_id + target_date` の `stopped` がある場合。グレーアウトし、打ち消し線。
+3. 通常: 上記以外。
+
+### トリガー
+
+`setupWeeklyBackupTrigger()` をGASエディタで1回実行すると、毎週火曜4時に `backupAndLockTwoWeeksAgo()` を実行するトリガーを作成する。
+
+`clasp run setupWeeklyBackupTrigger` は Apps Script API 実行設定の制約で失敗する場合があるため、初回はGASエディタから実行する。
+
+### 復旧補助
+
+過去実装で `app_schedule.is_fixed` にTRUEが入った場合でも、現行仕様ではロック判定に使わない。不要なフラグを消す場合は `clearScheduleFixedFlags()` を実行する。
+
+## 9. 色分け仕様
+
+配信行の背景色は `category / cycle / format` をもとに判定する。行全体の文字列検索では判定しない。
+
+- 毎月: 薄ピンク
+- 特殊/特段: 薄紫
+- 隔週A: 薄緑
+- 隔週B: ピンク
+- 自動求人: 水色
+- その他: 白
+
+## 10. 日本語表示名
+
+マスタ管理画面では、英語キーをユーザーに直接見せない。`DISPLAY_NAMES` により、テーブルヘッダーと編集フォームラベルを日本語表示へ変換する。
+
+保存時は元のキーを維持し、シート更新に必要な列名は変更しない。
+
+## 11. デプロイ・検証
+
+変更時は以下を行う。
+
+1. `DataService.gs` の構文チェック
+2. `Client.html` 内JavaScriptの構文チェック
+3. `git diff --check`
+4. `clasp push -f`
+5. 既存デプロイIDを `clasp deploy -i ...` で更新
+6. `運用台帳.md` に作業内容とデプロイ番号を記録
+
+## 12. 注意事項
+
+- `app_schedule` は繰り返しマスタであり、特定日の実績行ではない。
+- 過去週の確定は `app_schedule_archives` で管理する。
+- コメントは配信マスタ本体ではなく `app_comments` に保存する。
+- PRラベルは `copy_add_date` / `copy_remove_date` を使わず、開始日・終了日から自動計算する。
+- IDはユーザー入力させず、サーバー側で自動採番する。
+
+## 13. コードから逆算した実挙動
+
+この章は `DataService.gs` と `Client.html` の実装から逆算した、現在のアプリの実動作を記録する。
+
+### 13.1 起動時の流れ
+
+1. `Code.js` の `doGet()` が `Index.html` を返す。
+2. `Index.html` は `Styles.html` と `Client.html` を読み込む。
+3. `Client.html` の末尾で `wireEvents()` と `loadData()` が実行される。
+4. `loadData()` は `google.script.run.getInitialData()` を呼ぶ。
+5. `getInitialData()` は配信、PR、商品、コメント件数、確定済み発生分などをまとめて返す。
+6. 成功後、`renderScheduleGrid()` がカレンダーを描画する。
+
+### 13.2 `getInitialData()` が返すデータ
+
+`DataService.gs` の `getInitialData()` は以下を返す。
+
+- `schedule`: `getScheduleRows_()` によって正規化された `app_schedule`
+- `pr`: `app_pr`
+- `prTargets`: `app_pr_targets`
+- `holidays`: `app_holidays`
+- `product`: `app_product`
+- `commentCounts`: `app_comments` を `schedule_id|target_date` ごとに集計した件数
+- `fixedOccurrences`: `app_schedule_archives` から作る `source_row|yyyy-MM-dd` 形式の確定済みマップ
+- `stoppedOccurrences`: `app_exceptions` から作る `schedule_id|yyyy-MM-dd` 形式の停止中マップ
+- `readme`: `app_readme`
+- `adminMaster`: `app_admin_master` または `app_name_master`
+
+`schedule` の各行には、少なくとも以下の正規化済みプロパティが入る。
+
+- `schedule_id`
+- `source_sheet`
+- `source_row`
+- `category`
+- `sub_category`
+- `sub_category_class`
+- `cycle`
+- `weekday`
+- `hour`
+- `mail_name`
+- `format`
+- `delivery_count`
+- `assignee`
+- `reviewer`
+- `start_date`
+- `end_date`
+- `pr`
+- `notes`
+- `job_url`
+- `current_job_count`
+- `job_count_updated_at`
+- `current_week_cycle`
+- `current_week_inactive`
+- `is_inactive`
+- `is_fixed`
+
+ただし、現行仕様では `is_fixed` は確定判定には使わない。確定判定は `fixedOccurrences` で行う。
+
+### 13.3 カレンダー描画の実挙動
+
+`renderScheduleGrid()` は以下の順で描画する。
+
+1. `startInput` の値を開始日とする。空なら今日を入れる。
+2. 開始日から7日分の日付配列を作る。
+3. 8:00〜21:00 の各時間行を作る。
+4. 各日付・時間のセルごとに `schedule` を絞り込む。
+5. セル内に該当する配信を `delivery-row` として描画する。
+
+配信がセルに出る条件は以下。
+
+- `is_inactive` が真ではない。
+- 曜日が対象日付の曜日と一致する。
+- 時間が対象時間と一致する。
+- `start_date` / `end_date` の範囲内である、またはその日に表示対象のPRラベルがある。
+- `cycle` が対象日の隔週A/Bまたは3週サイクル条件に合う。
+- `category` が毎月の場合は、対象日付が月末配信期間内である。
+
+サイクルは `今週サイクル(内部)` がある場合はその値を最優先で使う。これにより、スプレッドシート側で今週有効と判定された `cycle1` などがWeb表示でもそのまま対象になる。内部値がない場合だけ、`CYCLE_BASE_DATE = 2026-04-27` を起点に経過週数 `diffWeeks` から計算する。ポジションマッチは `種別` だけでなく、メルマガ名や備考に `ポジションマッチ` を含む行も対象とする。比較は `String(row.cycle).indexOf(String(targetCycle)) !== -1` 相当で行い、`3`、`"3"`、`"A3"` を同じ3週目として扱う。
+
+### 13.4 開始日UIの実挙動
+
+上部ツールバーに見える開始日入力は置かない。代わりに、カレンダー左端の日付ヘッダーに `input type="date"` を表示する。
+
+- ヘッダー内の日付を変更すると `setCalendarStartDate(value)` が呼ばれる。
+- `setCalendarStartDate()` は隠し `startInput` に値をセットし、`renderScheduleGrid()` を再実行する。
+- `今週` ボタンは `jumpToCurrentWeek()` を呼び、当日を含む火曜始まり週へ移動する。
+
+### 13.5 PRラベルの実挙動
+
+PRラベルは `getPrStates(row, targetDateString)` で決まる。
+
+処理の流れ:
+
+1. `getPrRecordsForSchedule(row)` が配信行に紐付くPR候補を集める。
+2. 優先して `app_pr_targets` の `mail_name` と配信の `mail_name` を完全一致で突き合わせる。
+3. 対応する `pr_id` から `app_pr` を引き、開始日・終了日を取得する。
+4. `app_pr_targets` で取れない場合は、`app_pr` の各列を走査してメルマガ名一致を探す。
+5. `getPrState()` が対象日の状態を `追加` / `削除` / `掲出中` のいずれかに決める。
+6. `collapsePrStates_()` が同じPR IDの重複を1件へ集約する。
+
+`getPrState()` は `if / else if` の排他判定で、1つのPRに対して1状態だけ返す。
+
+- `start_date` から7日間: `add`
+- `end_date` の7日前から当日: `remove`
+- それ以外で掲出期間中: `active`
+
+同一セル内では `renderedPrIds` により、同じPR IDを二重表示しない。
+
+### 13.6 色分けの実挙動
+
+配信行の背景色は既存凡例の配信サイクルをもとに決める。
+
+- 毎週: `#FFFFFF`
+- 特殊: `#E6E6FA`
+- 毎月: `#FFF0F5`
+- 隔週A: `#E0FFE0`
+- 隔週B: `#FFD1DC`
+- その他: `#E0FFFF`
+
+`sub_category` は背景色ではなく左枠線で強調する。
+
+- `商品`: `.is-product` / `border-left: 6px solid #008080`
+- `特殊`: `.is-special` / `border-left: 6px solid #800080`
+- `その他` / `他部署` / 上記以外の文字あり: `.is-others` / `border-left: 6px solid #FFA500`
+- 空欄: 追加枠線なし
+
+カレンダー描画では `style="background-color: ${getBgColor(row)}"` と `slot-item ${sub_category_class}` を併用する。
+
+- `毎月` を含む: `#FFF0F5`
+- `特段` または `特殊` を含む: `#E6E6FA`
+- `隔週A` または `cycle === 'A'`: `#E0FFE0`
+- `隔週B` または `cycle === 'B'`: `#FFD1DC`
+- `自動求人` を含む: `#E0FFFF`
+- その他: `#FFFFFF`
+
+`source_sheet` や行全体の文字列は色判定に使わない。
+
+### 13.7 確定済み判定の実挙動
+
+確定済み判定は `isFixed(row, targetDate)` で行う。
+
+`isFixed()` は `APP_DATA.fixedOccurrences` の中に以下のキーがあるかを見る。
+
+```text
+source_row|yyyy-MM-dd
+```
+
+したがって、同じ `app_schedule` 行でも、アーカイブ済みの日付だけが確定済みになる。未来日の同じ配信はロックされない。
+
+確定済みの場合:
+
+- カレンダー行に `is-fixed` クラスが付く。
+- `確定済` バッジが出る。
+- 配信編集モーダルの保存ボタンが非表示になる。
+- 配信編集欄は読み取り専用になる。
+- コメント欄は操作可能なまま残る。
+
+保存時も `upsertScheduleData(data)` が `source_row + target_date` を使って `isArchivedOccurrenceFixed_()` を呼び、確定済み発生分なら更新を拒否する。`source_row` が渡されない場合も、`schedule_id` から `app_schedule` の行番号を引き直して確定済み判定を行う。
+
+### 13.7.1 手動停止判定の実挙動
+
+手動停止判定は `isStopped(row, targetDate)` で行う。
+
+`isStopped()` は `APP_DATA.stoppedOccurrences` の中に以下のキーがあるかを見る。
+
+```text
+schedule_id|yyyy-MM-dd
+```
+
+停止中の場合:
+
+- カレンダー行に `is-stopped` クラスが付く。
+- `配信停止中` バッジが出る。
+- メルマガ名、通数、設定者、確認者を打ち消し線で表示する。
+- 配信編集モーダルでは保存ボタンを非表示にする。
+- 停止ボタンではなく `配信を再開する（元に戻す）` ボタンを表示する。
+- コメント欄は操作可能なまま残る。
+
+`upsertScheduleData(data)` は `schedule_id + target_date` を使って `isStopped()` を呼び、停止中発生分なら更新を拒否する。`stopDelivery()` と `resumeDelivery()` は `schedule_id` から `source_row` を解決し、確定済み発生分なら停止・再開操作を拒否する。
+
+### 13.8 バックアップ処理の実挙動
+
+`backupAndLockTwoWeeksAgo()` は以下を行う。
+
+1. 今日から直近火曜を求める。
+2. そこから14日前の火曜を締切週開始日にする。
+3. 締切週終了日は開始日+6日の月曜とする。
+4. `app_schedule` の開始日・終了日、または既存アーカイブの最古週から走査開始週を決める。
+5. 走査開始週から締切週まで、火曜〜月曜単位で順に確認する。
+6. `app_schedule` の各行について、その週に実際に発生するかを `isScheduleRowInWeek_()` で判定する。
+7. 未アーカイブの該当行だけを `app_schedule_archives` へ追記する。
+8. `app_schedule` の行全体にはロックを立てない。
+
+アーカイブの重複防止は `source_row|fixed_week_start` で行う。
+
+`isScheduleRowInWeek_()` は曜日、開始日、終了日、停止フラグに加え、隔週A/B、ポジションマッチの3週サイクル、月末配信期間もカレンダー描画側と同じ基準で判定する。
+
+`setupWeeklyBackupTrigger()` は既存の同名トリガーを削除してから、毎週火曜4時に `backupAndLockTwoWeeksAgo()` を実行するトリガーを作る。
+
+`clearScheduleFixedFlags()` は過去実装で `app_schedule.is_fixed` に入ってしまった値を消すための復旧関数である。現行ロック判定には `is_fixed` を使わない。
+
+### 13.9 配信編集モーダルの実挙動
+
+`openModal(encodedEntry)` は以下を行う。
+
+1. 配信行データを `CURRENT_ENTRY` に保持する。
+2. 設定者・確認者の選択肢を `adminMaster` から作る。
+3. メルマガ名、通数、設定者、確認者、備考をフォームへセットする。
+4. コメント欄を初期化する。
+5. `loadCommentsForCurrentEntry()` でコメント履歴を読み込む。
+6. `setEditLocked(isFixed(entry))` で確定済みなら編集欄をロックする。
+
+`saveEdit()` は `upsertScheduleData()` を呼ぶ。送信時には `schedule_id`, `source_row`, `target_date` も渡すため、サーバー側で日付単位の確定判定ができる。
+
+### 13.10 コメント機能の実挙動
+
+コメントは `app_comments` に追記される。
+
+`postComment()` は以下を行う。
+
+1. `CURRENT_ENTRY.schedule_id` と `CURRENT_ENTRY.target_date` を使う。
+2. `new-comment` の内容を取得する。
+3. `saveComment(schedule_id, commentText, target_date)` を呼ぶ。
+4. 成功したらコメント入力欄を空にする。
+5. `APP_DATA.commentCounts` の `schedule_id|target_date` をローカルで加算する。
+6. カレンダーを再描画する。
+7. コメントスレッドを再読込する。
+
+`renderComments()` はコメントを時系列順に表示し、表示後に最下部へスクロールする。
+
+`getCommentsByScheduleId(scheduleId, targetDate)` は指定日のコメントだけを返す。`target_date` が入っていない過去コメントは、日付別スレッドには表示しない。
+
+### 13.11 マスタ管理画面の実挙動
+
+タブ切り替えは `switchTab(tabName)` で行う。
+
+- `calendar`: カレンダー画面を表示
+- `schedule`: `app_schedule` を管理
+- `product`: `app_product` を管理
+- `pr`: `app_pr` と `app_pr_targets` を切り替えて管理
+
+`loadActiveMaster()` は `getMasterData(sheetName)` を呼ぶ。返却されたヘッダーと行から `renderMasterTable()` が表を作る。
+
+`openMasterModal()` はヘッダーからフォームを自動生成する。長い値や改行を含む値は `textarea` にする。
+
+ID列は `MASTER_ID_HEADERS` により非表示にする。非表示でも、既存行更新時はサーバー側で元行の値を保持する。ただし、PR管理の `pr_id` はユーザーが確認するため表示する。
+
+`saveMasterData()` は新規追加時にID列が空なら `generateNextMasterId_()` で採番する。
+
+### 13.12 削除の実挙動
+
+マスタ管理画面の削除ボタンは `deleteMasterRow(rowNumber)` を呼ぶ。
+
+`deleteMasterData(sheetName, rowNumber)` はホワイトリスト対象シートのみ削除を許可する。現行仕様では `app_schedule` の行全体ロックは行わないため、削除可否はシート単位の許可に依存する。
+
+ただし、`app_schedule` は繰り返しマスタであり、削除すると未来の予定も消えるため、運用上は削除より `配信停止` を優先する。
+
+### 13.13 サーバー側の安全策
+
+`assertEditableSheet_()` により、任意のシート名を指定して編集することはできない。
+
+編集可能シートは以下のみ。
+
+- `app_schedule`
+- `app_product`
+- `app_pr`
+- `app_pr_targets`
+
+`upsertScheduleData()` は確定済み発生分の更新を拒否する。`saveMasterData()` はID自動採番と既存ID保持を行う。
+
+### 13.14 現在の既知の運用注意
+
+- `setupWeeklyBackupTrigger()` はGASエディタで初回実行する必要がある。
+- `clasp run setupWeeklyBackupTrigger` は Apps Script API 実行設定により失敗することがある。
+- `setupHourlyJobCountTrigger()` もGASエディタで初回実行する必要がある。
+- `app_schedule.is_fixed` が過去に立っていても現行UIでは使わない。
+- 既に立った `is_fixed` を整理する場合は `clearScheduleFixedFlags()` を実行する。
+- `app_schedule` の1行は繰り返しマスタなので、週単位の確定情報は必ず `app_schedule_archives` に持つ。
+
+## 14. 現行まとめ
+
+現在のアプリは、`app_schedule` を配信カレンダーの母体として、`app_schedule_archives` で確定済み発生分を週単位で保持し、`app_comments` で日付別コメント履歴を持ち、`app_exceptions` で日付別の配信停止を管理する構成になっている。
+
+画面側では、PRラベルの状態分岐、コメント件数、確定済み表示、手動停止表示、自動求人件数アラートを同一のカレンダー上で併記する。マスタ管理は英語キーを日本語表示に変換し、IDはサーバー側で自動採番する。
+
+求人件数は `job_url` から `current_job_count` と `job_count_updated_at` を更新し、1時間ごとのトリガーで最新化する。保存時の即時更新も残してあるため、編集直後の表示と定期更新の両方で値が揃う。設定・確認の赤塗り状態は `app_check_status` に保存され、ブラウザを閉じても復元される。
