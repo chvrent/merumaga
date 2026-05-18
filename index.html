@@ -18,6 +18,7 @@
         <div>
           <h1>配信カレンダー</h1>
           <p>開始日を選んで、日別の配信予定を確認・編集します。</p>
+          <div class="screen-note">この画面の編集は、選択した日付の配信だけに反映されます。設定・確認が両方赤くなると、その日付分を確定バックアップします。</div>
         </div>
         <div class="toolbar-controls">
           <input type="date" id="startInput" class="hidden-start-input" aria-label="開始日">
@@ -49,6 +50,7 @@
           <div>
             <h1 id="masterTitle">メルマガ一覧</h1>
             <p id="masterDescription">スプレッドシートの最新データを表形式で確認・編集します。</p>
+            <div class="screen-note">この画面の編集は、マスタ行を更新します。今日以降に発生する同じメルマガ予定へ反映されます。</div>
           </div>
           <div class="toolbar-controls">
             <label class="field" id="masterSheetField">

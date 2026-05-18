@@ -825,12 +825,120 @@ function saveCheckStatusUnlocked_(itemId, field, active, payload) {
     const row = values[rowIndex];
     if (normalizeCell_(row[itemIdIndex]) === safeItemId && normalizeCell_(row[fieldIndex]) === safeField) {
       sheet.getRange(rowIndex + 1, 1, 1, headers.length).setValues([mergeCheckStatusRow_(headers, row, rowValues)]);
-      return { success: true, item_id: safeItemId, field: safeField, active: activeValue, updated_at: timestamp };
+      const archive = archiveOccurrenceIfBothChecksActive_(safeItemId, safeField, activeValue, safePayload);
+      return { success: true, item_id: safeItemId, field: safeField, active: activeValue, updated_at: timestamp, archive };
     }
   }
 
   sheet.appendRow(rowValues);
-  return { success: true, item_id: safeItemId, field: safeField, active: activeValue, updated_at: timestamp };
+  const archive = archiveOccurrenceIfBothChecksActive_(safeItemId, safeField, activeValue, safePayload);
+  return { success: true, item_id: safeItemId, field: safeField, active: activeValue, updated_at: timestamp, archive };
+}
+
+function archiveOccurrenceIfBothChecksActive_(itemId, changedField, active, payload) {
+  if (changedField !== 'setter' && changedField !== 'checker') return { archived: 0, skipped: 'not_confirmation_field' };
+  if (!active) return { archived: 0, skipped: 'inactive' };
+
+  const statusMap = getCheckStatusActiveMap_(itemId);
+  if (!statusMap.setter || !statusMap.checker) return { archived: 0, skipped: 'waiting_for_both_checks' };
+
+  const safePayload = payload || {};
+  const scheduleId = normalizeScheduleIdForMove_(safePayload.schedule_id || String(itemId).split('|')[0]);
+  const targetDate = normalizeCommentTargetDate_(safePayload.delivery_date || String(itemId).split('|')[1]);
+  if (!scheduleId || !targetDate) return { archived: 0, skipped: 'missing_schedule_or_date' };
+
+  const sourceRow = getSourceRowByScheduleId_(scheduleId);
+  if (!sourceRow) return { archived: 0, skipped: 'source_row_not_found' };
+  if (isArchivedOccurrenceFixed_(sourceRow, targetDate)) return { archived: 0, skipped: 'already_archived' };
+
+  const ss = getSourceSpreadsheet_();
+  const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
+  if (!sheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
+
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return { archived: 0, skipped: 'empty_schedule' };
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const rowIndex = Number(sourceRow);
+  if (rowIndex < 2 || rowIndex > values.length) return { archived: 0, skipped: 'source_row_out_of_range' };
+
+  const row = values[rowIndex - 1].slice();
+  applyOccurrenceOverrideToArchiveRow_(row, headers, itemId);
+
+  const archiveSheet = getOrCreateArchiveSheet_(ss, headers);
+  archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, 1, headers.length + 4).setValues([[
+    new Date(),
+    targetDate,
+    targetDate,
+    sourceRow
+  ].concat(row.slice(0, headers.length))]);
+
+  return { archived: 1, source_row: sourceRow, target_date: targetDate };
+}
+
+function getCheckStatusActiveMap_(itemId) {
+  const result = { setter: false, checker: false };
+  const sheet = getCheckStatusSheet_();
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return result;
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const itemIdIndex = headers.indexOf('item_id');
+  const fieldIndex = headers.indexOf('field');
+  const activeIndex = headers.indexOf('is_active');
+  if (itemIdIndex < 0 || fieldIndex < 0 || activeIndex < 0) return result;
+
+  values.slice(1).forEach(row => {
+    if (normalizeCell_(row[itemIdIndex]) !== itemId) return;
+    const field = normalizeCell_(row[fieldIndex]);
+    if (field === 'setter' || field === 'checker') result[field] = isTruthy_(row[activeIndex]);
+  });
+  return result;
+}
+
+function applyOccurrenceOverrideToArchiveRow_(row, scheduleHeaders, itemId) {
+  const override = getOccurrenceOverrideForArchive_(itemId);
+  if (!override || !override.fields.length) return;
+
+  const headerMap = buildHeaderMap_(scheduleHeaders);
+  override.fields.forEach(key => {
+    const aliases = SCHEDULE_FIELD_ALIASES[key] || [key];
+    const index = firstExistingHeaderIndex_(headerMap, aliases);
+    if (index == null) return;
+    row[index] = override.values[key];
+  });
+}
+
+function getOccurrenceOverrideForArchive_(itemId) {
+  const sheet = getCheckStatusSheet_();
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return null;
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const itemIdIndex = headers.indexOf('item_id');
+  const fieldIndex = headers.indexOf('field');
+  const activeIndex = headers.indexOf('is_active');
+  const overrideFieldsIndex = headers.indexOf('override_fields');
+  if (itemIdIndex < 0 || fieldIndex < 0 || activeIndex < 0 || overrideFieldsIndex < 0) return null;
+
+  for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
+    const row = values[rowIndex];
+    if (normalizeCell_(row[itemIdIndex]) !== itemId) continue;
+    if (normalizeCell_(row[fieldIndex]) !== 'occurrence_override') continue;
+    if (!isTruthy_(row[activeIndex])) continue;
+
+    const fields = normalizeCell_(row[overrideFieldsIndex])
+      .split(',')
+      .map(value => normalizeCell_(value))
+      .filter(Boolean);
+    const fieldValues = {};
+    fields.forEach(key => {
+      const index = headers.indexOf(key);
+      if (index >= 0) fieldValues[key] = normalizeCell_(row[index]);
+    });
+    return { fields, values: fieldValues };
+  }
+  return null;
 }
 
 function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp) {
@@ -1660,6 +1768,15 @@ function getOrCreateArchiveSheet_(ss, scheduleHeaders) {
     const currentHeaders = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), archiveHeaders.length)).getValues()[0];
     if (!currentHeaders[0]) {
       sheet.getRange(1, 1, 1, archiveHeaders.length).setValues([archiveHeaders]);
+    } else {
+      const currentSet = new Set(currentHeaders.map(header => String(header || '').trim()).filter(Boolean));
+      let nextHeaders = currentHeaders.map(header => String(header || '').trim());
+      archiveHeaders.forEach(header => {
+        if (!currentSet.has(header)) nextHeaders.push(header);
+      });
+      if (nextHeaders.length !== currentHeaders.length) {
+        sheet.getRange(1, 1, 1, nextHeaders.length).setValues([nextHeaders]);
+      }
     }
   }
 

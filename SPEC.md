@@ -194,6 +194,9 @@
 - カレンダー描画時に `getInitialData()` が `checkStatuses` を返し、保存済みの赤塗りを復元する。
 - `設定` / `確認` セルクリック時に `saveCheckStatus(itemId, field, active)` を呼び、同時に `.is-active-red` を切り替える。
 - `確認` セルを有効化した場合は、`job_url`、`current_job_count`、確認者、確認日時を同じ行へ保存または上書きする。
+- 同じ `schedule_id + target_date` で `設定` と `確認` が両方有効になった時点で、その発生分を `app_schedule_archives` へ単日バックアップする。
+- 単日バックアップは `fixed_week_start` と `fixed_week_end` に同じ日付を保存し、その日だけ確定済みとして扱う。
+- 配信編集モーダルで日付別差分（`occurrence_override`）がある場合は、差分適用後の内容をバックアップする。
 - `.is-active-red` は `background-color: #ffcccc !important;` とする。
 
 ## 6. PRラベル仕様
