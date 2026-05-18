@@ -11,6 +11,7 @@
   let MASTER_SUBCATEGORY_FILTER = '';
   let MASTER_FORMAT_FILTER = '';
   let MASTER_CATEGORY_FILTER = '';
+  let MASTER_STATUS_FILTER = 'active';
   let MASTER_FILTERS = {
     'format:自動求人特集': false,
     'category:イレギュラー': false,
@@ -45,7 +46,8 @@
     name: 'PRタイトル',
     insert_position: '挿入位置',
     notes: '備考',
-    job_url: '求人URL',
+    job_url: '自動求人特集URL',
+    auto_job_feature_id: '自動求人特集ID',
     current_job_count: '現在求人数',
     job_count_updated_at: '求人数最終取得日時',
     is_inactive: '配信停止',
@@ -457,6 +459,7 @@
       MASTER_SUBCATEGORY_FILTER = '';
       MASTER_FORMAT_FILTER = '';
       MASTER_CATEGORY_FILTER = '';
+      MASTER_STATUS_FILTER = 'active';
       return;
     }
 
@@ -487,6 +490,12 @@
         ${subCategories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_SUBCATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
       </select>
     ` : '';
+    const statusSelect = `
+      <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
+        <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
+        <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
+      </select>
+    `;
     const formatSelect = formats.length ? `
       <select id="masterFormatSelect" class="filter-select" onchange="setMasterFormatFilter(this.value)">
         <option value="">形式: すべて</option>
@@ -500,7 +509,7 @@
       </select>
     ` : '';
 
-    container.innerHTML = [subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [statusSelect, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterSubCategoryFilter(value) {
@@ -515,6 +524,11 @@
 
   function setMasterCategoryFilter(value) {
     MASTER_CATEGORY_FILTER = String(value || '');
+    renderMasterTable();
+  }
+
+  function setMasterStatusFilter(value) {
+    MASTER_STATUS_FILTER = (value === 'ended') ? 'ended' : 'active';
     renderMasterTable();
   }
 
@@ -539,6 +553,7 @@
     const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
     const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
     const categoryHeader = headers.find(h => ['category', '種別'].includes(String(h || '').trim())) || '';
+    const endDateHeader = headers.find(h => ['end_date', '終了日'].includes(String(h || '').trim())) || '';
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       // 検索キーワードフィルター
@@ -564,6 +579,15 @@
       // 種別フィルター (app_schedule のみ適用)
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER && categoryHeader) {
         if (String(row[categoryHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
+      }
+
+      // 状態フィルター (app_schedule のみ適用)
+      if (MASTER_DATA.sheetName === 'app_schedule' && endDateHeader) {
+        const endDate = normalizeDateString(row[endDateHeader]);
+        const today = formatDate(new Date());
+        const isEnded = !!endDate && endDate < today;
+        if (MASTER_STATUS_FILTER === 'active' && isEnded) return false;
+        if (MASTER_STATUS_FILTER === 'ended' && !isEnded) return false;
       }
 
       return true;
@@ -792,9 +816,6 @@
     const assigneeEl = document.getElementById('edit-assignee');
     const reviewerEl = document.getElementById('edit-reviewer');
     if (!assigneeEl || !reviewerEl) return;
-
-    const isLocked = reviewerEl.disabled && (CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY)));
-    if (isLocked) return;
 
     const assignee = String(assigneeEl.value || '').trim();
     if (assignee === 'R') {

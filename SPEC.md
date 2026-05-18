@@ -145,7 +145,7 @@
 
 ### `app_schedule` 利用列
 
-- P列 `job_url`: 求人数取得対象URL。ユーザー入力。
+- P列 `job_url`: 自動求人特集URL。ユーザー入力。
 - Q列 `current_job_count`: GASが取得した最新求人数。システム自動書き込み。
 
 ### GAS処理
@@ -177,7 +177,7 @@
 - `delivery_date`: 配信日
 - `hour`: 配信時間
 - `mail_name`: メルマガ名
-- `job_url`: 確認時点の求人URL
+- `job_url`: 確認時点の自動求人特集URL
 - `current_job_count`: 確認時点の求人数
 - `confirmed_by`: 確認者
 - `confirmed_at`: 確認日時
