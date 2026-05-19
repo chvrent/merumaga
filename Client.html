@@ -1081,17 +1081,19 @@
     baseEntry.target_date = entry.target_date;
     if (entry.hour) baseEntry.hour = entry.hour;
     if (entry.source_row) baseEntry.source_row = entry.source_row;
+    
     CURRENT_ENTRY_BASE = baseEntry;
     CURRENT_ENTRY = applyOccurrenceOverrideToEntry(baseEntry);
 
     const modal = document.getElementById('editModal');
     if (!modal) return;
 
-    // データ流し込み
+    // 1. 各項目の値セット (name属性またはデータ属性での特定)
     Object.keys(CURRENT_ENTRY).forEach(key => {
-      const el = modal.querySelector('#edit-' + key) || modal.querySelector('[name="' + key + '"]');
+      // フォームグループ内の name 属性を持つ要素を探す
+      const el = modal.querySelector(`[name="${key}"]`) || modal.querySelector(`[data-edit-key="${key}"]`);
       if (el) {
-        if (el.tagName === 'INPUT' && el.type === 'checkbox') {
+        if (el.type === 'checkbox') {
           el.checked = isTruthyValue(CURRENT_ENTRY[key]);
         } else {
           el.value = CURRENT_ENTRY[key] || '';
@@ -1099,14 +1101,17 @@
       }
     });
 
-    // 項目復元
-    const contentEl = modal.querySelector('#edit-mail-content');
-    if (contentEl) contentEl.value = CURRENT_ENTRY.mail_content || '';
+    // 2. 特殊ケース：形式の値セット（タブ連動用）
+    const format = CURRENT_ENTRY.format || 'フリー';
+    const formatEl = modal.querySelector('[name="format"]');
+    if (formatEl) {
+      formatEl.value = format;
+    }
     
-    // 追加フィールドの復元
+    // 3. 追加フィールドのレンダリング
     renderEditExtraFields_(CURRENT_ENTRY);
 
-    // 紐付いているPR情報を表示
+    // 4. PR情報の表示
     const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
     const prContainer = modal.querySelector('#edit-pr-details');
     if (prContainer) {
@@ -1121,7 +1126,8 @@
       }
     }
 
-    window.openAndInitModalWithTab(CURRENT_ENTRY.format || 'フリー', 'editModal');
+    // 5. タブの初期化とルール適用（データ流し込みの最後に行う）
+    window.openAndInitModalWithTab(format, 'editModal');
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
