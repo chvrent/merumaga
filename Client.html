@@ -7,6 +7,7 @@
   let IS_MOVE_MODE = false;
   let IS_R_FILL = false;
   let BUSY_COUNT = 0;
+  let BUSY_TIMER = null;
   let SORTABLES = [];
   const MASTER_RENDER_LIMIT = 300;
   let MASTER_SUBCATEGORY_FILTER = '';
@@ -135,16 +136,25 @@
     const overlay = document.getElementById('busyOverlay');
     const messageEl = document.getElementById('busyMessage');
     if (messageEl) messageEl.textContent = message || '処理中...';
-    if (overlay) {
-      overlay.classList.add('is-active');
-      overlay.setAttribute('aria-hidden', 'false');
-    }
     document.body.classList.add('is-busy');
+    if (BUSY_TIMER) return;
+    BUSY_TIMER = setTimeout(() => {
+      BUSY_TIMER = null;
+      if (BUSY_COUNT <= 0) return;
+      if (overlay) {
+        overlay.classList.add('is-active');
+        overlay.setAttribute('aria-hidden', 'false');
+      }
+    }, 350);
   }
 
   function hideBusy() {
     BUSY_COUNT = Math.max(0, BUSY_COUNT - 1);
     if (BUSY_COUNT > 0) return;
+    if (BUSY_TIMER) {
+      clearTimeout(BUSY_TIMER);
+      BUSY_TIMER = null;
+    }
     const overlay = document.getElementById('busyOverlay');
     if (overlay) {
       overlay.classList.remove('is-active');
@@ -177,12 +187,14 @@
 
     showBusy(nextActive ? 'R設定を一括確定中...' : 'R設定の一括解除中...');
     google.script.run
-      .withSuccessHandler(() => {
+      .withSuccessHandler(results => {
         IS_R_FILL = nextActive;
         const btn = document.getElementById('rFillToggle');
         if (btn) btn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
+        updates.forEach(update => setLocalCheckStatus(update.itemId, update.field, update.active));
+        (Array.isArray(results) ? results : []).forEach(result => applyArchiveResult_(result && result.archive));
+        renderScheduleGrid();
         hideBusy();
-        loadData();
       })
       .withFailureHandler(err => {
         hideBusy();

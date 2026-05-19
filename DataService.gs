@@ -10,6 +10,8 @@ const CHECK_STATUS_SHEET_NAME = 'app_check_status';
 const LOG_ARCHIVE_RETENTION_DAYS = 90;
 const JOB_COUNT_REFRESH_INTERVAL_HOURS = 12;
 const WEEKLY_ARCHIVE_ENABLED = false;
+const INITIAL_DATA_CACHE_TTL_SECONDS = 60;
+const INITIAL_DATA_CACHE_MAX_CHARS = 90000;
 const EDITABLE_MASTER_SHEETS = ['app_schedule', 'app_pr', 'app_pr_targets'];
 const CYCLE_BASE_DATE = new Date(2026, 3, 28); // 火曜日
 const MASTER_ID_CONFIG = {
@@ -60,18 +62,18 @@ function getInitialData(options) {
   const ss = getSourceSpreadsheet_();
   const dateRange = buildOperationalDateRange_(options);
   return {
-    schedule: getScheduleRows_(ss),
-    scheduleHeaders: getSheetHeaders_(ss, SCHEDULE_SHEET_NAME),
-    pr: getSheetObjects_('app_pr'),
-    prTargets: getSheetObjects_('app_pr_targets', true),
-    holidays: getSheetObjects_('app_holidays', true),
+    schedule: getScheduleRowsCached_(ss),
+    scheduleHeaders: getSheetHeadersCached_(ss, SCHEDULE_SHEET_NAME),
+    pr: getSheetObjectsCached_('app_pr'),
+    prTargets: getSheetObjectsCached_('app_pr_targets', true),
+    holidays: getSheetObjectsCached_('app_holidays', true),
     japaneseHolidays: getJapaneseHolidays_(),
     commentCounts: getCommentCounts_(dateRange),
     fixedOccurrences: getFixedOccurrences_(dateRange),
     stoppedOccurrences: getStoppedOccurrences_(dateRange),
     checkStatuses: getCheckStatuses_(dateRange),
-    readme: getSheetObjects_('app_readme', true),
-    adminMaster: getSheetObjectsByNames_(['app_admin_master', 'app_name_master'], true)
+    readme: getSheetObjectsCached_('app_readme', true),
+    adminMaster: getSheetObjectsByNamesCached_(['app_admin_master', 'app_name_master'], true)
   };
 }
 
@@ -175,12 +177,14 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (rowNumber >= 2 && rowNumber <= sheet.getMaxRows()) {
     sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
     if (safeSheetName === SCHEDULE_SHEET_NAME) updateJobCountForRowUnlocked_(sheet, rowNumber, true);
+    invalidateInitialDataCaches_([safeSheetName]);
     return { success: true, action: 'update', rowNumber, id: idIndex != null ? normalizeCell_(row[idIndex]) : '' };
   }
 
   sheet.appendRow(row);
   const insertedRowNumber = sheet.getLastRow();
   if (safeSheetName === SCHEDULE_SHEET_NAME) updateJobCountForRowUnlocked_(sheet, insertedRowNumber, true);
+  invalidateInitialDataCaches_([safeSheetName]);
   return { success: true, action: 'insert', rowNumber: insertedRowNumber, id: idIndex != null ? normalizeCell_(row[idIndex]) : '' };
 }
 
@@ -224,6 +228,7 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
   }
 
   sheet.deleteRow(targetRow);
+  invalidateInitialDataCaches_(safeSheetName === 'app_pr' ? ['app_pr', 'app_pr_targets'] : [safeSheetName]);
   return { success: true, action: 'delete', rowNumber: targetRow };
 }
 
@@ -794,6 +799,7 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   // シートをクリアして一括書き込み
   targetsSheet.clearContents();
   targetsSheet.getRange(1, 1, finalValues.length, headers.length).setValues(finalValues);
+  invalidateInitialDataCaches_(['app_pr', 'app_pr_targets']);
   
   return { success: true };
 }
@@ -2234,6 +2240,26 @@ function getScheduleRows_(ss) {
     .filter(Boolean);
 }
 
+function getScheduleRowsCached_(ss) {
+  const cacheKey = 'initialData:scheduleRows';
+  const cached = getJsonCache_(cacheKey);
+  if (Array.isArray(cached)) return cached;
+
+  const rows = getScheduleRows_(ss);
+  putJsonCache_(cacheKey, rows, INITIAL_DATA_CACHE_TTL_SECONDS);
+  return rows;
+}
+
+function getSheetHeadersCached_(ss, sheetName) {
+  const cacheKey = `initialData:headers:${sheetName}`;
+  const cached = getJsonCache_(cacheKey);
+  if (Array.isArray(cached)) return cached;
+
+  const headers = getSheetHeaders_(ss, sheetName);
+  putJsonCache_(cacheKey, headers, INITIAL_DATA_CACHE_TTL_SECONDS);
+  return headers;
+}
+
 function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
   const record = {
     schedule_id: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.schedule_id) || `${sheetName}:${rowNumber}`,
@@ -2291,6 +2317,24 @@ function getSheetObjectsByNames_(sheetNames, allowMissing) {
     if (rows.length) return rows;
   }
   return allowMissing ? [] : [];
+}
+
+function getSheetObjectsByNamesCached_(sheetNames, allowMissing) {
+  for (const sheetName of sheetNames) {
+    const rows = getSheetObjectsCached_(sheetName, true);
+    if (rows.length) return rows;
+  }
+  return allowMissing ? [] : [];
+}
+
+function getSheetObjectsCached_(sheetName, allowMissing = false) {
+  const cacheKey = `initialData:objects:${sheetName}`;
+  const cached = getJsonCache_(cacheKey);
+  if (Array.isArray(cached)) return cached;
+
+  const rows = getSheetObjects_(sheetName, allowMissing);
+  putJsonCache_(cacheKey, rows, INITIAL_DATA_CACHE_TTL_SECONDS);
+  return rows;
 }
 
 function getSheetObjects_(sheetName, allowMissing = false) {
@@ -2363,6 +2407,7 @@ function upsertScheduleDataUnlocked_(data) {
   const row = values[rowIndex - 1].slice();
   applyPayloadToRow_(row, payload, headerMap);
   sheet.getRange(rowIndex, 1, 1, headers.length).setValues([row]);
+  invalidateInitialDataCaches_([SCHEDULE_SHEET_NAME]);
   return { success: true, action: 'update', schedule_id: scheduleId };
 }
 
@@ -2497,6 +2542,44 @@ function invalidateCommentCaches_(scheduleId, targetDate) {
     }
     if (keys.length) cache.removeAll(keys);
     // commentCounts は範囲キーなので特定できない。短TTL(5分)で自然更新させる。
+  } catch (error) {
+    // ignore cache errors
+  }
+}
+
+function getJsonCache_(key) {
+  try {
+    const cached = CacheService.getScriptCache().get(key);
+    if (!cached) return null;
+    return JSON.parse(cached);
+  } catch (error) {
+    return null;
+  }
+}
+
+function putJsonCache_(key, value, ttlSeconds) {
+  try {
+    const json = JSON.stringify(value);
+    if (json.length > INITIAL_DATA_CACHE_MAX_CHARS) return;
+    CacheService.getScriptCache().put(key, json, ttlSeconds);
+  } catch (error) {
+    // ignore cache errors
+  }
+}
+
+function invalidateInitialDataCaches_(sheetNames) {
+  try {
+    const names = Array.isArray(sheetNames) ? sheetNames : [];
+    const keys = [];
+    names.forEach(sheetName => {
+      keys.push(`initialData:headers:${sheetName}`);
+      keys.push(`initialData:objects:${sheetName}`);
+      if (sheetName === SCHEDULE_SHEET_NAME) {
+        keys.push('initialData:scheduleRows');
+        keys.push(`initialData:headers:${SCHEDULE_SHEET_NAME}`);
+      }
+    });
+    if (keys.length) CacheService.getScriptCache().removeAll(Array.from(new Set(keys)));
   } catch (error) {
     // ignore cache errors
   }
