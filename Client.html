@@ -394,52 +394,50 @@
         if (entries.length) {
           const renderedPrIds = new Set();
           entries.forEach(entry => {
-          const entryForDate = Object.assign({}, entry, { target_date: dateStr });
-          const moveOverride = getMoveOverrideForDate(entry, dateStr);
-          if (moveOverride && moveOverride.hour) entryForDate.hour = moveOverride.hour;
+            const entryForDate = Object.assign({}, entry, { target_date: dateStr });
+            const moveOverride = getMoveOverrideForDate(entry, dateStr);
+            if (moveOverride && moveOverride.hour) entryForDate.hour = moveOverride.hour;
 
-          const baseEntry = applyOccurrenceOverrideToEntry(entryForDate);
-          const effectiveEntry = getSnapshotOrDefault(baseEntry, dateStr);
-          const payload = escapeAttribute(encodeURIComponent(JSON.stringify(effectiveEntry)));
-          const scheduleId = effectiveEntry.schedule_id || 'unknown';
-          const checkItemId = getCheckItemId(entryForDate);
-          const subCategoryClass = getSubCategoryClass(effectiveEntry);
-          const itemBg = getBgColor(effectiveEntry);
-          const fixed = isFixed(entry, dateStr);
-          const stopped = !fixed && isStopped(entryForDate);
-          const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
-          const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
-          const jobAlert = getJobCountAlert(effectiveEntry);
-          const jobAlertIcon = renderJobAlertIcon(jobAlert);
-          const rowTitle = jobAlert ? ` title="${escapeAttribute(getJobAlertTooltip(jobAlert))}"` : '';
-          const prLabel = getPrStates(effectiveEntry, dateStr)
-            .filter(prState => {
-              const key = normalizeText(prState.pr_id);
-              if (!key || renderedPrIds.has(key)) return false;
-              renderedPrIds.add(key);
-              return true;
-            })
-            .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
-            .join('');
-          html += `
-          <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" style="background-color: ${itemBg};" onclick="openModal('${payload}')"${rowTitle}>
-            <div class="col-name">
-              <div class="mail-name">
-                ${jobAlertIcon}
-                ${escapeHtml(effectiveEntry.mail_name)}
-                ${fixedBadge}
-                ${stoppedBadge}
-                ${renderCommentBadge(entryForDate)}
+            const effectiveEntry = applyOccurrenceOverrideToEntry(entryForDate);
+            const payload = escapeAttribute(encodeURIComponent(JSON.stringify(effectiveEntry)));
+            const scheduleId = effectiveEntry.schedule_id || 'unknown';
+            const checkItemId = getCheckItemId(entryForDate);
+            const subCategoryClass = getSubCategoryClass(effectiveEntry);
+            const itemBg = getBgColor(effectiveEntry);
+            const fixed = isFixed(entry, dateStr);
+            const stopped = !fixed && isStopped(entryForDate);
+            const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
+            const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
+            const jobAlert = getJobCountAlert(effectiveEntry);
+            const jobAlertIcon = renderJobAlertIcon(jobAlert);
+            const rowTitle = jobAlert ? ` title="${escapeAttribute(getJobAlertTooltip(jobAlert))}"` : '';
+            const prLabel = getPrStates(effectiveEntry, dateStr)
+              .filter(prState => {
+                const key = normalizeText(prState.pr_id);
+                if (!key || renderedPrIds.has(key)) return false;
+                renderedPrIds.add(key);
+                return true;
+              })
+              .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
+              .join('');
+            html += `
+            <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" style="background-color: ${itemBg};" onclick="openModal('${payload}')"${rowTitle}>
+              <div class="col-name">
+                <div class="mail-name">
+                  ${jobAlertIcon}
+                  ${escapeHtml(effectiveEntry.mail_name)}
+                  ${fixedBadge}
+                  ${stoppedBadge}
+                  ${renderCommentBadge(entryForDate)}
+                </div>
+                ${prLabel}
               </div>
-              ${prLabel}
+              <div class="col-count">${escapeHtml(effectiveEntry.delivery_count)}</div>
+              ${renderCheckStatusCell(checkItemId, 'setter', effectiveEntry.assignee, 'col-setter', entryForDate)}
+              ${renderCheckStatusCell(checkItemId, 'checker', effectiveEntry.reviewer, 'col-checker', entryForDate)}
             </div>
-            <div class="col-count">${escapeHtml(effectiveEntry.delivery_count)}</div>
-            ${renderCheckStatusCell(checkItemId, 'setter', effectiveEntry.assignee, 'col-setter', entryForDate)}
-            ${renderCheckStatusCell(checkItemId, 'checker', effectiveEntry.reviewer, 'col-checker', entryForDate)}
-          </div>
           `;
           });
-
         } else {
           html += '&nbsp;';
         }
@@ -1306,14 +1304,8 @@
     APP_DATA.commentCounts[key] = Number(APP_DATA.commentCounts[key] || 0) + 1;
   }
 
-  function getSnapshotOrDefault(entry, dateStr) {
-    const itemId = getCheckItemId(Object.assign({}, entry, { target_date: dateStr }));
-    const snapshotKey = `${itemId}|confirmation_snapshot`;
-    const snapshot = APP_DATA.checkStatuses && APP_DATA.checkStatuses[snapshotKey];
-    if (snapshot && typeof snapshot === 'object') {
-      return Object.assign({}, entry, snapshot);
-    }
-    return entry;
+  function getCommentKey(scheduleId, targetDate) {
+    return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
   }
 
   function getCheckItemId(row) {

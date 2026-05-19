@@ -895,32 +895,13 @@ function archiveOccurrenceIfBothChecksActive_(itemId, changedField, active, payl
   const row = values[rowIndex - 1].slice();
   applyOccurrenceOverrideToArchiveRow_(row, headers, itemId);
 
-  // 確定時の内容を「スナップショット」としてチェック状況シートに保存し、
-  // 後続のロジックでこのスナップショットをマスタよりも優先して表示する
-  const ss = getSourceSpreadsheet_();
-  const checkStatusSheet = getCheckStatusSheet_();
-  const csHeaders = getCheckStatusHeaders_(checkStatusSheet);
-  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
-  
-  const snapshotPayload = {
-    schedule_id: scheduleId,
-    delivery_date: targetDate,
-    mail_name: row[headers.indexOf('mail_name')],
-    delivery_count: row[headers.indexOf('delivery_count')],
-    pr: row[headers.indexOf('pr')],
-    notes: row[headers.indexOf('notes')],
-    assignee: row[headers.indexOf('assignee')],
-    reviewer: row[headers.indexOf('reviewer')],
-    category: row[headers.indexOf('category')],
-    sub_category: row[headers.indexOf('sub_category')],
-    format: row[headers.indexOf('format')],
-    hour: row[headers.indexOf('hour')],
-    weekday: row[headers.indexOf('weekday')],
-    job_url: row[headers.indexOf('job_url')]
-  };
-  
-  const snapshotRow = buildCheckStatusRow_(csHeaders, itemId, 'confirmation_snapshot', true, snapshotPayload, timestamp);
-  checkStatusSheet.appendRow(snapshotRow);
+  const archiveSheet = getOrCreateArchiveSheet_(ss, headers);
+  archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, 1, headers.length + 4).setValues([[
+    new Date(),
+    targetDate,
+    targetDate,
+    sourceRow
+  ].concat(row.slice(0, headers.length))]);
 
   return { archived: 1, source_row: sourceRow, target_date: targetDate };
 }
