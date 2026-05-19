@@ -87,10 +87,10 @@
           <button type="button" class="icon-button" onclick="closeModal()" aria-label="閉じる">×</button>
         </div>
         <div class="modal-tabs">
-          <button type="button" class="modal-tab active" onclick="switchModalTab('free')">フリー</button>
-          <button type="button" class="modal-tab" onclick="switchModalTab('extract')">抽出</button>
-          <button type="button" class="modal-tab" onclick="switchModalTab('auto-job')">自動求人特集</button>
-          <button type="button" class="modal-tab" onclick="switchModalTab('other')">その他</button>
+          <button type="button" class="modal-tab active" data-tab-id="free">フリー</button>
+          <button type="button" class="modal-tab" data-tab-id="extract">抽出</button>
+          <button type="button" class="modal-tab" data-tab-id="auto-job">自動求人特集</button>
+          <button type="button" class="modal-tab" data-tab-id="other">その他</button>
         </div>
         <div id="modal-fields">
           <input type="hidden" id="edit-id">
@@ -102,15 +102,7 @@
             <span>通数</span>
             <input type="text" id="edit-count">
           </label>
-          <label class="field" id="field-format">
-            <span>形式</span>
-            <select id="edit-format" onchange="updateFormFields()">
-              <option value="フリー">フリー</option>
-              <option value="抽出">抽出</option>
-              <option value="自動求人特集">自動求人特集</option>
-              <option value="その他">その他</option>
-            </select>
-          </label>
+
           <label class="field" id="field-mail_content">
             <span>メルマガ内容</span>
             <textarea id="edit-mail-content"></textarea>

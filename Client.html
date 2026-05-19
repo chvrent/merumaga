@@ -1193,10 +1193,16 @@
     });
   }
 
-  // 初期化時にモーダルへリスナー登録
+  // 初期化登録
   document.addEventListener('DOMContentLoaded', () => {
     initModalTabs('editModal');
     initModalTabs('masterModal');
+
+    // 形式変更時のイベントリスナー登録
+    const editFormat = document.getElementById('edit-format');
+    if (editFormat) {
+      editFormat.addEventListener('change', () => updateModalFields(document.getElementById('editModal')));
+    }
   });
 
   window.openAndInitModalWithTab = function(format, modalId) {
@@ -1204,12 +1210,17 @@
     if (!modal) return;
 
     const tabId = getTabIdByFormat(format);
-    const tabBtn = modal.querySelector(`.modal-tab[onclick*="${tabId}"]`) || 
-                   modal.querySelector(`.modal-tab[data-tab-id="${tabId}"]`);
+    const tabBtn = modal.querySelector(`.modal-tab[data-tab-id="${tabId}"]`);
     
     if (tabBtn) {
       modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
       tabBtn.classList.add('active');
+    }
+    
+    // 形式選択肢の更新
+    const formatInput = modal.querySelector('[data-header="形式"], #edit-format');
+    if (formatInput) {
+        formatInput.value = format;
     }
     updateModalFields(modal);
   };
