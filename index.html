@@ -86,27 +86,41 @@
           <h2>配信編集</h2>
           <button type="button" class="icon-button" onclick="closeModal()" aria-label="閉じる">×</button>
         </div>
-        <input type="hidden" id="edit-id">
-        <label class="field">
-          <span>メルマガ名</span>
-          <input type="text" id="edit-name" readonly title="クリックでコピー">
-        </label>
-        <label class="field">
-          <span>通数</span>
-          <input type="text" id="edit-count">
-        </label>
-        <label class="field">
-          <span>設定者</span>
-          <select id="edit-assignee"></select>
-        </label>
-        <label class="field">
-          <span>確認者</span>
-          <select id="edit-reviewer"></select>
-        </label>
-        <label class="field">
-          <span>備考</span>
-          <textarea id="edit-notes"></textarea>
-        </label>
+        <div class="modal-tabs">
+          <button type="button" class="modal-tab active" onclick="switchModalTab('free')">フリー</button>
+          <button type="button" class="modal-tab" onclick="switchModalTab('extract')">抽出</button>
+          <button type="button" class="modal-tab" onclick="switchModalTab('auto-job')">自動求人特集</button>
+          <button type="button" class="modal-tab" onclick="switchModalTab('other')">その他</button>
+        </div>
+        <div id="modal-fields">
+          <input type="hidden" id="edit-id">
+          <label class="field" id="field-mail_name">
+            <span>メルマガ名</span>
+            <input type="text" id="edit-name" readonly>
+          </label>
+          <label class="field" id="field-delivery_count">
+            <span>通数</span>
+            <input type="text" id="edit-count">
+          </label>
+          <label class="field" id="field-format">
+            <span>形式</span>
+            <select id="edit-format" onchange="updateFormFields()">
+              <option value="フリー">フリー</option>
+              <option value="抽出">抽出</option>
+              <option value="自動求人特集">自動求人特集</option>
+              <option value="その他">その他</option>
+            </select>
+          </label>
+          <label class="field" id="field-mail_content">
+            <span>メルマガ内容</span>
+            <textarea id="edit-mail-content"></textarea>
+          </label>
+          <label class="field" id="field-notes">
+            <span>備考</span>
+            <textarea id="edit-notes"></textarea>
+          </label>
+          <!-- 他のフィールドも同様にIDとクラスを追加 -->
+        </div>
         <div id="editExtraFields" class="edit-extra-fields"></div>
         <div id="edit-pr-details" class="pr-info-container"></div>
         <section class="comment-panel" aria-label="コメントスレッド">

@@ -902,47 +902,35 @@
   }
 
   function getScheduleEditHeaders_() {
-    const sourceHeaders = Array.isArray(APP_DATA.scheduleHeaders) && APP_DATA.scheduleHeaders.length
-      ? APP_DATA.scheduleHeaders
-      : Object.keys(CURRENT_ENTRY || {});
-    const excluded = new Set([
-      'schedule_id', 'id', 'source_sheet', 'source_row', 'sub_category_class',
-      'is_inactive', '配信停止', 'is_fixed', '確定済',
-      'current_job_count', '現在求人数',
-      'job_count_updated_at', '求人数最終取得日時',
-      'current_week_cycle', '今週サイクル(内部)',
-      'current_week_inactive', '今週非配信(内部)',
-      'schedule_action'
-    ]);
-    return sourceHeaders.filter(header => {
+    // マスタ全ヘッダーを取得し、モーダル用に整理
+    return (APP_DATA.scheduleHeaders || []).filter(header => {
       const key = normalizeScheduleEditKey_(header);
-      if (!header || excluded.has(header) || excluded.has(key)) return false;
-      return key !== 'mail_name' && key !== 'delivery_count' && key !== 'assignee' && key !== 'reviewer' && key !== 'notes';
+      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed'].includes(key);
     });
   }
 
   function renderEditInput_(header, key, value) {
-    const dataAttr = `data-edit-key="${escapeAttribute(key)}" data-edit-header="${escapeAttribute(header)}"`;
+    const dataAttr = `data-edit-key="${escapeAttribute(key)}"`;
+    const containerClass = `modal-field field-${key}`;
+    
+    let input = '';
     if (isWeekdayHeader(header) || key === 'weekday') {
-      return renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']).replace('data-header=', `${dataAttr} data-header=`);
+      input = renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']);
+    } else if (isFormatHeader(header) || key === 'format') {
+      input = renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
+    } else if (isTimeHeader(header) || key === 'hour') {
+      input = renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions());
+    } else if (isDateTimeHeader(header)) {
+      input = `<input type="datetime-local" ${dataAttr} value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
+    } else if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
+      input = `<input type="date" ${dataAttr} value="${escapeAttribute(normalizeDateString(value))}">`;
+    } else if (String(value).length > 60 || String(value).includes('\n')) {
+      input = `<textarea ${dataAttr}>${escapeHtml(value)}</textarea>`;
+    } else {
+      input = `<input type="text" ${dataAttr} value="${escapeAttribute(value)}">`;
     }
-    if (isFormatHeader(header) || key === 'format') {
-      return renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集']).replace('data-header=', `${dataAttr} data-header=`);
-    }
-    if (isTimeHeader(header) || key === 'hour') {
-      return renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions()).replace('data-header=', `${dataAttr} data-header=`);
-    }
-    if (isDateTimeHeader(header)) {
-      return `<input type="datetime-local" ${dataAttr} value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
-    }
-    if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
-      return `<input type="date" ${dataAttr} value="${escapeAttribute(normalizeDateString(value))}">`;
-    }
-    const text = String(value == null ? '' : value);
-    if (text.length > 80 || text.includes('\n')) {
-      return `<textarea ${dataAttr}>${escapeHtml(text)}</textarea>`;
-    }
-    return `<input type="text" ${dataAttr} value="${escapeAttribute(text)}">`;
+    
+    return `<label class="${containerClass}" id="field-${key}"><span>${escapeHtml(getDisplayName(key))}</span>${input}</label>`;
   }
 
   function renderEditExtraFields_(entry) {
@@ -1093,9 +1081,21 @@
 
     document.getElementById('edit-id').value = CURRENT_ENTRY.schedule_id || '';
     document.getElementById('edit-name').value = CURRENT_ENTRY.mail_name || '';
+    document.getElementById('edit-mail-content').value = CURRENT_ENTRY.mail_content || '';
     document.getElementById('edit-count').value = CURRENT_ENTRY.delivery_count || '';
     document.getElementById('edit-notes').value = CURRENT_ENTRY.notes || '';
-    renderEditExtraFields_(CURRENT_ENTRY);
+    // 配信カレンダーモーダルでマスタ項目も扱えるように編集可能にする
+    const editExtra = document.getElementById('editExtraFields');
+    editExtra.innerHTML = getScheduleEditHeaders_().map(header => {
+      const key = normalizeScheduleEditKey_(header);
+      const value = CURRENT_ENTRY[key] != null ? CURRENT_ENTRY[key] : CURRENT_ENTRY[header];
+      return `
+        <label class="field">
+          <span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(key))}</span>
+          ${renderEditInput_(header, key, value)}
+        </label>
+      `;
+    }).join('');
 
     // 紐付いているPR情報を表示
     const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
@@ -1141,10 +1141,42 @@
     modal.setAttribute('aria-hidden', 'false');
   }
 
-  function closeModal() {
-    const modal = document.getElementById('editModal');
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden', 'true');
+  window.switchModalTab = function(tabId) {
+    const formatMap = { 'free': 'フリー', 'extract': '抽出', 'auto-job': '自動求人特集', 'other': 'その他' };
+    const format = formatMap[tabId];
+    document.getElementById('edit-format').value = format;
+    
+    document.querySelectorAll('.modal-tab').forEach(tab => tab.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    
+    updateFormFields();
+  };
+
+  function updateFormFields() {
+    const format = document.getElementById('edit-format').value;
+    const fields = {
+      'job_count': ['auto-job'],
+      'job_feature_id': ['auto-job'],
+      'job_url': ['auto-job'],
+      'pr_id': ['auto-job', 'other']
+    };
+
+    Object.keys(fields).forEach(key => {
+      const fieldContainer = document.getElementById(`field-${key}`);
+      if (fieldContainer) {
+        const isActive = fields[key].includes(getTabIdByFormat(format)) || format === 'その他';
+        fieldContainer.classList.toggle('disabled', !isActive);
+        const inputs = fieldContainer.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => input.disabled = !isActive);
+      }
+    });
+  }
+
+  function getTabIdByFormat(format) {
+    if (format === 'フリー') return 'free';
+    if (format === '抽出') return 'extract';
+    if (format === '自動求人特集') return 'auto-job';
+    return 'other';
   }
 
   function saveEdit() {
@@ -1164,7 +1196,8 @@
       delivery_count: document.getElementById('edit-count').value,
       assignee: document.getElementById('edit-assignee').value,
       reviewer: document.getElementById('edit-reviewer').value,
-      notes: document.getElementById('edit-notes').value
+      notes: document.getElementById('edit-notes').value,
+      mail_content: document.getElementById('edit-mail-content').value
     };
     document.querySelectorAll('#editExtraFields [data-edit-key]').forEach(input => {
       nextValues[input.dataset.editKey] = input.value;

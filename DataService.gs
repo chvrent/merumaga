@@ -32,6 +32,7 @@ const PR_FIELD_ALIASES = {
 const SCHEDULE_FIELD_ALIASES = {
   schedule_id: ['schedule_id', 'id'],
   mail_name: ['mail_name', 'メルマガ内容'],
+  mail_content: ['mail_content', 'メルマガ詳細内容'],
   weekday: ['weekday', '曜日'],
   hour: ['hour', '時間'],
   category: ['category', '種別'],
@@ -2221,6 +2222,7 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     hour: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.hour) || normalizeCell_(row[4]),
     // mail_name も必ず mail_name 列（ヘッダー別名含む）からのみ取得する
     mail_name: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_name),
+    mail_content: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content),
     format: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.format),
     delivery_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.delivery_count),
     assignee: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.assignee),
