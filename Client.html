@@ -73,6 +73,7 @@
     source_sheet: '元シート',
     source_row: '元行',
     mail_name: 'メルマガ名',
+    mail_type: '種別',
     category: '種別',
     sub_category: 'サブカテゴリ',
     sub_category_class: 'サブカテゴリクラス',
@@ -96,7 +97,7 @@
     auto_job_feature_id: '自動求人特集ID',
     target_age: '対象年齢',
     target_address: '対象現住所',
-    new_flag: '新規',
+    is_new: '新規',
     current_job_count: '現在求人数',
     job_count_updated_at: '求人数最終取得日時',
     is_inactive: '配信停止',
@@ -318,7 +319,7 @@
         row.mail_name,
         row.weekday,
         row.hour,
-        row.category,
+        row.mail_type || row.category,
         row.cycle,
         row.format,
         row.assignee,
@@ -404,7 +405,7 @@
           const endDate = normalizeDateString(row.end_date);
           const prStates = getPrStates(row, dateStr);
           const weekday = normalizeWeekdayLabel(row.weekday);
-          const category = String(row.category || '').trim();
+          const category = String(row.mail_type || row.category || '').trim();
           const rowCycle = normalizeCycleLabel(row.cycle);
           const rowCycleNum = extractCycleNumber(rowCycle);
           const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
@@ -588,7 +589,7 @@
     const headers = MASTER_DATA.headers || [];
     const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
     const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
-    const categoryHeader = headers.find(h => ['category', '種別'].includes(String(h || '').trim())) || '';
+    const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
 
     const uniqValues = header => {
       if (!header) return [];
@@ -602,7 +603,7 @@
 
     const subCategories = uniqValues(subCategoryHeader);
     const formats = uniqValues(formatHeader);
-    const categories = uniqValues(categoryHeader);
+    const categories = uniqValues(mailTypeHeader);
 
     const subCategorySelect = subCategories.length ? `
       <select id="masterSubCategorySelect" class="filter-select" onchange="setMasterSubCategoryFilter(this.value)">
@@ -684,9 +685,9 @@
 
     const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
     const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
-    const categoryHeader = headers.find(h => ['category', '種別'].includes(String(h || '').trim())) || '';
+    const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
     const endDateHeader = headers.find(h => ['end_date', '終了日'].includes(String(h || '').trim())) || '';
-    const newFlagHeader = headers.find(h => ['new_flag', '新規', 'is_new'].includes(String(h || '').trim())) || '';
+    const isNewHeader = headers.find(h => ['is_new', 'new_flag', '新規'].includes(String(h || '').trim())) || '';
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       // 検索キーワードフィルター
@@ -710,8 +711,8 @@
       }
 
       // 種別フィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER && categoryHeader) {
-        if (String(row[categoryHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER && mailTypeHeader) {
+        if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
       }
 
       // 状態フィルター (app_schedule のみ適用)
@@ -723,8 +724,8 @@
         if (MASTER_STATUS_FILTER === 'ended' && !isEnded) return false;
       }
 
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && newFlagHeader) {
-        if (!isTruthyValue(row[newFlagHeader])) return false;
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && isNewHeader) {
+        if (!isTruthyValue(row[isNewHeader])) return false;
       }
 
       return true;
@@ -795,17 +796,17 @@
   }
 
   function updateMasterFormFields() {
-    const formatInput = document.querySelector('#masterForm [data-header="形式"]');
+    const modal = document.getElementById('masterModal');
+    const formatInput = modal ? modal.querySelector('#masterForm [data-header="形式"]') : null;
     const format = formatInput ? formatInput.value : '';
     const fields = {
-      'current_job_count': ['自動求人特集'],
-      'auto_job_feature_id': ['自動求人特集'],
-      'job_url': ['自動求人特集'],
+      'auto_job_feature_id': ['自動求人特集', 'その他'],
+      'job_url': ['自動求人特集', 'その他'],
       'pr_id': ['自動求人特集', 'その他']
     };
 
     Object.keys(fields).forEach(key => {
-      const fieldContainer = document.querySelector(`[data-field="${key}"]`);
+      const fieldContainer = modal ? modal.querySelector(`[data-field="${key}"]`) : null;
       if (fieldContainer) {
         const isActive = fields[key].includes(format) || format === 'その他';
         fieldContainer.classList.toggle('disabled', !isActive);
@@ -813,6 +814,18 @@
         inputs.forEach(input => input.disabled = !isActive);
       }
     });
+
+    const currentJobCountContainer = modal ? modal.querySelector('[data-field="current_job_count"]') : null;
+    if (currentJobCountContainer) {
+      currentJobCountContainer.classList.add('disabled');
+      currentJobCountContainer.querySelectorAll('input, select, textarea').forEach(input => {
+        input.disabled = true;
+        input.readOnly = true;
+        input.placeholder = format === '自動求人特集'
+          ? '保存後にURLから自動取得されます'
+          : '保存後に自動取得されます';
+      });
+    }
   }
 
   function openMasterModal(encodedRow) {
@@ -924,6 +937,7 @@
         delivery_count: ['delivery_count', 'mail_count', '通数'],
         mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
         notes: ['notes', 'note', '備考'],
+        mail_type: ['mail_type', 'category', '種別'],
         format: ['format', '形式'],
         setter: ['setter', 'assignee', '設定者'],
         checker: ['checker', 'reviewer', '確認者'],
@@ -936,6 +950,7 @@
       delivery_count: ['delivery_count', 'mail_count', '通数'],
       mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
       notes: ['notes', 'note', '備考'],
+      mail_type: ['mail_type', 'category', '種別'],
       format: ['format', '形式'],
       setter: ['setter', 'assignee', '設定者'],
       checker: ['checker', 'reviewer', '確認者'],
@@ -983,7 +998,8 @@
       '設定者': 'assignee',
       '確認者': 'reviewer',
       '備考': 'notes',
-      '種別': 'category',
+      '種別': 'mail_type',
+      'category': 'mail_type',
       'サブカテゴリ': 'sub_category',
       '形式': 'format',
       '曜日': 'weekday',
@@ -997,7 +1013,9 @@
       '自動求人特集ID': 'auto_job_feature_id',
       '対象年齢': 'target_age',
       '対象現住所': 'target_address',
-      '新規': 'new_flag',
+      'is_new': 'is_new',
+      'new_flag': 'is_new',
+      '新規': 'is_new',
       'サイクル': 'cycle',
       'PR': 'pr'
     };
@@ -1009,6 +1027,7 @@
       'assignee',
       'reviewer',
       'notes',
+      'mail_type',
       'category',
       'sub_category',
       'format',
@@ -1020,7 +1039,7 @@
       'auto_job_feature_id',
       'target_age',
       'target_address',
-      'new_flag',
+      'is_new',
       'cycle',
       'pr'
     ].includes(lower)) return lower;
@@ -1031,7 +1050,7 @@
     // マスタ全ヘッダーを取得し、モーダル用に整理
     return (APP_DATA.scheduleHeaders || []).filter(header => {
       const key = normalizeScheduleEditKey_(header);
-      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed'].includes(key);
+      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed', 'job_count_updated_at'].includes(key);
     });
   }
 
@@ -1111,8 +1130,12 @@
       delete payload.checker;
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'is_new')) {
-      payload.new_flag = payload.is_new ? 'TRUE' : 'FALSE';
-      delete payload.is_new;
+      payload.is_new = payload.is_new ? 'TRUE' : 'FALSE';
+      delete payload.new_flag;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'new_flag') && !Object.prototype.hasOwnProperty.call(payload, 'is_new')) {
+      payload.is_new = payload.new_flag ? 'TRUE' : 'FALSE';
+      delete payload.new_flag;
     }
     return payload;
   }
@@ -1295,24 +1318,6 @@
         setModalFormatState(modal, this.dataset.format);
       });
     });
-
-    modal.querySelectorAll('select[name="format"]').forEach(select => {
-      if (select.dataset.formatBound === 'true') return;
-      select.dataset.formatBound = 'true';
-      select.addEventListener('change', event => {
-        setModalFormatState(modal, event.target.value);
-      });
-    });
-
-    if (modal.dataset.formatDelegationBound !== 'true') {
-      modal.dataset.formatDelegationBound = 'true';
-      modal.addEventListener('change', event => {
-        const target = event.target;
-        if (target && target.matches && target.matches('select[name="format"]')) {
-          setModalFormatState(modal, target.value);
-        }
-      });
-    }
   }
 
   function setModalFormatState(modal, format) {
@@ -1325,6 +1330,12 @@
     modal.querySelectorAll('[name="format"]').forEach(input => {
       input.value = nextFormat;
     });
+    if (modal.id === 'masterModal') {
+      if (modal.dataset.modalType !== 'pr-master') {
+        updateMasterFormFields();
+      }
+      return;
+    }
     applyDynamicInputControl(nextFormat, modal.id);
   }
 
@@ -1333,14 +1344,12 @@
     const modal = document.getElementById(modalId);
     if (!modal) return;
 
-    const constraints = {
-      '自動求人特集': ['auto_job_feature_id', 'job_url'],
-      'フリー': ['auto_job_feature_id', 'job_url'],
-      '抽出': ['auto_job_feature_id', 'job_url'],
-      'その他': []
-    };
+    const normalizedFormat = String(format || '').trim();
+    const isAutoJob = normalizedFormat === '自動求人特集';
+    const isOther = normalizedFormat === 'その他';
+    const autoJobFields = ['auto_job_feature_id', 'job_url'];
+    const editLockedFields = ['mail_type', 'sub_category', 'is_new', 'cycle', 'pr'];
 
-    const disabledKeys = constraints[format] || [];
     const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
     const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
 
@@ -1349,27 +1358,50 @@
       group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
     });
 
-    disabledKeys.forEach(key => {
+    autoJobFields.forEach(key => {
       const group = modal.querySelector(`[data-field="${key}"]`);
-      if (group) {
-        group.classList.add('disabled');
-        group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
-      }
+      if (!group) return;
+      const shouldEnable = isAutoJob || isOther;
+      group.classList.toggle('disabled', !shouldEnable);
+      group.querySelectorAll('input, select, textarea').forEach(input => {
+        input.disabled = !shouldEnable;
+      });
     });
+
+    if (modalId === 'editModal') {
+      editLockedFields.forEach(key => {
+        const group = modal.querySelector(`[data-field="${key}"]`);
+        if (!group) return;
+        group.classList.add('disabled');
+        group.querySelectorAll('input, select, textarea').forEach(input => {
+          input.disabled = true;
+        });
+      });
+      // サイクル項目は編集可能とする（例外ルール）
+      const cycleGroup = modal.querySelector('[data-field="cycle"]');
+      if (cycleGroup) {
+        cycleGroup.classList.remove('disabled');
+        cycleGroup.querySelectorAll('input, select, textarea').forEach(input => {
+          input.disabled = false;
+        });
+      }
+    }
 
     if (currentJobCountInput) {
       currentJobCountInput.disabled = true;
       currentJobCountInput.readOnly = true;
-      currentJobCountInput.placeholder = '保存後に自動取得されます';
+      currentJobCountInput.placeholder = isAutoJob
+        ? '保存後にURLから自動取得されます'
+        : '保存後に自動取得されます';
       currentJobCountGroup.classList.add('disabled');
     }
 
     if (modal.dataset.modalType === 'pr-master') {
       const prIdInput = modal.querySelector('[name="pr_id"]');
       if (prIdInput) {
-        prIdInput.disabled = false;
+        prIdInput.disabled = !(isAutoJob || isOther);
         prIdInput.readOnly = true;
-        prIdInput.placeholder = '保存時に自動採番';
+        prIdInput.placeholder = (isAutoJob || isOther) ? '保存時に自動採番' : '自動採番対象外';
       }
     }
   }
@@ -1592,7 +1624,7 @@
         row.mail_name,
         row.weekday,
         row.hour,
-        row.category,
+        row.mail_type || row.category,
         row.cycle,
         row.format,
         row.assignee,
@@ -1895,13 +1927,13 @@
 
   function getAdminOptionValues() {
     const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
-    return [''].concat(rows
+    return rows
       .map(row => {
         const value = row.initial || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
         const label = row.full_name || row.fullName || row.name || row['氏名'] || row['名前'] || value;
         return value ? { value, label: label && label !== value ? `${value} (${label})` : value } : null;
       })
-      .filter(Boolean));
+      .filter(Boolean);
   }
 
   function loadAdminList() {
@@ -1925,7 +1957,7 @@
         };
       }
       const value = String(option == null ? '' : option).trim();
-      return { value, label: String(option == null ? '空白' : option) || '空白' };
+      return { value, label: value };
     });
   }
 
@@ -1933,11 +1965,12 @@
     const optionValues = getAdminSelectOptions_();
     document.querySelectorAll('#masterModal select[name="setter"], #masterModal select[name="checker"], #editModal select[name="setter"], #editModal select[name="checker"]').forEach(select => {
       const selected = String(select.value || '').trim();
-      select.innerHTML = optionValues.map(option => `<option value="${escapeAttribute(option.value)}" ${option.value === selected ? 'selected' : ''}>${escapeHtml(option.label || '空白')}</option>`).join('');
-      if (selected && !optionValues.some(option => option.value === selected)) {
-        select.insertAdjacentHTML('beforeend', `<option value="${escapeAttribute(selected)}" selected>${escapeHtml(selected)}</option>`);
+      const nextSelected = selected || (optionValues[0] ? optionValues[0].value : '');
+      select.innerHTML = optionValues.map(option => `<option value="${escapeAttribute(option.value)}" ${option.value === nextSelected ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>`).join('');
+      if (nextSelected && !optionValues.some(option => option.value === nextSelected)) {
+        select.insertAdjacentHTML('beforeend', `<option value="${escapeAttribute(nextSelected)}" selected>${escapeHtml(nextSelected)}</option>`);
       }
-      select.value = selected;
+      select.value = nextSelected;
     });
   }
 
@@ -1950,14 +1983,16 @@
           label: String(option.label == null ? option.value : option.label)
         };
       }
-      return { value: String(option == null ? '' : option).trim(), label: String(option == null ? '空白' : option) || '空白' };
-    });
-    if (normalizedCurrent && !normalizedOptions.some(option => option.value === normalizedCurrent)) {
-      normalizedOptions.push({ value: normalizedCurrent, label: normalizedCurrent });
+      const value = String(option == null ? '' : option).trim();
+      return value ? { value, label: value } : null;
+    }).filter(Boolean);
+    const selectedValue = normalizedCurrent || (normalizedOptions[0] ? normalizedOptions[0].value : '');
+    if (selectedValue && !normalizedOptions.some(option => option.value === selectedValue)) {
+      normalizedOptions.push({ value: selectedValue, label: selectedValue });
     }
 
     const optionHtml = normalizedOptions.map(option => `
-      <option value="${escapeAttribute(option.value)}" ${option.value === normalizedCurrent ? 'selected' : ''}>${escapeHtml(option.label || '空白')}</option>
+      <option value="${escapeAttribute(option.value)}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>
     `).join('');
     return `<select data-header="${escapeAttribute(header)}">${optionHtml}</select>`;
   }
@@ -1980,19 +2015,34 @@
     if (key === 'reviewer') {
       return renderNamedSelectInput('checker', textValue, getAdminSelectOptions_());
     }
-    if (key === 'new_flag') {
-      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''}>`;
+    if (key === 'is_new' || key === 'new_flag') {
+      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''} ${mode === 'edit' ? 'disabled' : ''}>`;
     }
     if (key === 'current_job_count') {
       return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
     }
+    if (key === 'job_count_updated_at') {
+      return `<input type="text" name="job_count_updated_at" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動更新されます">`;
+    }
+    if (key === 'mail_type' || key === 'category') {
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('mail_type')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+    }
+    if (key === 'sub_category') {
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('sub_category')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+    }
+    if (key === 'cycle') {
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('cycle')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+    }
+    if (key === 'pr') {
+      return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly disabled' : ''}>`;
+    }
     if (isWeekdayHeader(header) || key === 'weekday') {
-      return renderSelectInput(key, textValue, ['', '月', '火', '水', '木', '金', '土', '日']);
+      return renderSelectInput(key, textValue, ['月', '火', '水', '木', '金', '土', '日']);
     }
     if (isFormatHeader(header) || key === 'format') {
       return mode === 'edit'
         ? ''
-        : renderSelectInput(key, textValue, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
+        : renderSelectInput(key, textValue, ['フリー', '抽出', '自動求人特集', 'その他']);
     }
     if (isTimeHeader(header) || key === 'hour') {
       return renderSelectInput(key, normalizeMasterHourValue(textValue), buildHourOptions());
@@ -2010,7 +2060,7 @@
   }
 
   function buildHourOptions() {
-    const options = [''];
+    const options = [];
     for (let hour = 8; hour <= 21; hour++) {
       options.push(`${hour}:00`);
     }
@@ -2026,7 +2076,7 @@
   }
 
   function getBgColor(row) {
-    const category = String(row && row.category != null ? row.category : '').trim();
+    const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
     const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
     const format = String(row && row.format != null ? row.format : '').trim();
     const text = [category, cycle, format].join(' ');
@@ -2053,7 +2103,7 @@
   }
 
   function isPositionMatch(row) {
-    const category = String(row && row.category != null ? row.category : '').trim();
+    const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
     const mailName = String(row && row.mail_name != null ? row.mail_name : '').trim();
     const notes = String(row && row.notes != null ? row.notes : '').trim();
     const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
