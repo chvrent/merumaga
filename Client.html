@@ -1088,28 +1088,36 @@
     const modal = document.getElementById('editModal');
     if (!modal) return;
 
-    // 1. 各項目の値セット (name属性またはデータ属性での特定)
-    Object.keys(CURRENT_ENTRY).forEach(key => {
-      // フォームグループ内の name 属性を持つ要素を探す
-      const el = modal.querySelector(`[name="${key}"]`) || modal.querySelector(`[data-edit-key="${key}"]`);
+    // 1. 固定フィールドの流し込み（ID指定）
+    const fieldMapping = {
+      'schedule_id': 'edit-id',
+      'mail_name': 'edit-name',
+      'delivery_count': 'edit-count',
+      'mail_content': 'edit-mail-content',
+      'notes': 'edit-notes'
+    };
+
+    Object.keys(fieldMapping).forEach(key => {
+      const el = document.getElementById(fieldMapping[key]);
       if (el) {
-        if (el.type === 'checkbox') {
+        el.value = CURRENT_ENTRY[key] || '';
+      }
+    });
+
+    // 2. 追加フィールドのレンダリング
+    renderEditExtraFields_(CURRENT_ENTRY);
+
+    // 3. 追加フィールドへのデータ流し込み（動的生成のため、再検索が必要）
+    Object.keys(CURRENT_ENTRY).forEach(key => {
+      const el = modal.querySelector(`[data-edit-key="${key}"]`);
+      if (el) {
+        if (el.tagName === 'INPUT' && el.type === 'checkbox') {
           el.checked = isTruthyValue(CURRENT_ENTRY[key]);
         } else {
           el.value = CURRENT_ENTRY[key] || '';
         }
       }
     });
-
-    // 2. 特殊ケース：形式の値セット（タブ連動用）
-    const format = CURRENT_ENTRY.format || 'フリー';
-    const formatEl = modal.querySelector('[name="format"]');
-    if (formatEl) {
-      formatEl.value = format;
-    }
-    
-    // 3. 追加フィールドのレンダリング
-    renderEditExtraFields_(CURRENT_ENTRY);
 
     // 4. PR情報の表示
     const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
@@ -1126,8 +1134,8 @@
       }
     }
 
-    // 5. タブの初期化とルール適用（データ流し込みの最後に行う）
-    window.openAndInitModalWithTab(format, 'editModal');
+    // 5. タブの初期化とルール適用
+    window.openAndInitModalWithTab(CURRENT_ENTRY.format || 'フリー', 'editModal');
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
