@@ -224,7 +224,7 @@
           if (fromEl === toEl) return;
 
           const scheduleId = itemEl.dataset.scheduleId || itemEl.dataset.itemId;
-          const oldDate = itemEl.dataset.targetDate;
+          const oldDate = itemEl.dataset.originalDate || itemEl.dataset.targetDate;
           const newDate = toEl.dataset.date;
           const newHour = toEl.dataset.hour;
 
@@ -407,7 +407,10 @@
           slotEntries.forEach(entry => {
             const entryForDate = Object.assign({}, entry, { target_date: dateStr });
             const moveOverride = getMoveOverrideForDate(entry, dateStr);
-            if (moveOverride && moveOverride.hour) entryForDate.hour = moveOverride.hour;
+            if (moveOverride) {
+              if (moveOverride.hour) entryForDate.hour = moveOverride.hour;
+              if (moveOverride.original_date) entryForDate.original_date = moveOverride.original_date;
+            }
 
             const effectiveEntry = applyOccurrenceOverrideToEntry(entryForDate);
             const payload = escapeAttribute(encodeURIComponent(JSON.stringify(effectiveEntry)));
@@ -432,7 +435,7 @@
               .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
               .join('');
             html += `
-            <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" style="background-color: ${itemBg};" onclick="openModal('${payload}')"${rowTitle}>
+            <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};" onclick="openModal('${payload}')"${rowTitle}>
               <div class="col-name">
                 <div class="mail-name">
                   ${jobAlertIcon}
