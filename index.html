@@ -156,7 +156,9 @@
           <button type="button" class="modal-tab" data-tab-id="other">その他</button>
         </div>
         <input type="hidden" id="master-row-number">
-        <div id="masterForm" class="master-form"></div>
+        <div id="masterForm" class="master-form">
+          <!-- 項目はJSで動的に生成 -->
+        </div>
         <div class="modal-actions">
           <button type="button" class="primary-button" onclick="saveMasterEdit()">保存</button>
           <button type="button" class="secondary-button" onclick="closeMasterModal()">キャンセル</button>
