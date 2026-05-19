@@ -35,7 +35,7 @@ const SCHEDULE_FIELD_ALIASES = {
   mail_content: ['mail_content', 'メルマガ内容', 'メルマガ詳細内容'],
   weekday: ['weekday', '曜日'],
   hour: ['hour', '時間'],
-  category: ['category', '種別'],
+  mail_type: ['mail_type', 'category', '種別'],
   sub_category: ['sub_category', 'サブカテゴリ'],
   format: ['format', '形式'],
   delivery_count: ['delivery_count', '通数'],
@@ -49,7 +49,7 @@ const SCHEDULE_FIELD_ALIASES = {
   auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID'],
   target_age: ['target_age', '対象年齢'],
   target_address: ['target_address', '対象現住所'],
-  new_flag: ['new_flag', 'is_new', '新規'],
+  is_new: ['is_new', 'new_flag', '新規'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数'],
   job_count_updated_at: ['job_count_updated_at', '求人数最終取得日時', '最終取得日時'],
   cycle: ['cycle', 'サイクル'],
@@ -75,12 +75,12 @@ function getInitialData(options) {
     stoppedOccurrences: getStoppedOccurrences_(dateRange),
     checkStatuses: getCheckStatuses_(dateRange),
     readme: getSheetObjectsCached_('app_readme', true),
-    adminMaster: getSheetObjectsByNamesCached_(['app_admin_master', 'app_name_master'], true)
+    adminMaster: getSheetObjectsCached_('app_admin_master', true)
   };
 }
 
 function getAdminList() {
-  const rows = getSheetObjectsByNamesCached_(['app_admin_master', 'app_name_master'], true);
+  const rows = getSheetObjectsCached_('app_admin_master', true);
   return rows
     .filter(row => {
       const activeKeys = ['is_active', 'active', '有効', 'enabled', 'enable'];
@@ -194,8 +194,18 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'checker') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'reviewer')) {
     normalizedPayload.reviewer = normalizedPayload.checker;
   }
-  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'new_flag')) {
-    normalizedPayload.new_flag = isTruthy_(normalizedPayload.is_new) ? 'TRUE' : 'FALSE';
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'mail_type') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'category')) {
+    normalizedPayload.category = normalizedPayload.mail_type;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'category') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'mail_type')) {
+    normalizedPayload.mail_type = normalizedPayload.category;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'new_flag') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new')) {
+    normalizedPayload.is_new = normalizedPayload.new_flag;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new')) {
+    normalizedPayload.is_new = isTruthy_(normalizedPayload.is_new) ? 'TRUE' : 'FALSE';
+    delete normalizedPayload.new_flag;
   }
 
   const ss = getSourceSpreadsheet_();
@@ -1048,8 +1058,8 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.target_age);
       case 'target_address':
         return normalizeCell_(safePayload.target_address);
-      case 'new_flag':
-        return normalizeCell_(safePayload.new_flag);
+      case 'is_new':
+        return normalizeCell_(safePayload.is_new);
       case 'current_job_count':
         return normalizeCell_(safePayload.current_job_count);
       case 'override_fields':
@@ -1062,8 +1072,10 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.reviewer);
       case 'notes':
         return normalizeCell_(safePayload.notes);
+      case 'mail_type':
+        return normalizeCell_(safePayload.mail_type || safePayload.category);
       case 'category':
-        return normalizeCell_(safePayload.category);
+        return normalizeCell_(safePayload.mail_type || safePayload.category);
       case 'sub_category':
         return normalizeCell_(safePayload.sub_category);
       case 'format':
@@ -1742,7 +1754,7 @@ function getCheckStatusHeaders_(sheet) {
     'auto_job_feature_id',
     'target_age',
     'target_address',
-    'new_flag',
+    'is_new',
     'current_job_count',
     'override_fields',
     'delivery_count',
@@ -2311,7 +2323,8 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     schedule_id: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.schedule_id) || `${sheetName}:${rowNumber}`,
     source_sheet: sheetName,
     source_row: String(rowNumber),
-    category: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.category) || normalizeCell_(row[1]),
+    mail_type: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_type) || normalizeCell_(row[1]),
+    category: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_type) || normalizeCell_(row[1]),
     // sub_category は必ず sub_category 列（ヘッダー別名含む）からのみ取得する
     sub_category: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.sub_category),
     cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle) || normalizeCell_(row[2]),
@@ -2332,7 +2345,7 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     auto_job_feature_id: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.auto_job_feature_id),
     target_age: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_age),
     target_address: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_address),
-    new_flag: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.new_flag),
+    is_new: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_new),
     current_job_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_job_count),
     job_count_updated_at: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_count_updated_at),
     current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),

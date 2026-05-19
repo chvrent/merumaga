@@ -630,14 +630,11 @@
         ${categories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_CATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
       </select>
     ` : '';
-    const newOnlyCheckbox = `
-      <label class="filter-checkbox">
-        <input type="checkbox" id="masterNewOnlyCheckbox" onchange="setMasterNewOnly(this.checked)" ${MASTER_NEW_ONLY ? 'checked' : ''}>
-        新規のみ
-      </label>
+    const newOnlyChip = `
+      <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" data-action="toggle-master-new-only">新規のみ</button>
     `;
 
-    container.innerHTML = [statusSelect, newOnlyCheckbox, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [statusSelect, newOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterSubCategoryFilter(value) {
@@ -2890,6 +2887,11 @@
 
     if (action === 'load-active-master') {
       loadActiveMaster();
+      return;
+    }
+
+    if (action === 'toggle-master-new-only') {
+      setMasterNewOnly(!MASTER_NEW_ONLY);
       return;
     }
 
