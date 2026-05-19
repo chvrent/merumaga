@@ -52,9 +52,9 @@
   let SORTABLES = [];
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
-  let MASTER_SUBCATEGORY_FILTER = '';
-  let MASTER_FORMAT_FILTER = '';
-  let MASTER_CATEGORY_FILTER = '';
+  let MASTER_SUBCATEGORY_FILTER = '__all__';
+  let MASTER_FORMAT_FILTER = '__all__';
+  let MASTER_CATEGORY_FILTER = '__all__';
   let MASTER_STATUS_FILTER = 'active';
   let MASTER_NEW_ONLY = false;
   let MASTER_FILTERS = {
@@ -577,9 +577,9 @@
     if (MASTER_DATA.sheetName !== 'app_schedule') {
       container.innerHTML = '';
       container.style.display = 'none';
-      MASTER_SUBCATEGORY_FILTER = '';
-      MASTER_FORMAT_FILTER = '';
-      MASTER_CATEGORY_FILTER = '';
+      MASTER_SUBCATEGORY_FILTER = '__all__';
+      MASTER_FORMAT_FILTER = '__all__';
+      MASTER_CATEGORY_FILTER = '__all__';
       MASTER_STATUS_FILTER = 'active';
       MASTER_NEW_ONLY = false;
       return;
@@ -607,7 +607,7 @@
 
     const subCategorySelect = subCategories.length ? `
       <select id="masterSubCategorySelect" class="filter-select" onchange="setMasterSubCategoryFilter(this.value)">
-        <option value="">サブカテゴリ: すべて</option>
+        <option value="__all__" ${MASTER_SUBCATEGORY_FILTER === '__all__' ? 'selected' : ''}>サブカテゴリ: すべて</option>
         <option value="__contains:商品" ${MASTER_SUBCATEGORY_FILTER === '__contains:商品' ? 'selected' : ''}>サブカテゴリ: 商品</option>
         ${subCategories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_SUBCATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
       </select>
@@ -620,13 +620,13 @@
     `;
     const formatSelect = formats.length ? `
       <select id="masterFormatSelect" class="filter-select" onchange="setMasterFormatFilter(this.value)">
-        <option value="">形式: すべて</option>
+        <option value="__all__" ${MASTER_FORMAT_FILTER === '__all__' ? 'selected' : ''}>形式: すべて</option>
         ${formats.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_FORMAT_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
       </select>
     ` : '';
     const categorySelect = categories.length ? `
       <select id="masterCategorySelect" class="filter-select" onchange="setMasterCategoryFilter(this.value)">
-        <option value="">種別: すべて</option>
+        <option value="__all__" ${MASTER_CATEGORY_FILTER === '__all__' ? 'selected' : ''}>種別: すべて</option>
         ${categories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_CATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
       </select>
     ` : '';
@@ -641,17 +641,17 @@
   }
 
   function setMasterSubCategoryFilter(value) {
-    MASTER_SUBCATEGORY_FILTER = String(value || '');
+    MASTER_SUBCATEGORY_FILTER = String(value || '__all__');
     renderMasterTable();
   }
 
   function setMasterFormatFilter(value) {
-    MASTER_FORMAT_FILTER = String(value || '');
+    MASTER_FORMAT_FILTER = String(value || '__all__');
     renderMasterTable();
   }
 
   function setMasterCategoryFilter(value) {
-    MASTER_CATEGORY_FILTER = String(value || '');
+    MASTER_CATEGORY_FILTER = String(value || '__all__');
     renderMasterTable();
   }
 
@@ -696,7 +696,7 @@
       }
 
       // サブカテゴリフィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER && subCategoryHeader) {
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER !== '__all__' && subCategoryHeader) {
         const v = String(row[subCategoryHeader] || '').trim();
         if (MASTER_SUBCATEGORY_FILTER === '__contains:商品') {
           if (!v.includes('商品')) return false;
@@ -706,12 +706,12 @@
       }
 
       // 形式フィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_FORMAT_FILTER && formatHeader) {
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_FORMAT_FILTER !== '__all__' && formatHeader) {
         if (String(row[formatHeader] || '').trim() !== MASTER_FORMAT_FILTER) return false;
       }
 
       // 種別フィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER && mailTypeHeader) {
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
         if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
       }
 
@@ -797,8 +797,7 @@
 
   function updateMasterFormFields() {
     const modal = document.getElementById('masterModal');
-    const formatInput = modal ? modal.querySelector('#masterForm [data-header="形式"]') : null;
-    const format = formatInput ? formatInput.value : '';
+    const format = String(modal && modal.dataset.format ? modal.dataset.format : 'フリー');
     const fields = {
       'auto_job_feature_id': ['自動求人特集', 'その他'],
       'job_url': ['自動求人特集', 'その他'],
@@ -835,14 +834,14 @@
     const form = document.getElementById('masterForm');
     const modal = document.getElementById('masterModal');
     const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
+    const mode = row.__rowNumber ? 'edit' : 'master';
     const tabsContainer = modal ? modal.querySelector('.modal-tabs-container') : null;
 
     document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
     document.getElementById('master-row-number').value = row.__rowNumber || '';
-    const formatInput = document.getElementById('master-format');
     if (tabsContainer) tabsContainer.style.display = isPrMaster ? 'none' : '';
     if (modal) modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
-    if (formatInput) formatInput.value = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
+    if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
     const html = visibleHeaders.map(header => {
@@ -850,9 +849,10 @@
       if (isHiddenMasterInputHeader(header)) return '';
 
       const key = normalizeScheduleEditKey_(header);
+      if (key === 'format') return '';
       const value = row[key] != null ? row[key] : row[header];
       const isFullWidth = ['mail_content', 'notes'].includes(key);
-      const input = renderMasterFieldInput_(header, key, value, 'master');
+      const input = renderMasterFieldInput_(header, key, value, mode);
       if (input === '') return '';
 
       return `<div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}"><label>${escapeHtml(getDisplayName(key))}</label>${input}</div>`;
@@ -874,6 +874,7 @@
       const prIdField = modal.querySelector('[name="pr_id"]');
       if (prIdField) {
         prIdField.readOnly = true;
+        prIdField.disabled = true;
         prIdField.placeholder = '保存時に自動採番';
       }
       window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
@@ -1064,7 +1065,10 @@
 
     const excludedKeys = new Set([
       'schedule_id',
-      'format'
+      'format',
+      'mail_name',
+      'assignee',
+      'reviewer'
     ]);
 
     container.innerHTML = getScheduleEditHeaders_().filter(header => {
@@ -1176,9 +1180,10 @@
     const payload = normalizeMasterSubmissionPayload_(
       Object.assign(
         { __rowNumber: document.getElementById('master-row-number').value },
-        collectNamedFormValues(document.getElementById('masterModal'), { includeHidden: ['format'] })
+        collectNamedFormValues(document.getElementById('masterModal'))
       )
     );
+    payload.format = document.getElementById('masterModal').dataset.format || 'フリー';
 
     // PR管理の場合のみ、target_ids (PRが入るメルマガ) を取得して savePRData を呼ぶ
     if (MASTER_DATA.sheetName === 'app_pr') {
@@ -1318,6 +1323,14 @@
         setModalFormatState(modal, this.dataset.format);
       });
     });
+
+    modal.querySelectorAll('select[name="format"]').forEach(select => {
+      if (select.dataset.formatBound === 'true') return;
+      select.dataset.formatBound = 'true';
+      select.addEventListener('change', event => {
+        setModalFormatState(modal, event.target.value);
+      });
+    });
   }
 
   function setModalFormatState(modal, format) {
@@ -1377,14 +1390,6 @@
           input.disabled = true;
         });
       });
-      // サイクル項目は編集可能とする（例外ルール）
-      const cycleGroup = modal.querySelector('[data-field="cycle"]');
-      if (cycleGroup) {
-        cycleGroup.classList.remove('disabled');
-        cycleGroup.querySelectorAll('input, select, textarea').forEach(input => {
-          input.disabled = false;
-        });
-      }
     }
 
     if (currentJobCountInput) {
@@ -1399,9 +1404,9 @@
     if (modal.dataset.modalType === 'pr-master') {
       const prIdInput = modal.querySelector('[name="pr_id"]');
       if (prIdInput) {
-        prIdInput.disabled = !(isAutoJob || isOther);
         prIdInput.readOnly = true;
-        prIdInput.placeholder = (isAutoJob || isOther) ? '保存時に自動採番' : '自動採番対象外';
+        prIdInput.disabled = true;
+        prIdInput.placeholder = '保存時に自動採番';
       }
     }
   }
@@ -2009,6 +2014,9 @@
     if (key === 'mail_name') {
       return `<input type="text" name="mail_name" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly' : ''}>`;
     }
+    if (key === 'pr_id') {
+      return `<input type="text" name="pr_id" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存時に自動採番">`;
+    }
     if (key === 'assignee') {
       return renderNamedSelectInput('setter', textValue, getAdminSelectOptions_());
     }
@@ -2035,6 +2043,9 @@
     }
     if (key === 'pr') {
       return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly disabled' : ''}>`;
+    }
+    if (key === 'format') {
+      return '';
     }
     if (isWeekdayHeader(header) || key === 'weekday') {
       return renderSelectInput(key, textValue, ['月', '火', '水', '木', '金', '土', '日']);

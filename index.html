@@ -92,39 +92,62 @@
           <div class="modal-tab" data-format="自動求人特集">自動求人特集</div>
           <div class="modal-tab" data-format="その他">その他</div>
         </div>
+
+        <!-- 1. ［最上部：固定ヘッダーエリア］ -->
+        <div class="modal-header-fixed">
+          <div class="form-group">
+            <label>メルマガ名 (クリックでコピー)</label>
+            <input type="text" name="mail_name" readonly>
+          </div>
+          <div class="form-group">
+            <label>設定者</label>
+            <select name="setter"></select>
+          </div>
+          <div class="form-group">
+            <label>確認者</label>
+            <select name="checker"></select>
+          </div>
+        </div>
+
+        <!-- 2. ［中央部：2カラム・グリッドエリア］ -->
         <form id="editForm" class="form-grid">
           <input type="hidden" name="schedule_id" id="edit-id">
           <input type="hidden" name="format" id="edit-format">
-          <div id="editCoreFields" class="form-grid full-width" style="margin-top:0;"></div>
+          <div id="editCoreFields" style="display:contents;"></div>
         </form>
 
-        <div id="edit-pr-details" class="pr-info-container"></div>
-        
-        <section class="comment-panel" aria-label="コメントスレッド">
-          <div class="comment-panel-header">
-            <h3>コメント</h3>
-            <span id="comment-count-label">0件</span>
+        <!-- 3. ［最下部：独自機能エリア］ -->
+        <div class="modal-footer-unique">
+          <div id="edit-pr-details" class="pr-info-container"></div>
+          
+          <section class="comment-panel" aria-label="コメントスレッド">
+            <div class="comment-panel-header">
+              <h3>コメント</h3>
+              <span id="comment-count-label">0件</span>
+            </div>
+            <div id="comment-thread" class="comment-thread">
+              <div class="empty-state">コメントを読み込み中...</div>
+            </div>
+            <div class="form-group comment-input-field">
+              <label>新しいコメント</label>
+              <textarea id="new-comment" placeholder="コメントを入力"></textarea>
+            </div>
+            <div class="comment-actions">
+              <button type="button" class="secondary-button" data-action="reload-comments">再読込</button>
+              <button type="button" class="primary-button" data-action="post-comment">送信</button>
+            </div>
+          </section>
+          
+          <section class="exception-panel" aria-label="配信停止・再開">
+            <div id="job-alert-guidance" class="job-alert-guidance" style="display:none;"></div>
+            <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
+            <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
+          </section>
+          
+          <div class="modal-actions">
+            <button type="button" class="primary-button" data-action="save-edit">保存</button>
+            <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>
           </div>
-          <div id="comment-thread" class="comment-thread">
-            <div class="empty-state">コメントを読み込み中...</div>
-          </div>
-          <div class="form-group comment-input-field">
-            <label>新しいコメント</label>
-            <textarea id="new-comment" placeholder="コメントを入力"></textarea>
-          </div>
-          <div class="comment-actions">
-            <button type="button" class="secondary-button" data-action="reload-comments">再読込</button>
-            <button type="button" class="primary-button" data-action="post-comment">送信</button>
-          </div>
-        </section>
-        <section class="exception-panel" aria-label="配信停止・再開">
-          <div id="job-alert-guidance" class="job-alert-guidance" style="display:none;"></div>
-          <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
-          <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
-        </section>
-        <div class="modal-actions">
-          <button type="button" class="primary-button" data-action="save-edit">保存</button>
-          <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>
         </div>
       </div>
     </div>
@@ -142,7 +165,6 @@
           <div class="modal-tab" data-format="その他">その他</div>
         </div>
         <input type="hidden" id="master-row-number">
-        <input type="hidden" name="format" id="master-format">
         <form id="masterForm" class="form-grid">
           <!-- 項目はJSで動的に生成 -->
         </form>

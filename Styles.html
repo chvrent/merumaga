@@ -1103,6 +1103,31 @@
     font-size: 13px;
   }
 
+  /* Added Modal Design */
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    padding: 15px;
+  }
+  .full-width {
+    grid-column: span 2;
+  }
+  .modal-header-fixed {
+    background: #f1f5f9;
+    padding: 15px;
+    border-bottom: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 10px;
+    align-items: end;
+  }
+  .modal-footer-unique {
+    padding: 15px;
+    border-top: 1px solid var(--border);
+    background: #f8fafc;
+  }
+
   @media (max-width: 900px) {
     .toolbar {
       align-items: stretch;
