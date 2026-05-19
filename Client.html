@@ -5,7 +5,6 @@
   let ACTIVE_MASTER = 'schedule';
   let MASTER_DATA = { sheetName: '', headers: [], rows: [] };
   let IS_MOVE_MODE = false;
-  let IS_R_FILL = false;
   let BUSY_COUNT = 0;
   let BUSY_TIMER = null;
   let LOCAL_CHECK_CHANGES = {};
@@ -168,35 +167,35 @@
     document.body.classList.remove('is-busy');
   }
 
-  function toggleRFill() {
-    const nextActive = !IS_R_FILL;
+  function fillRForDay(dateStr) {
     const updates = [];
-    document.querySelectorAll('#tableContainer .check-status-cell[data-check-field="setter"]').forEach(cell => {
+    document.querySelectorAll(`#tableContainer td[data-date="${escapeCssValue(dateStr)}"] .check-status-cell[data-check-field="setter"]`).forEach(cell => {
       if (String(cell.textContent || '').trim() !== 'R') return;
       if (cell.classList.contains('archived-cell')) return;
+      const itemId = cell.dataset.itemId;
+      if (isCheckStatusActive(itemId, 'setter')) return;
       updates.push({
-        itemId: cell.dataset.itemId,
+        itemId,
         field: 'setter',
-        active: nextActive,
+        active: true,
         payload: parseCheckLogPayload(cell.dataset.logPayload)
       });
     });
 
     if (!updates.length) {
-      IS_R_FILL = nextActive;
-      const emptyBtn = document.getElementById('rFillToggle');
-      if (emptyBtn) emptyBtn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
-      renderScheduleGrid();
+      updatePendingCheckSaveButton();
       return;
     }
 
-    IS_R_FILL = nextActive;
-    const btn = document.getElementById('rFillToggle');
-    if (btn) btn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
     updates.forEach(update => setPendingCheckStatus(update.itemId, update.field, update.active, update.payload));
     schedulePendingCheckPersist();
     renderScheduleGrid();
     updatePendingCheckSaveButton();
+  }
+
+  function escapeCssValue(value) {
+    if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value || ''));
+    return String(value || '').replace(/["\\]/g, '\\$&');
   }
 
   function initDragAndDrop() {
@@ -314,6 +313,7 @@
         <div class="day-bulk-actions">
            <button type="button" class="bulk-stop-button" onclick="stopAllForDay('${dateStr}')" title="この日の配信予定をすべて停止します">全停止</button>
            <button type="button" class="bulk-resume-button" onclick="resumeAllForDay('${dateStr}')" title="この日の停止設定をすべて解除します">再開</button>
+           <button type="button" class="bulk-r-button" onclick="fillRForDay('${dateStr}')" title="この日のR枠だけ設定済みにします">R一括設定</button>
         </div>
       `;
 
@@ -1388,7 +1388,6 @@
 
   function renderCheckStatusCell(itemId, field, value, className, row) {
     const active = isCheckStatusActive(itemId, field);
-    const forceRed = field === 'setter' && IS_R_FILL && String(value || '').trim() === 'R';
     const archived = isArchivedDate(row.target_date);
     const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
     const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
@@ -1398,7 +1397,7 @@
 
     return `
       <div
-        class="${className} check-status-cell ${(active || forceRed) ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''}"
+        class="${className} check-status-cell ${active ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''}"
         data-item-id="${escapeAttribute(itemId)}"
         data-check-field="${escapeAttribute(field)}"
         data-log-payload="${escapeAttribute(logPayload)}"
