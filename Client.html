@@ -735,6 +735,27 @@
     return map;
   }
 
+  function updateMasterFormFields() {
+    const formatInput = document.querySelector('#masterForm [data-header="形式"]');
+    const format = formatInput ? formatInput.value : '';
+    const fields = {
+      'job_count': ['auto-job'],
+      'job_feature_id': ['auto-job'],
+      'job_url': ['auto-job'],
+      'pr_id': ['auto-job', 'other']
+    };
+
+    Object.keys(fields).forEach(key => {
+      const fieldContainer = document.getElementById(`field-${key}`);
+      if (fieldContainer) {
+        const isActive = fields[key].includes(getTabIdByFormat(format)) || format === 'その他';
+        fieldContainer.classList.toggle('disabled', !isActive);
+        const inputs = fieldContainer.querySelectorAll('input, select, textarea');
+        inputs.forEach(input => input.disabled = !isActive);
+      }
+    });
+  }
+
   function openMasterModal(encodedRow) {
     const row = encodedRow ? JSON.parse(decodeURIComponent(encodedRow)) : {};
     const headers = MASTER_DATA.headers || [];
@@ -745,7 +766,6 @@
     document.getElementById('master-row-number').value = row.__rowNumber || '';
 
     let html = visibleHeaders.map(header => {
-      // PR管理画面の target_ids (PRが入るメルマガ) と 配信停止 は別レンダリング
       if (MASTER_DATA.sheetName === 'app_pr' && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
       if (isHiddenMasterInputHeader(header)) return '';
 
@@ -756,7 +776,7 @@
       if (isWeekdayHeader(header)) {
         input = renderSelectInput(header, value, ['', '月', '火', '水', '木', '金', '土', '日']);
       } else if (isFormatHeader(header)) {
-        input = renderSelectInput(header, value, ['', 'フリー', '抽出', '自動求人特集']);
+        input = renderSelectInput(header, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
       } else if (isAssigneeHeader(header) || isReviewerHeader(header)) {
         input = renderSelectInput(header, value, getAdminOptionValues());
       } else if (isTimeHeader(header)) {
@@ -770,7 +790,7 @@
       } else {
         input = `<input type="text" data-header="${escapeAttribute(header)}" value="${escapeAttribute(value)}">`;
       }
-      return `<label class="field"><span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</span>${input}</label>`;
+      return `<label class="field" id="field-${normalizeScheduleEditKey_(header)}"><span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</span>${input}</label>`;
     }).join('');
 
     if (MASTER_DATA.sheetName === 'app_pr') {
@@ -779,7 +799,9 @@
 
     form.innerHTML = html;
 
-    // 後から挿入する要素がある場合、ここでの設定に注意。現在はinnerHTML後に描画しているのでOKなはずだが、念のためイベントリスナー等を保証
+    // タブの初期化
+    updateMasterFormFields();
+
     const modal = document.getElementById('masterModal');
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
@@ -1086,16 +1108,18 @@
     document.getElementById('edit-notes').value = CURRENT_ENTRY.notes || '';
     // 配信カレンダーモーダルでマスタ項目も扱えるように編集可能にする
     const editExtra = document.getElementById('editExtraFields');
-    editExtra.innerHTML = getScheduleEditHeaders_().map(header => {
-      const key = normalizeScheduleEditKey_(header);
-      const value = CURRENT_ENTRY[key] != null ? CURRENT_ENTRY[key] : CURRENT_ENTRY[header];
-      return `
-        <label class="field">
-          <span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(key))}</span>
-          ${renderEditInput_(header, key, value)}
-        </label>
-      `;
-    }).join('');
+    if (editExtra) {
+      editExtra.innerHTML = getScheduleEditHeaders_().map(header => {
+        const key = normalizeScheduleEditKey_(header);
+        const value = CURRENT_ENTRY[key] != null ? CURRENT_ENTRY[key] : CURRENT_ENTRY[header];
+        return `
+          <label class="field">
+            <span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(key))}</span>
+            ${renderEditInput_(header, key, value)}
+          </label>
+        `;
+      }).join('');
+    }
 
     // 紐付いているPR情報を表示
     const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
@@ -1146,10 +1170,28 @@
     const format = formatMap[tabId];
     document.getElementById('edit-format').value = format;
     
-    document.querySelectorAll('.modal-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('#editModal .modal-tab').forEach(tab => tab.classList.remove('active'));
     event.currentTarget.classList.add('active');
     
     updateFormFields();
+  };
+
+  window.switchMasterModalTab = function(tabId) {
+    const formatMap = { 'free': 'フリー', 'extract': '抽出', 'auto-job': '自動求人特集', 'other': 'その他' };
+    const format = formatMap[tabId];
+    
+    const formatInput = document.querySelector('#masterForm [data-header="形式"]');
+    if (formatInput) {
+      formatInput.value = format;
+      formatInput.dispatchEvent(new Event('change'));
+    }
+    
+    document.querySelectorAll('#masterModal .modal-tab').forEach(tab => tab.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    
+    if (typeof updateMasterFormFields === 'function') {
+      updateMasterFormFields();
+    }
   };
 
   function updateFormFields() {
