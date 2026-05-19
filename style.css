@@ -4,6 +4,7 @@
     --text-color: #333;
     --header-bg: #f8f9fa;
     --disabled-bg: #f0f0f0;
+    --border-color: #ccc;
 }
 
 body {
@@ -13,37 +14,72 @@ body {
     margin: 0;
 }
 
-/* Modal Tab UI */
+/* Modal Layout */
 .modal-tabs {
     display: flex;
-    border-bottom: 1px solid #ddd;
-    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--primary-color);
+    margin-bottom: 1.5rem;
 }
 
 .modal-tab {
-    padding: 0.5rem 1rem;
+    padding: 0.75rem 1.5rem;
     cursor: pointer;
     background: #eee;
     border: none;
     outline: none;
+    transition: background 0.2s;
 }
 
 .modal-tab.active {
-    background: white;
-    border-bottom: 2px solid var(--primary-color);
+    background: var(--primary-color);
+    color: white;
     font-weight: bold;
 }
 
-.modal-field.disabled {
-    background-color: var(--disabled-bg);
-    opacity: 0.6;
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 1rem;
 }
 
-.modal-field.disabled input,
-.modal-field.disabled textarea,
-.modal-field.disabled select {
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group.full-width {
+    grid-column: span 2;
+}
+
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+    font-size: 0.9rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    box-sizing: border-box;
+}
+
+/* Disabled State */
+.form-group.disabled-field {
+    background-color: var(--disabled-bg);
+    border-radius: 4px;
+}
+
+.form-group.disabled-field input,
+.form-group.disabled-field select,
+.form-group.disabled-field textarea {
     background-color: var(--disabled-bg);
     cursor: not-allowed;
+    border-color: #ddd;
 }
 
 header {
