@@ -8,7 +8,10 @@
   let IS_R_FILL = false;
   let BUSY_COUNT = 0;
   let BUSY_TIMER = null;
+  let LOCAL_CHECK_CHANGES = {};
+  let PENDING_CHECK_SAVE_TIMER = null;
   let SORTABLES = [];
+  const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
   let MASTER_SUBCATEGORY_FILTER = '';
   let MASTER_FORMAT_FILTER = '';
@@ -101,7 +104,9 @@
     google.script.run
       .withSuccessHandler(data => {
         APP_DATA = data || {};
+        loadPendingCheckStatuses();
         renderScheduleGrid();
+        updatePendingCheckSaveButton();
         if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
         hideBusy();
       })
@@ -185,22 +190,13 @@
       return;
     }
 
-    showBusy(nextActive ? 'R設定を一括確定中...' : 'R設定の一括解除中...');
-    google.script.run
-      .withSuccessHandler(results => {
-        IS_R_FILL = nextActive;
-        const btn = document.getElementById('rFillToggle');
-        if (btn) btn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
-        updates.forEach(update => setLocalCheckStatus(update.itemId, update.field, update.active));
-        (Array.isArray(results) ? results : []).forEach(result => applyArchiveResult_(result && result.archive));
-        renderScheduleGrid();
-        hideBusy();
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        alert('Rの一括更新に失敗しました: ' + (err.message || String(err)));
-      })
-      .saveCheckStatuses(updates);
+    IS_R_FILL = nextActive;
+    const btn = document.getElementById('rFillToggle');
+    if (btn) btn.textContent = `Rをすべて塗りつぶす: ${IS_R_FILL ? 'ON' : 'OFF'}`;
+    updates.forEach(update => setPendingCheckStatus(update.itemId, update.field, update.active, update.payload));
+    schedulePendingCheckPersist();
+    renderScheduleGrid();
+    updatePendingCheckSaveButton();
   }
 
   function initDragAndDrop() {
@@ -984,6 +980,12 @@
     btn.disabled = true;
     btn.textContent = '保存中...';
     showBusy('マスタを保存中...');
+    const handlePreSaveFailure = err => {
+      alert('未保存の設定・確認状態を一括保存できなかったため、マスタ保存を中止しました: ' + (err.message || String(err)));
+      btn.disabled = false;
+      btn.textContent = '保存';
+      hideBusy();
+    };
 
     const payload = { __rowNumber: document.getElementById('master-row-number').value };
 
@@ -1006,39 +1008,43 @@
       });
       payload.target_ids = selectedNewsletters.map(n => n.mail_name).join(',');
 
-      google.script.run
-        .withSuccessHandler(() => {
-          closeMasterModal();
-          loadActiveMaster();
-          loadData();
-          btn.disabled = false;
-          btn.textContent = '保存';
-          hideBusy();
-        })
-        .withFailureHandler(err => {
-          alert('保存に失敗しました: ' + (err.message || err));
-          btn.disabled = false;
-          btn.textContent = '保存';
-          hideBusy();
-        })
-        .savePRData(payload, selectedNewsletters);
+      flushPendingCheckStatusesBefore(() => {
+        google.script.run
+          .withSuccessHandler(() => {
+            closeMasterModal();
+            loadActiveMaster();
+            loadData();
+            btn.disabled = false;
+            btn.textContent = '保存';
+            hideBusy();
+          })
+          .withFailureHandler(err => {
+            alert('保存に失敗しました: ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = '保存';
+            hideBusy();
+          })
+          .savePRData(payload, selectedNewsletters);
+      }, handlePreSaveFailure);
     } else {
-      google.script.run
-        .withSuccessHandler(() => {
-          closeMasterModal();
-          loadActiveMaster();
-          loadData();
-          btn.disabled = false;
-          btn.textContent = '保存';
-          hideBusy();
-        })
-        .withFailureHandler(err => {
-          alert('保存に失敗しました: ' + (err.message || err));
-          btn.disabled = false;
-          btn.textContent = '保存';
-          hideBusy();
-        })
-        .saveMasterData(MASTER_DATA.sheetName, payload);
+      flushPendingCheckStatusesBefore(() => {
+        google.script.run
+          .withSuccessHandler(() => {
+            closeMasterModal();
+            loadActiveMaster();
+            loadData();
+            btn.disabled = false;
+            btn.textContent = '保存';
+            hideBusy();
+          })
+          .withFailureHandler(err => {
+            alert('保存に失敗しました: ' + (err.message || err));
+            btn.disabled = false;
+            btn.textContent = '保存';
+            hideBusy();
+          })
+          .saveMasterData(MASTER_DATA.sheetName, payload);
+      }, handlePreSaveFailure);
     }
   }
 
@@ -1183,17 +1189,22 @@
     payload.override_fields = overrideFields.join(',');
 
     showBusy('配信内容を保存中...');
-    google.script.run
-      .withSuccessHandler(() => {
-        hideBusy();
-        closeModal();
-        loadData();
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        alert('保存に失敗しました: ' + (err.message || err));
-      })
-      .saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
+    flushPendingCheckStatusesBefore(() => {
+      google.script.run
+        .withSuccessHandler(() => {
+          hideBusy();
+          closeModal();
+          loadData();
+        })
+        .withFailureHandler(err => {
+          hideBusy();
+          alert('保存に失敗しました: ' + (err.message || err));
+        })
+        .saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
+    }, err => {
+      hideBusy();
+      alert('未保存の設定・確認状態を一括保存できなかったため、配信内容の保存を中止しました: ' + (err.message || String(err)));
+    });
   }
 
   function stopCurrentDelivery() {
@@ -1347,7 +1358,7 @@
 
     return `
       <div
-        class="${className} check-status-cell ${(active || forceRed) ? 'is-active-red' : ''} ${archived ? 'archived-cell' : ''}"
+        class="${className} check-status-cell ${(active || forceRed) ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''}"
         data-item-id="${escapeAttribute(itemId)}"
         data-check-field="${escapeAttribute(field)}"
         data-log-payload="${escapeAttribute(logPayload)}"
@@ -1364,26 +1375,11 @@
     const nextActive = !isCheckStatusActive(itemId, field);
     const cell = event.currentTarget;
     const payload = parseCheckLogPayload(cell.dataset.logPayload);
-    showBusy('チェック状態を保存中...');
-    setLocalCheckStatus(itemId, field, nextActive);
+    setPendingCheckStatus(itemId, field, nextActive, payload);
+    schedulePendingCheckPersist();
     cell.classList.toggle('is-active-red', nextActive);
-
-    google.script.run
-      .withSuccessHandler(result => {
-        const savedActive = !!(result && result.active);
-        setLocalCheckStatus(itemId, field, savedActive);
-        cell.classList.toggle('is-active-red', savedActive);
-        applyArchiveResult_(result && result.archive);
-        hideBusy();
-        if (result && result.archive && (result.archive.archived || result.archive.deleted)) renderScheduleGrid();
-      })
-      .withFailureHandler(err => {
-        setLocalCheckStatus(itemId, field, !nextActive);
-        cell.classList.toggle('is-active-red', !nextActive);
-        hideBusy();
-        alert('チェック状態の保存に失敗しました: ' + (err.message || String(err)));
-      })
-      .saveCheckStatus(itemId, field, nextActive, payload);
+    cell.classList.toggle('is-pending-check', hasPendingCheckStatus(itemId, field));
+    updatePendingCheckSaveButton();
   }
 
   function buildCheckLogPayload(itemId, field, row) {
@@ -1423,6 +1419,13 @@
   }
 
   function isCheckStatusActive(itemId, field) {
+    const pending = LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
+    if (pending) return !!pending.active;
+    const statuses = APP_DATA.checkStatuses || {};
+    return !!statuses[getCheckStatusKey(itemId, field)];
+  }
+
+  function isSavedCheckStatusActive(itemId, field) {
     const statuses = APP_DATA.checkStatuses || {};
     return !!statuses[getCheckStatusKey(itemId, field)];
   }
@@ -1435,6 +1438,146 @@
     } else {
       delete APP_DATA.checkStatuses[key];
     }
+  }
+
+  function setPendingCheckStatus(itemId, field, active, payload) {
+    const key = getCheckStatusKey(itemId, field);
+    const savedActive = isSavedCheckStatusActive(itemId, field);
+    if (savedActive === !!active) {
+      delete LOCAL_CHECK_CHANGES[key];
+      return;
+    }
+    LOCAL_CHECK_CHANGES[key] = {
+      itemId,
+      field,
+      active: !!active,
+      payload: payload || {},
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function hasPendingCheckStatus(itemId, field) {
+    return !!LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
+  }
+
+  function getPendingCheckStatusUpdates() {
+    return Object.values(LOCAL_CHECK_CHANGES).map(change => ({
+      itemId: change.itemId,
+      field: change.field,
+      active: !!change.active,
+      payload: change.payload || {}
+    }));
+  }
+
+  function loadPendingCheckStatuses() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CHECK_STATUS_STORAGE_KEY) || '{}');
+      LOCAL_CHECK_CHANGES = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+      LOCAL_CHECK_CHANGES = {};
+    }
+  }
+
+  function persistPendingCheckStatuses() {
+    try {
+      localStorage.setItem(CHECK_STATUS_STORAGE_KEY, JSON.stringify(LOCAL_CHECK_CHANGES));
+    } catch (error) {
+      // localStorageが使えない場合も画面上の一時状態は維持する
+    }
+  }
+
+  function schedulePendingCheckPersist() {
+    if (PENDING_CHECK_SAVE_TIMER) clearTimeout(PENDING_CHECK_SAVE_TIMER);
+    PENDING_CHECK_SAVE_TIMER = setTimeout(() => {
+      PENDING_CHECK_SAVE_TIMER = null;
+      persistPendingCheckStatuses();
+    }, 120);
+  }
+
+  function flushPendingCheckPersist() {
+    if (PENDING_CHECK_SAVE_TIMER) {
+      clearTimeout(PENDING_CHECK_SAVE_TIMER);
+      PENDING_CHECK_SAVE_TIMER = null;
+    }
+    persistPendingCheckStatuses();
+  }
+
+  function clearPendingCheckStatuses() {
+    LOCAL_CHECK_CHANGES = {};
+    if (PENDING_CHECK_SAVE_TIMER) {
+      clearTimeout(PENDING_CHECK_SAVE_TIMER);
+      PENDING_CHECK_SAVE_TIMER = null;
+    }
+    try {
+      localStorage.removeItem(CHECK_STATUS_STORAGE_KEY);
+    } catch (error) {
+      // ignore storage errors
+    }
+    updatePendingCheckSaveButton();
+  }
+
+  function updatePendingCheckSaveButton() {
+    const button = document.getElementById('saveDailyChecksButton');
+    if (!button) return;
+    const count = getPendingCheckStatusUpdates().length;
+    button.textContent = `本日の状態を一括保存（${count}）`;
+    button.disabled = count === 0;
+  }
+
+  function savePendingCheckStatuses() {
+    flushPendingCheckPersist();
+    const updates = getPendingCheckStatusUpdates();
+    if (!updates.length) {
+      updatePendingCheckSaveButton();
+      return;
+    }
+
+    showBusy('本日の状態を一括保存中...');
+    google.script.run
+      .withSuccessHandler(results => {
+        (Array.isArray(results) ? results : []).forEach(result => {
+          if (!result || !result.success) return;
+          setLocalCheckStatus(result.item_id, result.field, !!result.active);
+          applyArchiveResult_(result.archive);
+        });
+        clearPendingCheckStatuses();
+        renderScheduleGrid();
+        hideBusy();
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        persistPendingCheckStatuses();
+        updatePendingCheckSaveButton();
+        alert('一括保存に失敗しました。画面上の未保存状態は保持しています: ' + (err.message || String(err)));
+      })
+      .saveDailyCheckStatuses(updates);
+  }
+
+  function flushPendingCheckStatusesBefore(next, onFailure) {
+    flushPendingCheckPersist();
+    const updates = getPendingCheckStatusUpdates();
+    if (!updates.length) {
+      next();
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(results => {
+        (Array.isArray(results) ? results : []).forEach(result => {
+          if (!result || !result.success) return;
+          setLocalCheckStatus(result.item_id, result.field, !!result.active);
+          applyArchiveResult_(result.archive);
+        });
+        clearPendingCheckStatuses();
+        renderScheduleGrid();
+        next();
+      })
+      .withFailureHandler(err => {
+        persistPendingCheckStatuses();
+        updatePendingCheckSaveButton();
+        if (typeof onFailure === 'function') onFailure(err);
+      })
+      .saveDailyCheckStatuses(updates);
   }
 
   function getCheckStatusKey(itemId, field) {
@@ -2309,6 +2452,13 @@
       .resumeAllDeliveriesForDay(dateStr);
   }
 
+  window.addEventListener('beforeunload', event => {
+    if (!getPendingCheckStatusUpdates().length) return;
+    flushPendingCheckPersist();
+    event.preventDefault();
+    event.returnValue = '';
+  });
+  loadPendingCheckStatuses();
   wireEvents();
   loadData();
 </script>

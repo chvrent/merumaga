@@ -820,6 +820,97 @@ function saveCheckStatuses(updates) {
   });
 }
 
+function saveCheckStatusesBatch(updates) {
+  return withScriptLock_(() => saveCheckStatusesBatchUnlocked_(updates));
+}
+
+function saveCheckStatusesBatchUnlocked_(updates) {
+  const rows = Array.isArray(updates) ? updates : [];
+  if (!rows.length) return [];
+
+  const sheet = getCheckStatusSheet_();
+  const headers = getCheckStatusHeaders_(sheet);
+  const values = sheet.getDataRange().getValues();
+  const itemIdIndex = headers.indexOf('item_id');
+  const fieldIndex = headers.indexOf('field');
+  if (itemIdIndex < 0 || fieldIndex < 0) {
+    throw new Error('app_check_status must have item_id and field headers');
+  }
+
+  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+  const existingRowIndexByKey = {};
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    const itemId = normalizeCell_(values[rowIndex][itemIdIndex]);
+    const field = normalizeCell_(values[rowIndex][fieldIndex]);
+    if (itemId && field) existingRowIndexByKey[buildCheckStatusKey_(itemId, field)] = rowIndex;
+  }
+
+  const normalizedUpdates = rows.map(update => {
+    const itemId = normalizeCell_(update && update.itemId);
+    const field = normalizeCell_(update && update.field);
+    const payload = update && update.payload || {};
+    const active = update && (update.active === true || String(update.active).toLowerCase() === 'true');
+    validateCheckStatusUpdate_(itemId, field, payload);
+    return { itemId, field, active, payload };
+  });
+
+  const appendRows = [];
+  const touchedRowIndexes = new Set();
+  normalizedUpdates.forEach(update => {
+    const nextRow = buildCheckStatusRow_(headers, update.itemId, update.field, update.active, update.payload, timestamp);
+    const key = buildCheckStatusKey_(update.itemId, update.field);
+    const existingRowIndex = existingRowIndexByKey[key];
+    if (existingRowIndex != null) {
+      values[existingRowIndex] = mergeCheckStatusRow_(headers, values[existingRowIndex], nextRow);
+      touchedRowIndexes.add(existingRowIndex);
+    } else {
+      appendRows.push(nextRow);
+      existingRowIndexByKey[key] = values.length + appendRows.length - 1;
+    }
+  });
+
+  if (touchedRowIndexes.size) {
+    const sortedIndexes = Array.from(touchedRowIndexes).sort((a, b) => a - b);
+    let groupStart = sortedIndexes[0];
+    let previous = sortedIndexes[0];
+    for (let index = 1; index <= sortedIndexes.length; index++) {
+      const current = sortedIndexes[index];
+      if (current === previous + 1) {
+        previous = current;
+        continue;
+      }
+      const groupRows = values.slice(groupStart, previous + 1).map(row => row.slice(0, headers.length));
+      sheet.getRange(groupStart + 1, 1, groupRows.length, headers.length).setValues(groupRows);
+      groupStart = current;
+      previous = current;
+    }
+  }
+
+  if (appendRows.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, appendRows.length, headers.length).setValues(appendRows);
+  }
+
+  return normalizedUpdates.map(update => {
+    const archive = archiveOccurrenceIfBothChecksActive_(update.itemId, update.field, update.active, update.payload);
+    return { success: true, item_id: update.itemId, field: update.field, active: update.active, updated_at: timestamp, archive };
+  });
+}
+
+function validateCheckStatusUpdate_(itemId, field, payload) {
+  if (!itemId) throw new Error('item_id is required');
+  if (!field) throw new Error('field is required');
+
+  const deliveryDate = parseScheduleDate_(payload && payload.delivery_date);
+  if (!deliveryDate) return;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diff = (today.getTime() - deliveryDate.getTime()) / (24 * 60 * 60 * 1000);
+  if (diff >= 14) {
+    throw new Error('過去14日以前のデータは更新できません');
+  }
+}
+
 function saveCheckStatusUnlocked_(itemId, field, active, payload) {
   const safeItemId = normalizeCell_(itemId);
   const safeField = normalizeCell_(field);

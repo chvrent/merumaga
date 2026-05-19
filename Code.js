@@ -17,3 +17,7 @@ function doGet(e) {
 function include(filename) {
   return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
+
+function saveDailyCheckStatuses(updates) {
+  return saveCheckStatusesBatch(updates);
+}
