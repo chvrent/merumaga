@@ -39,7 +39,7 @@
           <button type="button" id="saveDailyChecksButton" class="primary-button toolbar-button" onclick="savePendingCheckStatuses()" disabled>本日の状態を一括保存（0）</button>
           <button type="button" id="moveModeToggle" class="secondary-button toolbar-button" onclick="toggleMoveMode()">移動: OFF</button>
           <button type="button" class="secondary-button toolbar-button" onclick="jumpToCurrentWeek()">今週</button>
-          <label class="field">
+          <label class="toolbar-field">
             <span>検索</span>
             <input type="text" id="searchInput" placeholder="メルマガ名、曜日、担当者">
           </label>
@@ -59,11 +59,11 @@
             <div class="screen-note">この画面の編集は、マスタ行を更新します。確定していない同じメルマガ予定すべてに反映されます。</div>
           </div>
           <div class="toolbar-controls">
-            <label class="field" id="masterSheetField">
+            <label class="toolbar-field" id="masterSheetField">
               <span>管理対象</span>
               <select id="masterSheetSelect"></select>
             </label>
-            <label class="field">
+            <label class="toolbar-field">
               <span>検索</span>
               <input type="text" id="masterSearchInput" placeholder="キーワード">
             </label>

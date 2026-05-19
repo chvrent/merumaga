@@ -207,18 +207,18 @@
     flex-wrap: wrap;
     align-items: end;
   }
-  .field {
+  .toolbar-field {
     display: grid;
     gap: 6px;
     min-width: 180px;
     font-size: 12px;
   }
-  .field span {
+  .toolbar-field span {
     color: var(--muted);
   }
-  .field input,
-  .field select,
-  .field textarea {
+  .toolbar-field input,
+  .toolbar-field select,
+  .toolbar-field textarea {
     width: 100%;
     min-height: 34px;
     border: 1px solid var(--border-strong);
@@ -227,7 +227,7 @@
     background: #fff;
     color: var(--text);
   }
-  .field textarea {
+  .toolbar-field textarea {
     min-height: 96px;
     resize: vertical;
     font-family: inherit;
@@ -1111,7 +1111,7 @@
     .toolbar-controls {
       width: 100%;
     }
-    .field {
+    .toolbar-field {
       min-width: 0;
       flex: 1;
     }
