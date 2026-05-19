@@ -1461,6 +1461,8 @@
   function isCheckStatusActive(itemId, field) {
     const pending = LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
     if (pending) return !!pending.active;
+    const archivedActive = getArchivedCheckStatusActive(itemId, field);
+    if (archivedActive != null) return archivedActive;
     const statuses = APP_DATA.checkStatuses || {};
     return !!statuses[getCheckStatusKey(itemId, field)];
   }
@@ -1478,6 +1480,27 @@
     } else {
       delete APP_DATA.checkStatuses[key];
     }
+    setArchivedCheckStatus(itemId, field, active);
+  }
+
+  function getArchivedCheckStatusActive(itemId, field) {
+    const row = Object.values(APP_DATA.archivedOccurrences || {}).find(item => getCheckItemId(item) === itemId);
+    if (!row) return null;
+    const key = field === 'setter' ? 'check_setter_active' : field === 'checker' ? 'check_checker_active' : '';
+    if (!key || !Object.prototype.hasOwnProperty.call(row, key)) return null;
+    return isTruthyValue(row[key]);
+  }
+
+  function setArchivedCheckStatus(itemId, field, active) {
+    const row = Object.values(APP_DATA.archivedOccurrences || {}).find(item => getCheckItemId(item) === itemId);
+    if (!row) return;
+    const key = field === 'setter' ? 'check_setter_active' : field === 'checker' ? 'check_checker_active' : '';
+    if (key) row[key] = !!active;
+  }
+
+  function isTruthyValue(value) {
+    const text = String(value == null ? '' : value).trim().toLowerCase();
+    return value === true || text === 'true' || text === '1' || text === 'yes' || text === 'y' || text === '済';
   }
 
   function setPendingCheckStatus(itemId, field, active, payload) {

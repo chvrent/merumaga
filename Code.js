@@ -19,5 +19,5 @@ function include(filename) {
 }
 
 function saveDailyCheckStatuses(updates) {
-  return saveCheckStatusesBatch(updates);
+  return saveDailyArchiveDiffs(updates);
 }

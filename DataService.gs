@@ -12,6 +12,7 @@ const JOB_COUNT_REFRESH_INTERVAL_HOURS = 12;
 const WEEKLY_ARCHIVE_ENABLED = false;
 const INITIAL_DATA_CACHE_TTL_SECONDS = 60;
 const INITIAL_DATA_CACHE_MAX_CHARS = 90000;
+const ARCHIVE_DIFF_HEADERS = ['check_setter_active', 'check_checker_active'];
 const EDITABLE_MASTER_SHEETS = ['app_schedule', 'app_pr', 'app_pr_targets'];
 const CYCLE_BASE_DATE = new Date(2026, 3, 28); // 火曜日
 const MASTER_ID_CONFIG = {
@@ -898,6 +899,141 @@ function saveCheckStatusesBatchUnlocked_(updates) {
     const archive = archiveOccurrenceIfBothChecksActive_(update.itemId, update.field, update.active, update.payload);
     return { success: true, item_id: update.itemId, field: update.field, active: update.active, updated_at: timestamp, archive };
   });
+}
+
+function saveDailyArchiveDiffs(updates) {
+  return withScriptLock_(() => saveDailyArchiveDiffsUnlocked_(updates));
+}
+
+function saveDailyArchiveDiffsUnlocked_(updates) {
+  const rows = Array.isArray(updates) ? updates : [];
+  if (!rows.length) return [];
+
+  const ss = getSourceSpreadsheet_();
+  const scheduleSheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
+  if (!scheduleSheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
+
+  const scheduleValues = scheduleSheet.getDataRange().getValues();
+  if (scheduleValues.length < 2) return [];
+  const scheduleHeaders = scheduleValues[0].map(header => String(header || '').trim());
+  const archiveDataHeaders = scheduleHeaders.concat(ARCHIVE_DIFF_HEADERS);
+  const archiveSheet = getOrCreateArchiveSheet_(ss, archiveDataHeaders);
+  const archiveValues = archiveSheet.getDataRange().getValues();
+  const archiveHeaders = archiveValues[0].map(header => String(header || '').trim());
+  const archiveHeaderMap = buildHeaderMap_(archiveHeaders);
+  const scheduleHeaderMap = buildHeaderMap_(scheduleHeaders);
+  const sourceRowIndex = archiveHeaders.indexOf('source_row');
+  const startIndex = archiveHeaders.indexOf('fixed_week_start');
+  const endIndex = archiveHeaders.indexOf('fixed_week_end');
+  if (sourceRowIndex < 0 || startIndex < 0 || endIndex < 0) {
+    throw new Error(`${SCHEDULE_ARCHIVE_SHEET_NAME} must have source_row and fixed_week_start headers`);
+  }
+
+  const grouped = {};
+  rows.forEach(update => {
+    const itemId = normalizeCell_(update && update.itemId);
+    const field = normalizeCell_(update && update.field);
+    if (field !== 'setter' && field !== 'checker') return;
+    const payload = update && update.payload || {};
+    validateCheckStatusUpdate_(itemId, field, payload);
+    const scheduleId = normalizeScheduleIdForMove_(payload.schedule_id || itemId);
+    const targetDate = normalizeCommentTargetDate_(payload.delivery_date || String(itemId).split('|')[1]);
+    if (!scheduleId || !targetDate) return;
+    const key = `${scheduleId}|${targetDate}`;
+    if (!grouped[key]) grouped[key] = { itemId, scheduleId, targetDate, payload, fields: {} };
+    grouped[key].fields[field] = update && (update.active === true || String(update.active).toLowerCase() === 'true');
+  });
+
+  const archiveRowByKey = {};
+  for (let rowIndex = 1; rowIndex < archiveValues.length; rowIndex++) {
+    const row = archiveValues[rowIndex];
+    const sourceRow = normalizeCell_(row[sourceRowIndex]);
+    const start = normalizeCommentTargetDate_(row[startIndex]);
+    const end = normalizeCommentTargetDate_(row[endIndex]);
+    if (sourceRow && start && start === end) archiveRowByKey[`${sourceRow}|${start}`] = rowIndex;
+  }
+
+  const timestamp = new Date();
+  const timestampText = Utilities.formatDate(timestamp, Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+  const touchedIndexes = new Set();
+  const appendRows = [];
+  const results = [];
+
+  Object.keys(grouped).forEach(key => {
+    const change = grouped[key];
+    const sourceRow = getSourceRowByScheduleId_(change.scheduleId);
+    if (!sourceRow) return;
+    const sourceRowNumber = Number(sourceRow);
+    if (sourceRowNumber < 2 || sourceRowNumber > scheduleValues.length) return;
+
+    const archiveKey = `${sourceRow}|${change.targetDate}`;
+    const existingIndex = archiveRowByKey[archiveKey];
+    const nextRow = existingIndex != null
+      ? archiveValues[existingIndex].slice(0, archiveHeaders.length)
+      : new Array(archiveHeaders.length).fill('');
+
+    nextRow[0] = timestamp;
+    nextRow[startIndex] = change.targetDate;
+    nextRow[endIndex] = change.targetDate;
+    nextRow[sourceRowIndex] = sourceRow;
+
+    const scheduleRow = scheduleValues[sourceRowNumber - 1];
+    scheduleHeaders.forEach(header => {
+      const archiveIndex = archiveHeaderMap.get(header);
+      const scheduleIndex = scheduleHeaderMap.get(header);
+      if (archiveIndex == null || scheduleIndex == null) return;
+      nextRow[archiveIndex] = scheduleRow[scheduleIndex];
+    });
+
+    if (Object.prototype.hasOwnProperty.call(change.fields, 'setter')) {
+      const index = archiveHeaderMap.get('check_setter_active');
+      if (index != null) nextRow[index] = change.fields.setter;
+    }
+    if (Object.prototype.hasOwnProperty.call(change.fields, 'checker')) {
+      const index = archiveHeaderMap.get('check_checker_active');
+      if (index != null) nextRow[index] = change.fields.checker;
+    }
+
+    if (existingIndex != null) {
+      archiveValues[existingIndex] = nextRow;
+      touchedIndexes.add(existingIndex);
+    } else {
+      appendRows.push(nextRow);
+    }
+
+    Object.keys(change.fields).forEach(field => {
+      results.push({
+        success: true,
+        item_id: change.itemId,
+        field,
+        active: change.fields[field],
+        updated_at: timestampText,
+        archive: { archived: 1, source_row: sourceRow, target_date: change.targetDate, upserted: true }
+      });
+    });
+  });
+
+  if (touchedIndexes.size) {
+    const sortedIndexes = Array.from(touchedIndexes).sort((a, b) => a - b);
+    let groupStart = sortedIndexes[0];
+    let previous = sortedIndexes[0];
+    for (let index = 1; index <= sortedIndexes.length; index++) {
+      const current = sortedIndexes[index];
+      if (current === previous + 1) {
+        previous = current;
+        continue;
+      }
+      const groupRows = archiveValues.slice(groupStart, previous + 1).map(row => row.slice(0, archiveHeaders.length));
+      archiveSheet.getRange(groupStart + 1, 1, groupRows.length, archiveHeaders.length).setValues(groupRows);
+      groupStart = current;
+      previous = current;
+    }
+  }
+  if (appendRows.length) {
+    archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, appendRows.length, archiveHeaders.length).setValues(appendRows);
+  }
+
+  return results;
 }
 
 function validateCheckStatusUpdate_(itemId, field, payload) {
