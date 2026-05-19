@@ -1142,73 +1142,62 @@
     modal.setAttribute('aria-hidden', 'false');
   }
 
-  // モーダルごとのタブ初期化処理
+  // モーダルごとのタブ初期化（イベントリスナー登録）
   function initModalTabs(modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
 
     modal.querySelectorAll('.modal-tab').forEach(tab => {
-      tab.addEventListener('click', function(event) {
-        // 現在のモーダル内のタブを全て非アクティブ化
+      tab.addEventListener('click', function() {
+        // 同じモーダル内のみアクティブ状態を切り替え
         modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
         this.classList.add('active');
 
-        // タブに対応する形式を取得
+        const tabId = this.dataset.tabId;
         const formatMap = { 'free': 'フリー', 'extract': '抽出', 'auto-job': '自動求人特集', 'other': 'その他' };
-        const tabId = this.dataset.tabId || (this.innerText === 'フリー' ? 'free' : this.innerText === '抽出' ? 'extract' : this.innerText === '自動求人特集' ? 'auto-job' : 'other');
         const format = formatMap[tabId];
         
-        // 形式フィールドの更新
-        const formatInput = modal.querySelector('[data-header="形式"], #edit-format');
-        if (formatInput) {
-          formatInput.value = format;
-          formatInput.dispatchEvent(new Event('change'));
-        }
-        
-        updateModalFields(modal);
+        // 形式を同期
+        modal.dataset.format = format;
+        applyDynamicInputControl(format, modalId);
       });
     });
   }
 
-  function updateModalFields(modal) {
-    const formatInput = modal.querySelector('[data-header="形式"], #edit-format');
-    if (!formatInput) return;
-    const format = formatInput.value;
-    
-    const fields = {
-      'job_count': ['auto-job'],
-      'job_feature_id': ['auto-job'],
-      'job_url': ['auto-job'],
-      'pr_id': ['auto-job', 'other']
+  // フィールドの制御ロジック
+  function applyDynamicInputControl(format, modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+
+    const constraints = {
+      '自動求人特集': ['current_job_count', 'pr_id'],
+      'フリー': ['current_job_count', 'auto_job_feature_id', 'job_url', 'pr_id'],
+      '抽出': ['current_job_count', 'auto_job_feature_id', 'job_url', 'pr_id'],
+      'その他': []
     };
 
-    Object.keys(fields).forEach(key => {
-      const fieldContainer = modal.querySelector(`#field-${key}`);
-      if (fieldContainer) {
-        const isActive = fields[key].includes(getTabIdByFormat(format)) || format === 'その他';
-        fieldContainer.classList.toggle('disabled', !isActive);
-        const inputs = fieldContainer.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => input.disabled = !isActive);
+    const disabledKeys = constraints[format] || [];
+
+    modal.querySelectorAll('.modal-field').forEach(field => {
+      field.classList.remove('disabled-field');
+      field.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
+    });
+
+    disabledKeys.forEach(key => {
+      const field = modal.querySelector(`#field-${key}`);
+      if (field) {
+        field.classList.add('disabled-field');
+        field.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
       }
     });
   }
 
-  // 初期化登録
-  document.addEventListener('DOMContentLoaded', () => {
-    initModalTabs('editModal');
-    initModalTabs('masterModal');
-
-    // 形式変更時のイベントリスナー登録
-    const editFormat = document.getElementById('edit-format');
-    if (editFormat) {
-      editFormat.addEventListener('change', () => updateModalFields(document.getElementById('editModal')));
-    }
-  });
-
+  // モーダルオープン時の初期化
   window.openAndInitModalWithTab = function(format, modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
 
+    modal.dataset.format = format;
     const tabId = getTabIdByFormat(format);
     const tabBtn = modal.querySelector(`.modal-tab[data-tab-id="${tabId}"]`);
     
@@ -1216,14 +1205,50 @@
       modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
       tabBtn.classList.add('active');
     }
-    
-    // 形式選択肢の更新
-    const formatInput = modal.querySelector('[data-header="形式"], #edit-format');
-    if (formatInput) {
-        formatInput.value = format;
-    }
-    updateModalFields(modal);
+    applyDynamicInputControl(format, modalId);
   };
+
+  // 初期化登録
+  document.addEventListener('DOMContentLoaded', () => {
+    initModalTabs('editModal');
+    initModalTabs('masterModal');
+  });
+
+  // ラベル二重表示防止: renderEditExtraFields_ をシンプルに
+  function renderEditExtraFields_(entry) {
+    const container = document.getElementById('editExtraFields');
+    if (!container) return;
+    container.innerHTML = getScheduleEditHeaders_().map(header => {
+      const key = normalizeScheduleEditKey_(header);
+      const value = entry[key] != null ? entry[key] : entry[header];
+      return renderEditInput_(header, key, value);
+    }).join('');
+  }
+
+  // ラベル二重表示防止: 単一の<label>のみを生成
+  function renderEditInput_(header, key, value) {
+    const dataAttr = `data-edit-key="${escapeAttribute(key)}"`;
+    const containerClass = `modal-field field-${key}`;
+    
+    let input = '';
+    if (isWeekdayHeader(header) || key === 'weekday') {
+      input = renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']);
+    } else if (isFormatHeader(header) || key === 'format') {
+      input = renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
+    } else if (isTimeHeader(header) || key === 'hour') {
+      input = renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions());
+    } else if (isDateTimeHeader(header)) {
+      input = `<input type="datetime-local" ${dataAttr} value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
+    } else if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
+      input = `<input type="date" ${dataAttr} value="${escapeAttribute(normalizeDateString(value))}">`;
+    } else if (String(value).length > 60 || String(value).includes('\n')) {
+      input = `<textarea ${dataAttr} placeholder="${escapeAttribute(getDisplayName(key))}"></textarea>`;
+    } else {
+      input = `<input type="text" ${dataAttr} placeholder="${escapeAttribute(getDisplayName(key))}">`;
+    }
+    
+    return `<label class="${containerClass}" id="field-${key}"><span>${escapeHtml(getDisplayName(key))}</span>${input}</label>`;
+  }
 
   function getTabIdByFormat(format) {
     if (format === 'フリー') return 'free';

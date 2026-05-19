@@ -150,10 +150,10 @@
           <button type="button" class="icon-button" onclick="closeMasterModal()" aria-label="閉じる">×</button>
         </div>
         <div class="modal-tabs">
-          <button type="button" class="modal-tab active" onclick="switchMasterModalTab('free')">フリー</button>
-          <button type="button" class="modal-tab" onclick="switchMasterModalTab('extract')">抽出</button>
-          <button type="button" class="modal-tab" onclick="switchMasterModalTab('auto-job')">自動求人特集</button>
-          <button type="button" class="modal-tab" onclick="switchMasterModalTab('other')">その他</button>
+          <button type="button" class="modal-tab active" data-tab-id="free">フリー</button>
+          <button type="button" class="modal-tab" data-tab-id="extract">抽出</button>
+          <button type="button" class="modal-tab" data-tab-id="auto-job">自動求人特集</button>
+          <button type="button" class="modal-tab" data-tab-id="other">その他</button>
         </div>
         <input type="hidden" id="master-row-number">
         <div id="masterForm" class="master-form"></div>
