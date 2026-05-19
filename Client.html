@@ -1,3 +1,42 @@
+<style>
+.modal-tabs-container {
+  display: flex !important;
+  flex-direction: row !important; /* 必ず横並びにする */
+  gap: 8px !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  margin-bottom: 20px !important;
+  width: 100% !important;
+  padding-bottom: 0 !important;
+}
+
+.modal-tab {
+  display: inline-block !important;
+  padding: 10px 24px !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  color: #64748b !important;
+  font-weight: bold !important;
+  border: 1px solid #e2e8f0 !important;
+  border-bottom: none !important;
+  background-color: #f8fafc !important;
+  border-radius: 6px 6px 0 0 !important;
+  transition: all 0.2s ease !important;
+  user-select: none !important;
+  text-align: center !important;
+}
+
+.modal-tab:hover {
+  color: #1a73e8 !important;
+  background-color: #f1f5f9 !important;
+}
+
+/* 選択中のタブ（保存ボタンと同じ鮮やかな青背景＋白文字に反転） */
+.modal-tab.active {
+  color: #ffffff !important;
+  background-color: #1a73e8 !important; /* システム標準の鮮やかな青 */
+  border-color: #1a73e8 !important;
+}
+</style>
 <script>
   let APP_DATA = {};
   let CURRENT_ENTRY = null;
@@ -739,16 +778,16 @@
     const formatInput = document.querySelector('#masterForm [data-header="形式"]');
     const format = formatInput ? formatInput.value : '';
     const fields = {
-      'job_count': ['auto-job'],
-      'job_feature_id': ['auto-job'],
-      'job_url': ['auto-job'],
-      'pr_id': ['auto-job', 'other']
+      'current_job_count': ['自動求人特集'],
+      'auto_job_feature_id': ['自動求人特集'],
+      'job_url': ['自動求人特集'],
+      'pr_id': ['自動求人特集', 'その他']
     };
 
     Object.keys(fields).forEach(key => {
-      const fieldContainer = document.getElementById(`field-${key}`);
+      const fieldContainer = document.getElementById(`field-${key}`) || document.querySelector(`[data-field="${key}"]`);
       if (fieldContainer) {
-        const isActive = fields[key].includes(getTabIdByFormat(format)) || format === 'その他';
+        const isActive = fields[key].includes(format) || format === 'その他';
         fieldContainer.classList.toggle('disabled', !isActive);
         const inputs = fieldContainer.querySelectorAll('input, select, textarea');
         inputs.forEach(input => input.disabled = !isActive);
@@ -1173,9 +1212,7 @@
         modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
         this.classList.add('active');
 
-        const tabId = this.dataset.tabId;
-        const formatMap = { 'free': 'フリー', 'extract': '抽出', 'auto-job': '自動求人特集', 'other': 'その他' };
-        const format = formatMap[tabId];
+        const format = this.dataset.format;
         
         // 形式を同期
         modal.dataset.format = format;
@@ -1198,15 +1235,15 @@
 
     const disabledKeys = constraints[format] || [];
 
-    modal.querySelectorAll('.modal-field').forEach(field => {
-      field.classList.remove('disabled-field');
+    modal.querySelectorAll('.modal-field, .form-group').forEach(field => {
+      field.classList.remove('disabled-field', 'disabled');
       field.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
     });
 
     disabledKeys.forEach(key => {
-      const field = modal.querySelector(`#field-${key}`);
+      const field = modal.querySelector(`#field-${key}`) || modal.querySelector(`[data-field="${key}"]`);
       if (field) {
-        field.classList.add('disabled-field');
+        field.classList.add('disabled-field', 'disabled');
         field.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
       }
     });
@@ -1218,8 +1255,7 @@
     if (!modal) return;
 
     modal.dataset.format = format;
-    const tabId = getTabIdByFormat(format);
-    const tabBtn = modal.querySelector(`.modal-tab[data-tab-id="${tabId}"]`);
+    const tabBtn = modal.querySelector(`.modal-tab[data-format="${format}"]`);
     
     if (tabBtn) {
       modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
@@ -1227,55 +1263,6 @@
     }
     applyDynamicInputControl(format, modalId);
   };
-
-  // 初期化登録
-  document.addEventListener('DOMContentLoaded', () => {
-    initModalTabs('editModal');
-    initModalTabs('masterModal');
-  });
-
-  // ラベル二重表示防止: renderEditExtraFields_ をシンプルに
-  function renderEditExtraFields_(entry) {
-    const container = document.getElementById('editExtraFields');
-    if (!container) return;
-    container.innerHTML = getScheduleEditHeaders_().map(header => {
-      const key = normalizeScheduleEditKey_(header);
-      const value = entry[key] != null ? entry[key] : entry[header];
-      return renderEditInput_(header, key, value);
-    }).join('');
-  }
-
-  // ラベル二重表示防止: 単一の<label>のみを生成
-  function renderEditInput_(header, key, value) {
-    const dataAttr = `data-edit-key="${escapeAttribute(key)}"`;
-    const containerClass = `modal-field field-${key}`;
-    
-    let input = '';
-    if (isWeekdayHeader(header) || key === 'weekday') {
-      input = renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']);
-    } else if (isFormatHeader(header) || key === 'format') {
-      input = renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
-    } else if (isTimeHeader(header) || key === 'hour') {
-      input = renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions());
-    } else if (isDateTimeHeader(header)) {
-      input = `<input type="datetime-local" ${dataAttr} value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
-    } else if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
-      input = `<input type="date" ${dataAttr} value="${escapeAttribute(normalizeDateString(value))}">`;
-    } else if (String(value).length > 60 || String(value).includes('\n')) {
-      input = `<textarea ${dataAttr} placeholder="${escapeAttribute(getDisplayName(key))}"></textarea>`;
-    } else {
-      input = `<input type="text" ${dataAttr} placeholder="${escapeAttribute(getDisplayName(key))}">`;
-    }
-    
-    return `<label class="${containerClass}" id="field-${key}"><span>${escapeHtml(getDisplayName(key))}</span>${input}</label>`;
-  }
-
-  function getTabIdByFormat(format) {
-    if (format === 'フリー') return 'free';
-    if (format === '抽出') return 'extract';
-    if (format === '自動求人特集') return 'auto-job';
-    return 'other';
-  }
 
   function saveEdit() {
     if (CURRENT_ENTRY && isFixed(CURRENT_ENTRY)) {

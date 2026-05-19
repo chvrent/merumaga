@@ -61,10 +61,11 @@
 - `fixedOccurrences`: `app_schedule_archives` から算出した確定済み発生分
 - `adminMaster`: `app_admin_master` または `app_name_master`
 
-### 配信編集
+### 配信編集モーダル
 
 配信編集では、対象日・対象メルマガの発生分だけを保存対象とする。`app_schedule` 本体は更新せず、`app_check_status` の `occurrence_override` として差分を保存する。
 
+- **形式切り替えタブ**: モーダル最上部に「フリー」「抽出」「自動求人特集」「その他」の横並びモダンタブUIを配置。選択した形式に応じて入力項目の活性・非活性が連動して切り替わる。
 - 通数
 - 設定者
 - 確認者

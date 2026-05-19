@@ -86,11 +86,11 @@
           <h2>配信編集</h2>
           <button type="button" class="icon-button" onclick="closeModal()" aria-label="閉じる">×</button>
         </div>
-        <div class="modal-tabs">
-          <button type="button" class="modal-tab active" data-tab-id="free">フリー</button>
-          <button type="button" class="modal-tab" data-tab-id="extract">抽出</button>
-          <button type="button" class="modal-tab" data-tab-id="auto-job">自動求人特集</button>
-          <button type="button" class="modal-tab" data-tab-id="other">その他</button>
+        <div class="modal-tabs-container">
+          <div class="modal-tab active" data-format="フリー">フリー</div>
+          <div class="modal-tab" data-format="抽出">抽出</div>
+          <div class="modal-tab" data-format="自動求人特集">自動求人特集</div>
+          <div class="modal-tab" data-format="その他">その他</div>
         </div>
         <div id="modal-fields">
           <input type="hidden" id="edit-id">
@@ -150,10 +150,10 @@
           <button type="button" class="icon-button" onclick="closeMasterModal()" aria-label="閉じる">×</button>
         </div>
         <div class="modal-tabs-container">
-          <div class="modal-tab active" data-tab-id="free">フリー</div>
-          <div class="modal-tab" data-tab-id="extract">抽出</div>
-          <div class="modal-tab" data-tab-id="auto-job">自動求人特集</div>
-          <div class="modal-tab" data-tab-id="other">その他</div>
+          <div class="modal-tab active" data-format="フリー">フリー</div>
+          <div class="modal-tab" data-format="抽出">抽出</div>
+          <div class="modal-tab" data-format="自動求人特集">自動求人特集</div>
+          <div class="modal-tab" data-format="その他">その他</div>
         </div>
         <input type="hidden" id="master-row-number">
         <input type="hidden" name="format" id="master-format">
