@@ -841,6 +841,21 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
       if (index != null) nextRow[index] = change.fields.checker;
     }
 
+    const confirmed = isArchiveDiffConfirmed_(archiveHeaders, nextRow);
+    if (!confirmed && existingIndex == null) {
+      Object.keys(change.fields).forEach(field => {
+        results.push({
+          success: true,
+          item_id: change.itemId,
+          field,
+          active: change.fields[field],
+          updated_at: timestampText,
+          archive: { archived: 0, source_row: sourceRow, target_date: change.targetDate, skipped: 'not_confirmed' }
+        });
+      });
+      return;
+    }
+
     if (existingIndex != null) {
       archiveValues[existingIndex] = nextRow;
       touchedIndexes.add(existingIndex);
@@ -855,7 +870,13 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
         field,
         active: change.fields[field],
         updated_at: timestampText,
-        archive: { archived: 1, source_row: sourceRow, target_date: change.targetDate, upserted: true }
+        archive: {
+          archived: confirmed ? 1 : 0,
+          source_row: sourceRow,
+          target_date: change.targetDate,
+          upserted: true,
+          confirmed
+        }
       });
     });
   });
@@ -1816,6 +1837,7 @@ function getFixedOccurrences_(dateRange) {
     const end = parseScheduleDate_(row[weekEndIndex]);
     if (!sourceRow || !start || !end) return;
     if (dateRange && (end < dateRange.start || start > dateRange.end)) return;
+    if (!isArchiveDiffConfirmed_(headers, row)) return;
 
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
       if (!isDateInOperationalRange_(formatDate_(date), dateRange)) continue;
@@ -1824,6 +1846,20 @@ function getFixedOccurrences_(dateRange) {
   });
 
   return fixedOccurrences;
+}
+
+function isArchiveDiffConfirmed_(headers, row) {
+  const setterIndex = headers.indexOf('check_setter_active');
+  const checkerIndex = headers.indexOf('check_checker_active');
+  const hasCheckColumns = setterIndex >= 0 || checkerIndex >= 0;
+  const hasCheckValues = (setterIndex >= 0 && normalizeCell_(row[setterIndex]) !== '') ||
+    (checkerIndex >= 0 && normalizeCell_(row[checkerIndex]) !== '');
+  if (!hasCheckColumns || !hasCheckValues) return true;
+
+  const assigneeIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.assignee);
+  const assignee = assigneeIndex == null ? '' : normalizeCell_(row[assigneeIndex]);
+  if (assignee === 'R') return setterIndex >= 0 && isTruthy_(row[setterIndex]);
+  return checkerIndex >= 0 && isTruthy_(row[checkerIndex]);
 }
 
 function getArchivedOccurrenceRows_(dateRange) {
@@ -1846,6 +1882,7 @@ function getArchivedOccurrenceRows_(dateRange) {
     const end = parseScheduleDate_(row[weekEndIndex]);
     if (!sourceRow || !start || !end) return;
     if (dateRange && (end < dateRange.start || start > dateRange.end)) return;
+    if (!isArchiveDiffConfirmed_(headers, row)) return;
 
     const scheduleRow = row.slice(4, 4 + scheduleHeaders.length);
     const isSingleDayArchive = formatDate_(start) === formatDate_(end);

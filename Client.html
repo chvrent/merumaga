@@ -1528,12 +1528,18 @@
   }
 
   function getPendingCheckStatusUpdates() {
-    return Object.values(LOCAL_CHECK_CHANGES).map(change => ({
-      itemId: change.itemId,
-      field: change.field,
-      active: !!change.active,
-      payload: change.payload || {}
-    }));
+    return Object.values(LOCAL_CHECK_CHANGES)
+      .filter(change => {
+        const assignee = String(change && change.payload && change.payload.assignee || '').trim();
+        if (assignee === 'R') return change.field === 'setter';
+        return change.field === 'checker';
+      })
+      .map(change => ({
+        itemId: change.itemId,
+        field: change.field,
+        active: !!change.active,
+        payload: change.payload || {}
+      }));
   }
 
   function loadPendingCheckStatuses() {
