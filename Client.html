@@ -764,14 +764,11 @@
 
     document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
     document.getElementById('master-row-number').value = row.__rowNumber || '';
+    const formatInput = document.getElementById('master-format');
+    if (formatInput) formatInput.value = row.format || 'フリー';
 
-    // マスタモーダル用の一貫したフィールド生成
-    let html = `
-      <input type="hidden" name="format" data-header="形式" value="${escapeAttribute(row.format || 'フリー')}">
-      <div id="modal-fields">
-    `;
-
-    html += visibleHeaders.map(header => {
+    // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
+    const html = visibleHeaders.map(header => {
       if (MASTER_DATA.sheetName === 'app_pr' && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
       if (isHiddenMasterInputHeader(header)) return '';
 
@@ -780,13 +777,11 @@
       return renderEditInput_(header, key, value);
     }).join('');
 
-    html += `</div>`;
+    form.innerHTML = html;
 
     if (MASTER_DATA.sheetName === 'app_pr') {
-      html += renderNewsletterSelector_(row.pr_id);
+      form.insertAdjacentHTML('beforeend', renderNewsletterSelector_(row.pr_id));
     }
-
-    form.innerHTML = html;
 
     // タブの初期化とルール適用
     const modal = document.getElementById('masterModal');
