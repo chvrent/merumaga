@@ -765,33 +765,22 @@
     document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
     document.getElementById('master-row-number').value = row.__rowNumber || '';
 
-    let html = visibleHeaders.map(header => {
+    // マスタモーダル用の一貫したフィールド生成
+    let html = `
+      <input type="hidden" name="format" data-header="形式" value="${escapeAttribute(row.format || 'フリー')}">
+      <div id="modal-fields">
+    `;
+
+    html += visibleHeaders.map(header => {
       if (MASTER_DATA.sheetName === 'app_pr' && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
       if (isHiddenMasterInputHeader(header)) return '';
 
+      const key = normalizeScheduleEditKey_(header);
       const value = row[header] || '';
-      const isLong = String(value).length > 80 || String(value).includes('\n');
-      
-      let input = '';
-      if (isWeekdayHeader(header)) {
-        input = renderSelectInput(header, value, ['', '月', '火', '水', '木', '金', '土', '日']);
-      } else if (isFormatHeader(header)) {
-        input = renderSelectInput(header, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
-      } else if (isAssigneeHeader(header) || isReviewerHeader(header)) {
-        input = renderSelectInput(header, value, getAdminOptionValues());
-      } else if (isTimeHeader(header)) {
-        input = renderSelectInput(header, normalizeMasterHourValue(value), buildHourOptions());
-      } else if (isDateTimeHeader(header)) {
-        input = `<input type="datetime-local" data-header="${escapeAttribute(header)}" value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
-      } else if (isDateHeader(header)) {
-        input = `<input type="date" data-header="${escapeAttribute(header)}" value="${escapeAttribute(normalizeDateString(value))}">`;
-      } else if (isLong) {
-        input = `<textarea data-header="${escapeAttribute(header)}">${escapeHtml(value)}</textarea>`;
-      } else {
-        input = `<input type="text" data-header="${escapeAttribute(header)}" value="${escapeAttribute(value)}">`;
-      }
-      return `<label class="field" id="field-${normalizeScheduleEditKey_(header)}"><span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</span>${input}</label>`;
+      return renderEditInput_(header, key, value);
     }).join('');
+
+    html += `</div>`;
 
     if (MASTER_DATA.sheetName === 'app_pr') {
       html += renderNewsletterSelector_(row.pr_id);
@@ -799,12 +788,13 @@
 
     form.innerHTML = html;
 
-    // タブの初期化
-    updateMasterFormFields();
-
+    // タブの初期化とルール適用
     const modal = document.getElementById('masterModal');
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden', 'false');
+    if (modal) {
+      window.openAndInitModalWithTab(row.format || 'フリー', 'masterModal');
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+    }
   }
 
   function renderNewsletterSelector_(prId) {
