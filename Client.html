@@ -1463,11 +1463,15 @@
     if (pending) return !!pending.active;
     const archivedActive = getArchivedCheckStatusActive(itemId, field);
     if (archivedActive != null) return archivedActive;
+    if (field === 'setter' || field === 'checker') return false;
     const statuses = APP_DATA.checkStatuses || {};
     return !!statuses[getCheckStatusKey(itemId, field)];
   }
 
   function isSavedCheckStatusActive(itemId, field) {
+    const archivedActive = getArchivedCheckStatusActive(itemId, field);
+    if (archivedActive != null) return archivedActive;
+    if (field === 'setter' || field === 'checker') return false;
     const statuses = APP_DATA.checkStatuses || {};
     return !!statuses[getCheckStatusKey(itemId, field)];
   }
