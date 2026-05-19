@@ -36,9 +36,9 @@
             <div class="legend-item"><span class="legend-color" style="background-color: #FFD1DC;"></span>隔週B</div>
             <div class="legend-item"><span class="legend-color" style="background-color: #E0FFFF;"></span>自動求人/その他</div>
           </div>
-          <button type="button" id="saveDailyChecksButton" class="primary-button toolbar-button" onclick="savePendingCheckStatuses()" disabled>本日の状態を一括保存（0）</button>
-          <button type="button" id="moveModeToggle" class="secondary-button toolbar-button" onclick="toggleMoveMode()">移動: OFF</button>
-          <button type="button" class="secondary-button toolbar-button" onclick="jumpToCurrentWeek()">今週</button>
+          <button type="button" id="saveDailyChecksButton" class="primary-button toolbar-button" data-action="save-pending-check-statuses" disabled>本日の状態を一括保存（0）</button>
+          <button type="button" id="moveModeToggle" class="secondary-button toolbar-button" data-action="toggle-move-mode">移動: OFF</button>
+          <button type="button" class="secondary-button toolbar-button" data-action="jump-to-current-week">今週</button>
           <label class="toolbar-field">
             <span>検索</span>
             <input type="text" id="searchInput" placeholder="メルマガ名、曜日、担当者">
@@ -67,8 +67,8 @@
               <span>検索</span>
               <input type="text" id="masterSearchInput" placeholder="キーワード">
             </label>
-            <button type="button" class="secondary-button toolbar-button" onclick="loadActiveMaster()">再読込</button>
-            <button type="button" class="primary-button toolbar-button" onclick="openMasterModal()">新規追加</button>
+            <button type="button" class="secondary-button toolbar-button" data-action="load-active-master">再読込</button>
+            <button type="button" class="primary-button toolbar-button" data-action="open-master-modal">新規追加</button>
           </div>
         </header>
 
@@ -84,7 +84,7 @@
       <div class="modal-card master-modal-card">
         <div class="modal-header">
           <h2>配信編集</h2>
-          <button type="button" class="icon-button" onclick="closeModal()" aria-label="閉じる">×</button>
+          <button type="button" class="icon-button" data-action="close-modal" aria-label="閉じる">×</button>
         </div>
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
@@ -132,18 +132,18 @@
             <textarea id="new-comment" placeholder="コメントを入力"></textarea>
           </div>
           <div class="comment-actions">
-            <button type="button" class="secondary-button" onclick="loadCommentsForCurrentEntry()">再読込</button>
-            <button type="button" class="primary-button" onclick="postComment()">送信</button>
+            <button type="button" class="secondary-button" data-action="reload-comments">再読込</button>
+            <button type="button" class="primary-button" data-action="post-comment">送信</button>
           </div>
         </section>
         <section class="exception-panel" aria-label="配信停止・再開">
           <div id="job-alert-guidance" class="job-alert-guidance" style="display:none;"></div>
-          <button type="button" id="stop-delivery-button" class="danger-button" onclick="stopCurrentDelivery()">この週を配信停止にする</button>
-          <button type="button" id="resume-delivery-button" class="resume-button" onclick="resumeCurrentDelivery()">配信を再開する（元に戻す）</button>
+          <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
+          <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
         </section>
         <div class="modal-actions">
-          <button type="button" class="primary-button" onclick="saveEdit()">保存</button>
-          <button type="button" class="secondary-button" onclick="closeModal()">キャンセル</button>
+          <button type="button" class="primary-button" data-action="save-edit">保存</button>
+          <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>
         </div>
       </div>
     </div>
@@ -152,7 +152,7 @@
       <div class="modal-card master-modal-card">
         <div class="modal-header">
           <h2 id="masterModalTitle">マスタ編集</h2>
-          <button type="button" class="icon-button" onclick="closeMasterModal()" aria-label="閉じる">×</button>
+          <button type="button" class="icon-button" data-action="close-master-modal" aria-label="閉じる">×</button>
         </div>
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
@@ -166,8 +166,8 @@
           <!-- 項目はJSで動的に生成 -->
         </form>
         <div class="modal-actions">
-          <button type="button" class="primary-button" onclick="saveMasterEdit()">保存</button>
-          <button type="button" class="secondary-button" onclick="closeMasterModal()">キャンセル</button>
+          <button type="button" class="primary-button" data-action="save-master-edit">保存</button>
+          <button type="button" class="secondary-button" data-action="close-master-modal">キャンセル</button>
         </div>
       </div>
     </div>

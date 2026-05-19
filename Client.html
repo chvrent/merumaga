@@ -35,6 +35,7 @@
   color: #ffffff !important;
   background-color: #1a73e8 !important; /* システム標準の鮮やかな青 */
   border-color: #1a73e8 !important;
+  font-weight: bold !important;
 }
 </style>
 <script>
@@ -350,9 +351,9 @@
       
       const bulkActions = `
         <div class="day-bulk-actions">
-           <button type="button" class="bulk-stop-button" onclick="stopAllForDay('${dateStr}')" title="この日の配信予定をすべて停止します">全停止</button>
-           <button type="button" class="bulk-resume-button" onclick="resumeAllForDay('${dateStr}')" title="この日の停止設定をすべて解除します">再開</button>
-           <button type="button" class="bulk-r-button" onclick="fillRForDay('${dateStr}')" title="この日のR枠だけ設定済みにします">R一括設定</button>
+           <button type="button" class="bulk-stop-button" data-action="stop-all-for-day" data-date="${escapeAttribute(dateStr)}" title="この日の配信予定をすべて停止します">全停止</button>
+           <button type="button" class="bulk-resume-button" data-action="resume-all-for-day" data-date="${escapeAttribute(dateStr)}" title="この日の停止設定をすべて解除します">再開</button>
+           <button type="button" class="bulk-r-button" data-action="fill-r-for-day" data-date="${escapeAttribute(dateStr)}" title="この日のR枠だけ設定済みにします">R一括設定</button>
         </div>
       `;
 
@@ -474,7 +475,7 @@
               .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
               .join('');
             html += `
-            <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};" onclick="openModal('${payload}')"${rowTitle}>
+            <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
               <div class="col-name">
                 <div class="mail-name">
                   ${jobAlertIcon}
@@ -745,15 +746,15 @@
       html += `
       <tr>
       <td class="actions-col">
-        <button type="button" class="table-action-button" onclick="openMasterModal('${encodedRow}')">編集</button>
-        <button type="button" class="table-action-button danger" onclick="deleteMasterRow('${escapeAttribute(row.__rowNumber)}')">削除</button>
+        <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
+        <button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>
       </td>
     `;
 
       tableHeaders.forEach(h => {
         const cellValue = row[h] == null ? '' : String(row[h]);
         const isExpandable = cellValue.length > 60 || cellValue.includes('\n');
-        html += `<td class="${isExpandable ? 'expandable-cell' : ''}" ${isExpandable ? 'onclick="toggleCellExpand(event)"' : ''} title="${escapeAttribute(cellValue)}">${escapeHtml(cellValue)}</td>`;
+        html += `<td class="${isExpandable ? 'expandable-cell' : ''}" ${isExpandable ? 'data-action="toggle-cell-expand"' : ''} title="${escapeAttribute(cellValue)}">${escapeHtml(cellValue)}</td>`;
       });
 
       if (targetHeader) html += `<td>${escapeHtml(linkedNames)}</td>`;
@@ -844,6 +845,8 @@
     }
 
     // タブの初期化とルール適用
+    populateModalFields(form, row, getModalFieldAliases_('masterModal'));
+
     const modal = document.getElementById('masterModal');
     if (modal) {
       window.openAndInitModalWithTab(row.format || 'フリー', 'masterModal');
@@ -899,6 +902,42 @@
       item.style.display = text.includes(k) ? 'flex' : 'none';
     });
   };
+
+  function getModalFieldAliases_(modalId) {
+    if (modalId === 'editModal') {
+      return {
+        mail_name: ['mail_name', 'block_name', 'メルマガ名'],
+        delivery_count: ['delivery_count', 'mail_count', '通数'],
+        mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
+        notes: ['notes', 'note', '備考'],
+        format: ['format', '形式']
+      };
+    }
+
+    return {
+      mail_name: ['mail_name', 'block_name', 'メルマガ名'],
+      delivery_count: ['delivery_count', 'mail_count', '通数'],
+      mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
+      notes: ['notes', 'note', '備考'],
+      format: ['format', '形式']
+    };
+  }
+
+  function populateModalFields(modal, entry, aliasMap) {
+    if (!modal || !entry) return;
+
+    modal.querySelectorAll('[name]').forEach(input => {
+      if (input.type === 'hidden') return;
+      const name = input.name;
+      const aliases = aliasMap[name] || [name];
+      const value = getValueByKeys(entry, aliases);
+      if (input.type === 'checkbox') {
+        input.checked = isTruthyValue(value);
+        return;
+      }
+      input.value = value != null ? value : '';
+    });
+  }
 
   function closeMasterModal() {
     const modal = document.getElementById('masterModal');
@@ -1166,16 +1205,7 @@
     renderEditExtraFields_(CURRENT_ENTRY);
 
     // 2. name属性を基準としたデータ流し込み
-    Object.keys(CURRENT_ENTRY).forEach(key => {
-      const el = modal.querySelector(`[name="${key}"]`);
-      if (el) {
-        if (el.type === 'checkbox') {
-          el.checked = isTruthyValue(CURRENT_ENTRY[key]);
-        } else {
-          el.value = CURRENT_ENTRY[key] !== undefined && CURRENT_ENTRY[key] !== null ? CURRENT_ENTRY[key] : '';
-        }
-      }
-    });
+    populateModalFields(modal, CURRENT_ENTRY, getModalFieldAliases_('editModal'));
 
     // 3. PR情報の表示
     const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
@@ -1523,7 +1553,7 @@
     const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
     const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
 
-    const onclick = archived ? '' : `onclick="toggleCheckStatus(event, '${escapeAttribute(encodedItemId)}', '${escapeAttribute(field)}')"`;
+    const actionAttr = archived ? '' : 'data-action="toggle-check-status"';
     const cursor = archived ? 'default' : 'pointer';
 
     return `
@@ -1532,7 +1562,8 @@
         data-item-id="${escapeAttribute(itemId)}"
         data-check-field="${escapeAttribute(field)}"
         data-log-payload="${escapeAttribute(logPayload)}"
-        ${onclick}
+        data-encoded-item-id="${escapeAttribute(encodedItemId)}"
+        ${actionAttr}
         style="cursor: ${cursor}"
         title="${archived ? '過去14日以上前のデータは編集できません' : 'クリックで赤塗りを切り替え'}"
       >${escapeHtml(value)}</div>
@@ -2576,7 +2607,135 @@
     document.body.removeChild(textarea);
   }
 
+  function handleActionClick(event) {
+    const actionElement = event.target.closest('[data-action]');
+    if (!actionElement) return;
+
+    const action = String(actionElement.dataset.action || '').trim();
+    if (!action) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (action === 'toggle-cell-expand') {
+      toggleCellExpand({ currentTarget: actionElement, target: event.target });
+      return;
+    }
+
+    if (action === 'toggle-check-status') {
+      toggleCheckStatusFromCell(actionElement, event);
+      return;
+    }
+
+    if (action === 'open-modal') {
+      openModal(actionElement.dataset.entry || '');
+      return;
+    }
+
+    if (action === 'open-master-modal') {
+      openMasterModal(actionElement.dataset.row || '');
+      return;
+    }
+
+    if (action === 'delete-master-row') {
+      deleteMasterRow(actionElement.dataset.rowNumber || '');
+      return;
+    }
+
+    if (action === 'stop-all-for-day') {
+      stopAllForDay(actionElement.dataset.date || '');
+      return;
+    }
+
+    if (action === 'resume-all-for-day') {
+      resumeAllForDay(actionElement.dataset.date || '');
+      return;
+    }
+
+    if (action === 'fill-r-for-day') {
+      fillRForDay(actionElement.dataset.date || '');
+      return;
+    }
+
+    if (action === 'save-pending-check-statuses') {
+      savePendingCheckStatuses();
+      return;
+    }
+
+    if (action === 'toggle-move-mode') {
+      toggleMoveMode();
+      return;
+    }
+
+    if (action === 'jump-to-current-week') {
+      jumpToCurrentWeek();
+      return;
+    }
+
+    if (action === 'load-active-master') {
+      loadActiveMaster();
+      return;
+    }
+
+    if (action === 'close-modal') {
+      closeModal();
+      return;
+    }
+
+    if (action === 'close-master-modal') {
+      closeMasterModal();
+      return;
+    }
+
+    if (action === 'reload-comments') {
+      loadCommentsForCurrentEntry();
+      return;
+    }
+
+    if (action === 'post-comment') {
+      postComment();
+      return;
+    }
+
+    if (action === 'stop-current-delivery') {
+      stopCurrentDelivery();
+      return;
+    }
+
+    if (action === 'resume-current-delivery') {
+      resumeCurrentDelivery();
+      return;
+    }
+
+    if (action === 'save-edit') {
+      saveEdit();
+      return;
+    }
+
+    if (action === 'save-master-edit') {
+      saveMasterEdit();
+    }
+  }
+
+  function toggleCheckStatusFromCell(cell, event) {
+    if (!cell || !event) return;
+    event.stopPropagation();
+    const field = String(cell.dataset.checkField || '').trim();
+    const encodedItemId = String(cell.dataset.encodedItemId || '').trim();
+    const itemId = encodedItemId ? decodeURIComponent(encodedItemId) : String(cell.dataset.itemId || '').trim();
+    if (!itemId || !field) return;
+
+    const nextActive = !isCheckStatusActive(itemId, field);
+    const payload = parseCheckLogPayload(cell.dataset.logPayload);
+    setPendingCheckStatus(itemId, field, nextActive, payload);
+    schedulePendingCheckPersist();
+    cell.classList.toggle('is-active-red', nextActive);
+    cell.classList.toggle('is-pending-check', hasPendingCheckStatus(itemId, field));
+    updatePendingCheckSaveButton();
+  }
+
   function wireEvents() {
+    document.addEventListener('click', handleActionClick);
     document.querySelectorAll('.tab-button').forEach(button => {
       button.addEventListener('click', () => switchTab(button.dataset.tab));
     });
