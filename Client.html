@@ -1081,6 +1081,14 @@
       .deleteMasterData(MASTER_DATA.sheetName, rowNumber);
   }
 
+  function closeModal() {
+    const modal = document.getElementById('editModal');
+    if (modal) {
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    }
+  }
+
   function openModal(encodedEntry) {
     const entry = JSON.parse(decodeURIComponent(encodedEntry));
     const scheduleRow = (APP_DATA.schedule || []).find(row => String(row && row.schedule_id || '').trim() === String(entry && entry.schedule_id || '').trim());
@@ -1094,7 +1102,7 @@
     const modal = document.getElementById('editModal');
     if (!modal) return;
 
-    // 安全なDOM操作: モーダル内のみを対象に検索
+    // データ流し込み
     Object.keys(CURRENT_ENTRY).forEach(key => {
       const el = modal.querySelector('#edit-' + key) || modal.querySelector('[name="' + key + '"]');
       if (el) {
@@ -1106,10 +1114,28 @@
       }
     });
 
+    // 項目復元
     const contentEl = modal.querySelector('#edit-mail-content');
     if (contentEl) contentEl.value = CURRENT_ENTRY.mail_content || '';
+    
+    // 追加フィールドの復元
+    renderEditExtraFields_(CURRENT_ENTRY);
 
-    // タブ制御と初期化
+    // 紐付いているPR情報を表示
+    const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
+    const prContainer = modal.querySelector('#edit-pr-details');
+    if (prContainer) {
+      if (prDetails.length > 0) {
+        const prList = prDetails.map(pr => {
+          const prData = (APP_DATA.pr || []).find(p => String(p.pr_id) === String(pr.pr_id));
+          return `<div class="pr-info-item"><strong>ID:</strong> ${escapeHtml(pr.pr_id)}<br><strong>タイトル:</strong> ${escapeHtml(prData ? prData.name : '不明')}</div>`;
+        }).join('<hr>');
+        prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
+      } else {
+        prContainer.innerHTML = '<h4>紐付いているPR</h4><p>なし</p>';
+      }
+    }
+
     window.openAndInitModalWithTab(CURRENT_ENTRY.format || 'フリー', 'editModal');
 
     modal.style.display = 'flex';
