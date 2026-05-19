@@ -119,7 +119,6 @@
             <span>備考</span>
             <textarea id="edit-notes"></textarea>
           </label>
-          <!-- 他のフィールドも同様にIDとクラスを追加 -->
         </div>
         <div id="editExtraFields" class="edit-extra-fields"></div>
         <div id="edit-pr-details" class="pr-info-container"></div>
@@ -152,11 +151,17 @@
       </div>
     </div>
 
-    <div id="masterModal" class="modal" aria-hidden="true">
+    <div id="masterModal" class="modal" aria-hidden="true" style="display:none;">
       <div class="modal-card master-modal-card">
         <div class="modal-header">
           <h2 id="masterModalTitle">マスタ編集</h2>
           <button type="button" class="icon-button" onclick="closeMasterModal()" aria-label="閉じる">×</button>
+        </div>
+        <div class="modal-tabs">
+          <button type="button" class="modal-tab active" onclick="switchMasterModalTab('free')">フリー</button>
+          <button type="button" class="modal-tab" onclick="switchMasterModalTab('extract')">抽出</button>
+          <button type="button" class="modal-tab" onclick="switchMasterModalTab('auto-job')">自動求人特集</button>
+          <button type="button" class="modal-tab" onclick="switchMasterModalTab('other')">その他</button>
         </div>
         <input type="hidden" id="master-row-number">
         <div id="masterForm" class="master-form"></div>
@@ -166,6 +171,7 @@
         </div>
       </div>
     </div>
+
 
     <?!= include('Client'); ?>
   </body>
