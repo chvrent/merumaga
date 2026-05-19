@@ -774,7 +774,28 @@
 
       const key = normalizeScheduleEditKey_(header);
       const value = row[header] || '';
-      return renderEditInput_(header, key, value);
+      
+      const isFullWidth = ['mail_content', 'notes'].includes(key);
+      const containerClass = `form-group ${isFullWidth ? 'full-width' : ''}`;
+      
+      let input = '';
+      if (isWeekdayHeader(header) || key === 'weekday') {
+        input = renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']);
+      } else if (isFormatHeader(header) || key === 'format') {
+        input = renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
+      } else if (isTimeHeader(header) || key === 'hour') {
+        input = renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions());
+      } else if (isDateTimeHeader(header)) {
+        input = `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
+      } else if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
+        input = `<input type="date" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateString(value))}">`;
+      } else if (String(value).length > 60 || String(value).includes('\n')) {
+        input = `<textarea name="${escapeAttribute(key)}" placeholder="${escapeAttribute(getDisplayName(key))}"></textarea>`;
+      } else {
+        input = `<input type="text" name="${escapeAttribute(key)}" placeholder="${escapeAttribute(getDisplayName(key))}">`;
+      }
+      
+      return `<div class="${containerClass}" data-field="${key}"><label>${escapeHtml(getDisplayName(key))}</label>${input}</div>`;
     }).join('');
 
     form.innerHTML = html;
