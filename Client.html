@@ -1094,9 +1094,9 @@
     const modal = document.getElementById('editModal');
     if (!modal) return;
 
-    // データ流し込み（ガード句付き）
+    // 安全なDOM操作: モーダル内のみを対象に検索
     Object.keys(CURRENT_ENTRY).forEach(key => {
-      const el = document.getElementById('edit-' + key) || document.getElementsByName(key)[0];
+      const el = modal.querySelector('#edit-' + key) || modal.querySelector('[name="' + key + '"]');
       if (el) {
         if (el.tagName === 'INPUT' && el.type === 'checkbox') {
           el.checked = isTruthyValue(CURRENT_ENTRY[key]);
@@ -1106,19 +1106,11 @@
       }
     });
 
-    // 新設項目バインド（明示的なID指定があれば確保）
-    const contentEl = document.getElementById('edit-mail-content');
+    const contentEl = modal.querySelector('#edit-mail-content');
     if (contentEl) contentEl.value = CURRENT_ENTRY.mail_content || '';
 
     // タブ制御と初期化
-    const format = CURRENT_ENTRY.format || 'フリー';
-    const tabId = getTabIdByFormat(format);
-    const tabBtn = document.querySelector(`.modal-tab[onclick="switchModalTab('${tabId}')"]`);
-    if (tabBtn) {
-      document.querySelectorAll('#editModal .modal-tab').forEach(t => t.classList.remove('active'));
-      tabBtn.classList.add('active');
-    }
-    updateFormFields();
+    window.openAndInitModalWithTab(CURRENT_ENTRY.format || 'フリー', 'editModal');
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
