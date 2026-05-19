@@ -785,7 +785,7 @@
     };
 
     Object.keys(fields).forEach(key => {
-      const fieldContainer = document.getElementById(`field-${key}`) || document.querySelector(`[data-field="${key}"]`);
+      const fieldContainer = document.querySelector(`[data-field="${key}"]`);
       if (fieldContainer) {
         const isActive = fields[key].includes(format) || format === 'その他';
         fieldContainer.classList.toggle('disabled', !isActive);
@@ -1018,7 +1018,7 @@
       const value = entry[key] != null ? entry[key] : entry[header];
       const isFullWidth = key === 'mail_content' || key === 'notes';
       return `
-        <div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}" id="field-${escapeAttribute(key)}">
+        <div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}">
           <label>${escapeHtml(getDisplayName(key))}</label>
           ${renderEditInput_(header, key, value)}
         </div>
@@ -1247,7 +1247,7 @@
     });
 
     disabledKeys.forEach(key => {
-      const group = modal.querySelector(`[data-field="${key}"]`) || modal.querySelector(`.field-${key}`);
+      const group = modal.querySelector(`[data-field="${key}"]`);
       if (group) {
         group.classList.add('disabled');
         group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
