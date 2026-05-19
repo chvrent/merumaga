@@ -62,8 +62,8 @@ function getInitialData(options) {
   const ss = getSourceSpreadsheet_();
   const dateRange = buildOperationalDateRange_(options);
   return {
-    schedule: getScheduleRowsCached_(ss),
-    scheduleHeaders: getSheetHeadersCached_(ss, SCHEDULE_SHEET_NAME),
+    schedule: getScheduleRows_(ss),
+    scheduleHeaders: getSheetHeaders_(ss, SCHEDULE_SHEET_NAME),
     pr: getSheetObjectsCached_('app_pr'),
     prTargets: getSheetObjectsCached_('app_pr_targets', true),
     holidays: getSheetObjectsCached_('app_holidays', true),
@@ -2206,26 +2206,6 @@ function getScheduleRows_(ss) {
     .filter(row => row.some(v => v !== ''))
     .map((row, index) => normalizeScheduleRow_(SCHEDULE_SHEET_NAME, index + 2, headers, row))
     .filter(Boolean);
-}
-
-function getScheduleRowsCached_(ss) {
-  const cacheKey = 'initialData:scheduleRows';
-  const cached = getJsonCache_(cacheKey);
-  if (Array.isArray(cached)) return cached;
-
-  const rows = getScheduleRows_(ss);
-  putJsonCache_(cacheKey, rows, INITIAL_DATA_CACHE_TTL_SECONDS);
-  return rows;
-}
-
-function getSheetHeadersCached_(ss, sheetName) {
-  const cacheKey = `initialData:headers:${sheetName}`;
-  const cached = getJsonCache_(cacheKey);
-  if (Array.isArray(cached)) return cached;
-
-  const headers = getSheetHeaders_(ss, sheetName);
-  putJsonCache_(cacheKey, headers, INITIAL_DATA_CACHE_TTL_SECONDS);
-  return headers;
 }
 
 function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
