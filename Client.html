@@ -356,6 +356,7 @@
         const dayLabel = weekdays[date.getDay()];
         const monthEndInfo = getMonthEndInfo(date);
         const entries = filtered.filter(row => {
+          if (isPastDateString(dateStr) && getArchivedOccurrenceForRow(row, dateStr)) return false;
           const rowHour = String(row.hour || '').split(':')[0].trim();
           const startDate = normalizeDateString(row.start_date);
           const endDate = normalizeDateString(row.end_date);
@@ -398,10 +399,12 @@
             }
           }
           return isMatch;
-        }); html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
-        if (entries.length) {
+        });
+        const slotEntries = entries.concat(getArchivedOccurrencesForSlot(dateStr, hour, keyword));
+        html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
+        if (slotEntries.length) {
           const renderedPrIds = new Set();
-          entries.forEach(entry => {
+          slotEntries.forEach(entry => {
             const entryForDate = Object.assign({}, entry, { target_date: dateStr });
             const moveOverride = getMoveOverrideForDate(entry, dateStr);
             if (moveOverride && moveOverride.hour) entryForDate.hour = moveOverride.hour;
@@ -1336,6 +1339,40 @@
       row && row.schedule_id,
       row && row.target_date,
     ].map(value => String(value || '').trim().replace(/\s+/g, ' ')).join('|');
+  }
+
+  function isPastDateString(dateStr) {
+    return normalizeDateString(dateStr) < formatDate(new Date());
+  }
+
+  function getArchivedOccurrenceForRow(row, dateStr) {
+    const sourceRow = row && row.source_row;
+    if (!sourceRow || !dateStr) return null;
+    return (APP_DATA.archivedOccurrences || {})[`${sourceRow}|${dateStr}`] || null;
+  }
+
+  function getArchivedOccurrencesForSlot(dateStr, hour, keyword) {
+    if (!isPastDateString(dateStr)) return [];
+    const targetHour = String(hour || '').split(':')[0].trim();
+    return Object.values(APP_DATA.archivedOccurrences || {}).filter(row => {
+      if (normalizeDateString(row && row.target_date) !== dateStr) return false;
+      if (String(row.hour || '').split(':')[0].trim() !== targetHour) return false;
+      if (!keyword) return true;
+      return [
+        row.mail_name,
+        row.weekday,
+        row.hour,
+        row.category,
+        row.cycle,
+        row.format,
+        row.assignee,
+        row.reviewer,
+        row.source_sheet
+      ]
+        .map(value => String(value || '').toLowerCase())
+        .join(' ')
+        .includes(keyword);
+    });
   }
 
   function isArchivedDate(dateStr) {

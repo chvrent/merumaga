@@ -70,6 +70,7 @@ function getInitialData(options) {
     japaneseHolidays: getJapaneseHolidays_(),
     commentCounts: getCommentCounts_(dateRange),
     fixedOccurrences: getFixedOccurrences_(dateRange),
+    archivedOccurrences: getArchivedOccurrenceRows_(dateRange),
     stoppedOccurrences: getStoppedOccurrences_(dateRange),
     checkStatuses: getCheckStatuses_(dateRange),
     readme: getSheetObjectsCached_('app_readme', true),
@@ -175,6 +176,9 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   }
 
   if (rowNumber >= 2 && rowNumber <= sheet.getMaxRows()) {
+    if (safeSheetName === SCHEDULE_SHEET_NAME) {
+      archivePastOccurrencesForScheduleRow_(ss, headers, values[rowNumber - 1], rowNumber);
+    }
     sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
     if (safeSheetName === SCHEDULE_SHEET_NAME) updateJobCountForRowUnlocked_(sheet, rowNumber, true);
     invalidateInitialDataCaches_([safeSheetName]);
@@ -1989,6 +1993,100 @@ function getFixedOccurrences_(dateRange) {
   return fixedOccurrences;
 }
 
+function getArchivedOccurrenceRows_(dateRange) {
+  const ss = getSourceSpreadsheet_();
+  const archiveSheet = ss.getSheetByName(SCHEDULE_ARCHIVE_SHEET_NAME);
+  const archived = {};
+  if (!archiveSheet || archiveSheet.getLastRow() < 2) return archived;
+
+  const values = archiveSheet.getDataRange().getDisplayValues();
+  const headers = values[0].map(header => String(header || '').trim());
+  const sourceRowIndex = headers.indexOf('source_row');
+  const weekStartIndex = headers.indexOf('fixed_week_start');
+  const weekEndIndex = headers.indexOf('fixed_week_end');
+  if (sourceRowIndex < 0 || weekStartIndex < 0 || weekEndIndex < 0) return archived;
+
+  const scheduleHeaders = headers.slice(4);
+  values.slice(1).forEach(row => {
+    const sourceRow = normalizeCell_(row[sourceRowIndex]);
+    const start = parseScheduleDate_(row[weekStartIndex]);
+    const end = parseScheduleDate_(row[weekEndIndex]);
+    if (!sourceRow || !start || !end) return;
+    if (dateRange && (end < dateRange.start || start > dateRange.end)) return;
+
+    const scheduleRow = row.slice(4, 4 + scheduleHeaders.length);
+    const isSingleDayArchive = formatDate_(start) === formatDate_(end);
+    for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+      const dateStr = formatDate_(date);
+      if (!isDateInOperationalRange_(dateStr, dateRange)) continue;
+      if (!isSingleDayArchive && !isScheduleRowActiveOnDate_(scheduleHeaders, scheduleRow, date)) continue;
+      const record = normalizeScheduleRow_(SCHEDULE_SHEET_NAME, Number(sourceRow), scheduleHeaders, scheduleRow);
+      if (!record) continue;
+      record.source_row = sourceRow;
+      record.target_date = dateStr;
+      record.is_archived_occurrence = true;
+      archived[buildFixedOccurrenceKey_(sourceRow, dateStr)] = record;
+    }
+  });
+
+  return archived;
+}
+
+function archivePastOccurrencesForScheduleRow_(ss, headers, row, sourceRow) {
+  if (!row || sourceRow < 2) return { archived: 0, skipped: 'invalid_row' };
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+
+  const startDate = parseScheduleDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.start_date)) || CYCLE_BASE_DATE;
+  const endDate = parseScheduleDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.end_date)) || yesterday;
+  const scanStart = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  const scanEnd = new Date(Math.min(endDate.getTime(), yesterday.getTime()));
+  if (scanStart > scanEnd) return { archived: 0, skipped: 'no_past_occurrences' };
+
+  const archiveSheet = getOrCreateArchiveSheet_(ss, headers);
+  const existingKeys = getExistingArchiveKeys_(archiveSheet);
+  const archiveRows = [];
+  for (let date = new Date(scanStart); date <= scanEnd; date.setDate(date.getDate() + 1)) {
+    if (!isScheduleRowActiveOnDate_(headers, row, date)) continue;
+    const dateStr = formatDate_(date);
+    const archiveKey = buildArchiveKey_(sourceRow, date);
+    if (existingKeys.has(archiveKey)) continue;
+
+    archiveRows.push([
+      new Date(),
+      dateStr,
+      dateStr,
+      sourceRow
+    ].concat(row.slice(0, headers.length)));
+    existingKeys.add(archiveKey);
+  }
+
+  if (archiveRows.length) {
+    archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, archiveRows.length, archiveRows[0].length).setValues(archiveRows);
+  }
+  return { archived: archiveRows.length };
+}
+
+function isScheduleRowActiveOnDate_(headers, row, date) {
+  const inactive = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_inactive);
+  const currentWeekInactive = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_inactive);
+  if (isTruthy_(inactive) || isTruthy_(currentWeekInactive)) return false;
+
+  const weekday = normalizeWeekdayForBackup_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.weekday) || row[3]);
+  if (!weekday) return false;
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  if (weekdays[date.getDay()] !== weekday) return false;
+
+  const startDate = parseScheduleDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.start_date));
+  const endDate = parseScheduleDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.end_date));
+  if (startDate && date < startDate) return false;
+  if (endDate && date > endDate) return false;
+  return isScheduleCycleActiveOnDate_(headers, row, date);
+}
+
 function isArchivedOccurrenceFixed_(sourceRow, targetDate) {
   const fixedOccurrences = getFixedOccurrences_();
   return !!fixedOccurrences[buildFixedOccurrenceKey_(sourceRow, normalizeCell_(targetDate))];
@@ -2496,6 +2594,7 @@ function upsertScheduleDataUnlocked_(data) {
   }
 
   const row = values[rowIndex - 1].slice();
+  archivePastOccurrencesForScheduleRow_(ss, headers, values[rowIndex - 1], rowIndex);
   applyPayloadToRow_(row, payload, headerMap);
   sheet.getRange(rowIndex, 1, 1, headers.length).setValues([row]);
   invalidateInitialDataCaches_([SCHEDULE_SHEET_NAME]);
