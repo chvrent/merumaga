@@ -1085,7 +1085,6 @@
     const entry = JSON.parse(decodeURIComponent(encodedEntry));
     const scheduleRow = (APP_DATA.schedule || []).find(row => String(row && row.schedule_id || '').trim() === String(entry && entry.schedule_id || '').trim());
     const baseEntry = scheduleRow ? Object.assign({}, scheduleRow) : Object.assign({}, entry);
-    // 発生分（=日付単位）の情報はカレンダー側の値を採用
     baseEntry.target_date = entry.target_date;
     if (entry.hour) baseEntry.hour = entry.hour;
     if (entry.source_row) baseEntry.source_row = entry.source_row;
@@ -1093,109 +1092,71 @@
     CURRENT_ENTRY = applyOccurrenceOverrideToEntry(baseEntry);
 
     const modal = document.getElementById('editModal');
-    const assigneeSelect = document.getElementById('edit-assignee');
-    const reviewerSelect = document.getElementById('edit-reviewer');
-    const options = buildAssigneeOptions();
+    if (!modal) return;
 
-    [assigneeSelect, reviewerSelect].forEach(select => {
-      select.innerHTML = '<option value="">選択してください</option>' + options;
+    // データ流し込み（ガード句付き）
+    Object.keys(CURRENT_ENTRY).forEach(key => {
+      const el = document.getElementById('edit-' + key) || document.getElementsByName(key)[0];
+      if (el) {
+        if (el.tagName === 'INPUT' && el.type === 'checkbox') {
+          el.checked = isTruthyValue(CURRENT_ENTRY[key]);
+        } else {
+          el.value = CURRENT_ENTRY[key] || '';
+        }
+      }
     });
 
-    document.getElementById('edit-id').value = CURRENT_ENTRY.schedule_id || '';
-    document.getElementById('edit-name').value = CURRENT_ENTRY.mail_name || '';
-    document.getElementById('edit-mail-content').value = CURRENT_ENTRY.mail_content || '';
-    document.getElementById('edit-count').value = CURRENT_ENTRY.delivery_count || '';
-    document.getElementById('edit-notes').value = CURRENT_ENTRY.notes || '';
-    // 配信カレンダーモーダルでマスタ項目も扱えるように編集可能にする
-    const editExtra = document.getElementById('editExtraFields');
-    if (editExtra) {
-      editExtra.innerHTML = getScheduleEditHeaders_().map(header => {
-        const key = normalizeScheduleEditKey_(header);
-        const value = CURRENT_ENTRY[key] != null ? CURRENT_ENTRY[key] : CURRENT_ENTRY[header];
-        return `
-          <label class="field">
-            <span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(key))}</span>
-            ${renderEditInput_(header, key, value)}
-          </label>
-        `;
-      }).join('');
+    // 新設項目バインド（明示的なID指定があれば確保）
+    const contentEl = document.getElementById('edit-mail-content');
+    if (contentEl) contentEl.value = CURRENT_ENTRY.mail_content || '';
+
+    // タブ制御と初期化
+    const format = CURRENT_ENTRY.format || 'フリー';
+    const tabId = getTabIdByFormat(format);
+    const tabBtn = document.querySelector(`.modal-tab[onclick="switchModalTab('${tabId}')"]`);
+    if (tabBtn) {
+      document.querySelectorAll('#editModal .modal-tab').forEach(t => t.classList.remove('active'));
+      tabBtn.classList.add('active');
     }
-
-    // 紐付いているPR情報を表示
-    const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
-    const prContainer = document.getElementById('edit-pr-details');
-    if (prContainer) {
-      if (prDetails.length > 0) {
-        const prList = prDetails.map(pr => {
-          const prData = (APP_DATA.pr || []).find(p => String(p.pr_id) === String(pr.pr_id));
-          const startDate = pr.start_date || (prData ? prData.start_date : '');
-          const endDate = pr.end_date || (prData ? prData.end_date : '');
-
-          // 現在の日付が対象期間内かを判定
-          const targetDate = new Date(CURRENT_ENTRY.target_date);
-          const start = startDate ? new Date(normalizeDateString(startDate)) : null;
-          const end = endDate ? new Date(normalizeDateString(endDate)) : null;
-          const isActive = (!start || start <= targetDate) && (!end || end >= targetDate);
-
-          return `
-            <div class="pr-info-item ${isActive ? 'active-pr' : 'inactive-pr'}">
-              <strong>ID:</strong> ${escapeHtml(pr.pr_id)}<br>
-              <strong>タイトル:</strong> ${escapeHtml(prData ? prData.name : '不明')}<br>
-              <strong>期間:</strong> ${escapeHtml(startDate || '未設定')} ～ ${escapeHtml(endDate || '未設定')}<br>
-              <strong>テキスト:</strong> ${escapeHtml(prData ? prData.pr_text : 'なし')}
-            </div>
-          `;
-        }).join('<hr>');
-        prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
-      } else {
-        prContainer.innerHTML = '<h4>紐付いているPR</h4><p>なし</p>';
-      }
-    }
-
-    document.getElementById('new-comment').value = '';
-    renderJobAlertGuidance(CURRENT_ENTRY);
-    renderComments([]);
-    loadCommentsForCurrentEntry();
-    assigneeSelect.value = CURRENT_ENTRY.assignee || '';
-    reviewerSelect.value = CURRENT_ENTRY.reviewer || '';
-    setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
-    syncReviewerLock_();
+    updateFormFields();
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
   }
 
-  window.switchModalTab = function(tabId) {
-    const formatMap = { 'free': 'フリー', 'extract': '抽出', 'auto-job': '自動求人特集', 'other': 'その他' };
-    const format = formatMap[tabId];
-    document.getElementById('edit-format').value = format;
-    
-    document.querySelectorAll('#editModal .modal-tab').forEach(tab => tab.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-    
-    updateFormFields();
-  };
+  // モーダルごとのタブ初期化処理
+  function initModalTabs(modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
 
-  window.switchMasterModalTab = function(tabId) {
-    const formatMap = { 'free': 'フリー', 'extract': '抽出', 'auto-job': '自動求人特集', 'other': 'その他' };
-    const format = formatMap[tabId];
-    
-    const formatInput = document.querySelector('#masterForm [data-header="形式"]');
-    if (formatInput) {
-      formatInput.value = format;
-      formatInput.dispatchEvent(new Event('change'));
-    }
-    
-    document.querySelectorAll('#masterModal .modal-tab').forEach(tab => tab.classList.remove('active'));
-    event.currentTarget.classList.add('active');
-    
-    if (typeof updateMasterFormFields === 'function') {
-      updateMasterFormFields();
-    }
-  };
+    modal.querySelectorAll('.modal-tab').forEach(tab => {
+      tab.addEventListener('click', function(event) {
+        // 現在のモーダル内のタブを全て非アクティブ化
+        modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
 
-  function updateFormFields() {
-    const format = document.getElementById('edit-format').value;
+        // タブに対応する形式を取得
+        const formatMap = { 'free': 'フリー', 'extract': '抽出', 'auto-job': '自動求人特集', 'other': 'その他' };
+        const tabId = this.dataset.tabId || (this.innerText === 'フリー' ? 'free' : this.innerText === '抽出' ? 'extract' : this.innerText === '自動求人特集' ? 'auto-job' : 'other');
+        const format = formatMap[tabId];
+        
+        // 形式フィールドの更新
+        const formatInput = modal.querySelector('[data-header="形式"], #edit-format');
+        if (formatInput) {
+          formatInput.value = format;
+          formatInput.dispatchEvent(new Event('change'));
+        }
+        
+        updateModalFields(modal);
+      });
+    });
+  }
+
+  function updateModalFields(modal) {
+    const formatInput = modal.querySelector('[data-header="形式"], #edit-format');
+    if (!formatInput) return;
+    const format = formatInput.value;
+    
     const fields = {
       'job_count': ['auto-job'],
       'job_feature_id': ['auto-job'],
@@ -1204,7 +1165,7 @@
     };
 
     Object.keys(fields).forEach(key => {
-      const fieldContainer = document.getElementById(`field-${key}`);
+      const fieldContainer = modal.querySelector(`#field-${key}`);
       if (fieldContainer) {
         const isActive = fields[key].includes(getTabIdByFormat(format)) || format === 'その他';
         fieldContainer.classList.toggle('disabled', !isActive);
@@ -1213,6 +1174,27 @@
       }
     });
   }
+
+  // 初期化時にモーダルへリスナー登録
+  document.addEventListener('DOMContentLoaded', () => {
+    initModalTabs('editModal');
+    initModalTabs('masterModal');
+  });
+
+  window.openAndInitModalWithTab = function(format, modalId) {
+    const modal = document.getElementById(modalId);
+    if (!modal) return;
+
+    const tabId = getTabIdByFormat(format);
+    const tabBtn = modal.querySelector(`.modal-tab[onclick*="${tabId}"]`) || 
+                   modal.querySelector(`.modal-tab[data-tab-id="${tabId}"]`);
+    
+    if (tabBtn) {
+      modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
+      tabBtn.classList.add('active');
+    }
+    updateModalFields(modal);
+  };
 
   function getTabIdByFormat(format) {
     if (format === 'フリー') return 'free';
