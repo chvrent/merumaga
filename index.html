@@ -95,26 +95,7 @@
         <form id="editForm" class="form-grid">
           <input type="hidden" name="schedule_id" id="edit-id">
           <input type="hidden" name="format" id="edit-format">
-          
-          <div class="form-group" data-field="mail_name">
-            <label>メルマガ名</label>
-            <input type="text" name="mail_name" id="edit-name" readonly>
-          </div>
-          <div class="form-group" data-field="delivery_count">
-            <label>通数</label>
-            <input type="text" name="delivery_count" id="edit-count">
-          </div>
-          <div class="form-group full-width" data-field="mail_content">
-            <label>メルマガ内容</label>
-            <textarea name="mail_content" id="edit-mail-content"></textarea>
-          </div>
-          <div class="form-group full-width" data-field="notes">
-            <label>備考</label>
-            <textarea name="notes" id="edit-notes"></textarea>
-          </div>
-          
-          <!-- 動的フィールド（初期化時にここに差し込まれる） -->
-          <div id="editExtraFields" class="form-grid full-width" style="margin-top:0;"></div>
+          <div id="editCoreFields" class="form-grid full-width" style="margin-top:0;"></div>
         </form>
 
         <div id="edit-pr-details" class="pr-info-container"></div>

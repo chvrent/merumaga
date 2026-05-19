@@ -1,4 +1,4 @@
-/**
+﻿/**
  * DataService.gs
  */
 const SOURCE_SPREADSHEET_ID = '1hr-bf6g0Lhe9tuTiGHjhM9uyfKOmiQ9ZCpgD5kVdnrs';
@@ -31,8 +31,8 @@ const PR_FIELD_ALIASES = {
 
 const SCHEDULE_FIELD_ALIASES = {
   schedule_id: ['schedule_id', 'id'],
-  mail_name: ['mail_name', 'メルマガ内容'],
-  mail_content: ['mail_content', 'メルマガ詳細内容'],
+  mail_name: ['mail_name', 'メルマガ名'],
+  mail_content: ['mail_content', 'メルマガ内容', 'メルマガ詳細内容'],
   weekday: ['weekday', '曜日'],
   hour: ['hour', '時間'],
   category: ['category', '種別'],
@@ -49,7 +49,7 @@ const SCHEDULE_FIELD_ALIASES = {
   auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID'],
   target_age: ['target_age', '対象年齢'],
   target_address: ['target_address', '対象現住所'],
-  new_flag: ['new_flag', '新規'],
+  new_flag: ['new_flag', 'is_new', '新規'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数'],
   job_count_updated_at: ['job_count_updated_at', '求人数最終取得日時', '最終取得日時'],
   cycle: ['cycle', 'サイクル'],
@@ -77,6 +77,41 @@ function getInitialData(options) {
     readme: getSheetObjectsCached_('app_readme', true),
     adminMaster: getSheetObjectsByNamesCached_(['app_admin_master', 'app_name_master'], true)
   };
+}
+
+function getAdminList() {
+  const rows = getSheetObjectsByNamesCached_(['app_admin_master', 'app_name_master'], true);
+  return rows
+    .filter(row => {
+      const activeKeys = ['is_active', 'active', '有効', 'enabled', 'enable'];
+      const inactiveKeys = ['is_deleted', 'deleted', '無効', 'inactive'];
+      for (const key of activeKeys) {
+        if (Object.prototype.hasOwnProperty.call(row, key)) {
+          return isTruthy_(row[key]);
+        }
+      }
+      for (const key of inactiveKeys) {
+        if (Object.prototype.hasOwnProperty.call(row, key)) {
+          return !isTruthy_(row[key]);
+        }
+      }
+      return true;
+    })
+    .map(row => {
+      const name = normalizeCell_(row.name || row['氏名'] || row['名前'] || row.initial || row['略称']);
+      if (!name) return null;
+      return {
+        name,
+        full_name: normalizeCell_(row.full_name || row.fullName || row['氏名'] || row['名前'] || name),
+        initial: normalizeCell_(row.initial || row['略称'] || name)
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => {
+      const leftText = String(left.initial || left.name || '').toLowerCase();
+      const rightText = String(right.initial || right.name || '').toLowerCase();
+      return leftText.localeCompare(rightText, 'ja');
+    });
 }
 
 function getSheetHeaders_(ss, sheetName) {
@@ -152,6 +187,17 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   const safeSheetName = assertEditableSheet_(sheetName);
   if (!payload || typeof payload !== 'object') throw new Error('payload is required');
 
+  const normalizedPayload = Object.assign({}, payload);
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'setter') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'assignee')) {
+    normalizedPayload.assignee = normalizedPayload.setter;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'checker') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'reviewer')) {
+    normalizedPayload.reviewer = normalizedPayload.checker;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'new_flag')) {
+    normalizedPayload.new_flag = isTruthy_(normalizedPayload.is_new) ? 'TRUE' : 'FALSE';
+  }
+
   const ss = getSourceSpreadsheet_();
   const sheet = ss.getSheetByName(safeSheetName);
   if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
@@ -167,8 +213,8 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     : headers.map(() => '');
 
   headers.forEach((header, index) => {
-    if (Object.prototype.hasOwnProperty.call(payload, header)) {
-      row[index] = normalizeCell_(payload[header]);
+    if (Object.prototype.hasOwnProperty.call(normalizedPayload, header)) {
+      row[index] = normalizeCell_(normalizedPayload[header]);
     }
   });
 
@@ -1213,6 +1259,11 @@ function updateAllJobCountsUnlocked_() {
 
   for (let rowIndex = 1; rowIndex < refreshedValues.length; rowIndex++) {
     const row = refreshedValues[rowIndex];
+    if (isAutoJobFeatureRow_(headers, row)) {
+      if (applyAutoJobCountFormulaForRow_(sheet, headers, rowIndex + 1)) updated++;
+      else skipped++;
+      continue;
+    }
     const url = normalizeCell_(row[jobUrlIndex]);
 
     if (!url) {
@@ -1246,6 +1297,10 @@ function updateJobCountForRowUnlocked_(sheet, rowNumber, force) {
   const jobCountIndex = ensureHeaderAtMinColumn_(sheet, headers, 'current_job_count', 16);
   const jobCountUpdatedAtIndex = ensureHeaderAtMinColumn_(sheet, headers, 'job_count_updated_at', 17);
   const row = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
+  if (isAutoJobFeatureRow_(headers, row)) {
+    const formulaResult = applyAutoJobCountFormulaForRow_(sheet, headers, rowNumber);
+    return formulaResult ? { success: true, updated: 1, skipped: 0 } : { success: true, updated: 0, skipped: 1 };
+  }
   const url = normalizeCell_(row[jobUrlIndex]);
   if (!url) return { success: true, updated: 0, skipped: 1 };
   if (!force && !shouldRefreshJobCount_(row[jobCountUpdatedAtIndex], JOB_COUNT_REFRESH_INTERVAL_HOURS)) {
@@ -1259,6 +1314,44 @@ function updateJobCountForRowUnlocked_(sheet, rowNumber, force) {
   sheet.getRange(rowNumber, jobCountIndex + 1).setValue(count);
   sheet.getRange(rowNumber, jobCountUpdatedAtIndex + 1).setValue(fetchedAt);
   return { success: true, updated: 1, skipped: 0 };
+}
+
+function isAutoJobFeatureRow_(headers, row) {
+  return normalizeCell_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.format)) === '自動求人特集';
+}
+
+function applyAutoJobCountFormulaForRow_(sheet, headers, rowNumber) {
+  const headerMap = buildHeaderMap_(headers);
+  const formatIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.format);
+  const jobUrlIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.job_url);
+  const jobCountIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.current_job_count);
+  if (formatIndex == null || jobUrlIndex == null || jobCountIndex == null) return false;
+
+  const formatValue = normalizeCell_(sheet.getRange(rowNumber, formatIndex + 1).getDisplayValue());
+  if (formatValue !== '自動求人特集') return false;
+
+  const url = normalizeCell_(sheet.getRange(rowNumber, jobUrlIndex + 1).getDisplayValue());
+  const countCell = sheet.getRange(rowNumber, jobCountIndex + 1);
+  if (!url) {
+    countCell.clearContent();
+    return true;
+  }
+
+  const urlRef = `${columnToLetter_(jobUrlIndex + 1)}${rowNumber}`;
+  const formula = `=IFERROR(IMPORTXML(${urlRef}, "/html/body/form/div[1]/div[3]/main/div/div/div[2]/div/span[1]"))`;
+  countCell.setFormula(formula);
+  return true;
+}
+
+function columnToLetter_(columnNumber) {
+  let number = Number(columnNumber || 0);
+  let letters = '';
+  while (number > 0) {
+    const remainder = (number - 1) % 26;
+    letters = String.fromCharCode(65 + remainder) + letters;
+    number = Math.floor((number - 1) / 26);
+  }
+  return letters;
 }
 
 function shouldRefreshJobCount_(updatedAt, intervalHours) {
@@ -2184,14 +2277,18 @@ function generateNextMasterId_(sheetName, values, idIndex) {
   if (!config) return '';
 
   let maxNumber = 0;
-  const pattern = new RegExp(`^${config.prefix}_(\\d+)$`);
+  const prefixPattern = sheetName === 'app_pr'
+    ? /^PR\[(\d+)\]$/i
+    : new RegExp(`^${config.prefix}_(\\d+)$`);
   values.slice(1).forEach(row => {
     const value = normalizeCell_(row[idIndex]);
-    const match = value.match(pattern);
+    const match = String(value || '').match(prefixPattern);
     if (match) maxNumber = Math.max(maxNumber, Number(match[1]));
   });
 
-  return `${config.prefix}_${String(maxNumber + 1).padStart(3, '0')}`;
+  return sheetName === 'app_pr'
+    ? `PR[${maxNumber + 1}]`
+    : `${config.prefix}_${String(maxNumber + 1).padStart(3, '0')}`;
 }
 
 function getScheduleRows_(ss) {

@@ -1,4 +1,4 @@
-<style>
+﻿<style>
 .modal-tabs-container {
   display: flex !important;
   flex-direction: row !important; /* 必ず横並びにする */
@@ -56,6 +56,7 @@
   let MASTER_FORMAT_FILTER = '';
   let MASTER_CATEGORY_FILTER = '';
   let MASTER_STATUS_FILTER = 'active';
+  let MASTER_NEW_ONLY = false;
   let MASTER_FILTERS = {
     'format:自動求人特集': false,
     'category:イレギュラー': false,
@@ -90,6 +91,7 @@
     name: 'PRタイトル',
     insert_position: '挿入位置',
     notes: '備考',
+    mail_content: 'メルマガ内容',
     job_url: '自動求人特集URL',
     auto_job_feature_id: '自動求人特集ID',
     target_age: '対象年齢',
@@ -578,6 +580,7 @@
       MASTER_FORMAT_FILTER = '';
       MASTER_CATEGORY_FILTER = '';
       MASTER_STATUS_FILTER = 'active';
+      MASTER_NEW_ONLY = false;
       return;
     }
 
@@ -626,8 +629,14 @@
         ${categories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_CATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
       </select>
     ` : '';
+    const newOnlyCheckbox = `
+      <label class="filter-checkbox">
+        <input type="checkbox" id="masterNewOnlyCheckbox" onchange="setMasterNewOnly(this.checked)" ${MASTER_NEW_ONLY ? 'checked' : ''}>
+        新規のみ
+      </label>
+    `;
 
-    container.innerHTML = [statusSelect, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [statusSelect, newOnlyCheckbox, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterSubCategoryFilter(value) {
@@ -642,6 +651,11 @@
 
   function setMasterCategoryFilter(value) {
     MASTER_CATEGORY_FILTER = String(value || '');
+    renderMasterTable();
+  }
+
+  function setMasterNewOnly(checked) {
+    MASTER_NEW_ONLY = !!checked;
     renderMasterTable();
   }
 
@@ -672,6 +686,7 @@
     const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
     const categoryHeader = headers.find(h => ['category', '種別'].includes(String(h || '').trim())) || '';
     const endDateHeader = headers.find(h => ['end_date', '終了日'].includes(String(h || '').trim())) || '';
+    const newFlagHeader = headers.find(h => ['new_flag', '新規', 'is_new'].includes(String(h || '').trim())) || '';
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       // 検索キーワードフィルター
@@ -706,6 +721,10 @@
         const isEnded = !!endDate && endDate < today;
         if (MASTER_STATUS_FILTER === 'active' && isEnded) return false;
         if (MASTER_STATUS_FILTER === 'ended' && !isEnded) return false;
+      }
+
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && newFlagHeader) {
+        if (!isTruthyValue(row[newFlagHeader])) return false;
       }
 
       return true;
@@ -801,55 +820,50 @@
     const headers = MASTER_DATA.headers || [];
     const visibleHeaders = getVisibleMasterHeaders(headers);
     const form = document.getElementById('masterForm');
+    const modal = document.getElementById('masterModal');
+    const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
+    const tabsContainer = modal ? modal.querySelector('.modal-tabs-container') : null;
 
     document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
     document.getElementById('master-row-number').value = row.__rowNumber || '';
     const formatInput = document.getElementById('master-format');
-    if (formatInput) formatInput.value = row.format || 'フリー';
+    if (tabsContainer) tabsContainer.style.display = isPrMaster ? 'none' : '';
+    if (modal) modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
+    if (formatInput) formatInput.value = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
     const html = visibleHeaders.map(header => {
-      if (MASTER_DATA.sheetName === 'app_pr' && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
+      if (isPrMaster && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
       if (isHiddenMasterInputHeader(header)) return '';
 
       const key = normalizeScheduleEditKey_(header);
-      const value = row[header] || '';
-      
+      const value = row[key] != null ? row[key] : row[header];
       const isFullWidth = ['mail_content', 'notes'].includes(key);
-      const containerClass = `form-group ${isFullWidth ? 'full-width' : ''}`;
-      
-      let input = '';
-      if (isWeekdayHeader(header) || key === 'weekday') {
-        input = renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']);
-      } else if (isFormatHeader(header) || key === 'format') {
-        input = renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
-      } else if (isTimeHeader(header) || key === 'hour') {
-        input = renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions());
-      } else if (isDateTimeHeader(header)) {
-        input = `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
-      } else if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
-        input = `<input type="date" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateString(value))}">`;
-      } else if (String(value).length > 60 || String(value).includes('\n')) {
-        input = `<textarea name="${escapeAttribute(key)}" placeholder="${escapeAttribute(getDisplayName(key))}"></textarea>`;
-      } else {
-        input = `<input type="text" name="${escapeAttribute(key)}" placeholder="${escapeAttribute(getDisplayName(key))}">`;
-      }
-      
-      return `<div class="${containerClass}" data-field="${key}"><label>${escapeHtml(getDisplayName(key))}</label>${input}</div>`;
+      const input = renderMasterFieldInput_(header, key, value, 'master');
+      if (input === '') return '';
+
+      return `<div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}"><label>${escapeHtml(getDisplayName(key))}</label>${input}</div>`;
     }).join('');
 
     form.innerHTML = html;
 
-    if (MASTER_DATA.sheetName === 'app_pr') {
+    if (isPrMaster) {
+      const formatGroup = form.querySelector('[data-field="format"]');
+      if (formatGroup) formatGroup.style.display = 'none';
       form.insertAdjacentHTML('beforeend', renderNewsletterSelector_(row.pr_id));
     }
 
     // タブの初期化とルール適用
     populateModalFields(form, row, getModalFieldAliases_('masterModal'));
+    refreshAdminSelects_();
 
-    const modal = document.getElementById('masterModal');
     if (modal) {
-      window.openAndInitModalWithTab(row.format || 'フリー', 'masterModal');
+      const prIdField = modal.querySelector('[name="pr_id"]');
+      if (prIdField) {
+        prIdField.readOnly = true;
+        prIdField.placeholder = '保存時に自動採番';
+      }
+      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
       modal.style.display = 'flex';
       modal.setAttribute('aria-hidden', 'false');
     }
@@ -910,7 +924,10 @@
         delivery_count: ['delivery_count', 'mail_count', '通数'],
         mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
         notes: ['notes', 'note', '備考'],
-        format: ['format', '形式']
+        format: ['format', '形式'],
+        setter: ['setter', 'assignee', '設定者'],
+        checker: ['checker', 'reviewer', '確認者'],
+        is_new: ['is_new', 'new_flag', '新規']
       };
     }
 
@@ -919,7 +936,10 @@
       delivery_count: ['delivery_count', 'mail_count', '通数'],
       mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
       notes: ['notes', 'note', '備考'],
-      format: ['format', '形式']
+      format: ['format', '形式'],
+      setter: ['setter', 'assignee', '設定者'],
+      checker: ['checker', 'reviewer', '確認者'],
+      is_new: ['is_new', 'new_flag', '新規']
     };
   }
 
@@ -958,7 +978,7 @@
     const key = String(header == null ? '' : header).trim();
     const lower = key.toLowerCase();
     const map = {
-      'メルマガ内容': 'mail_name',
+      'メルマガ内容': 'mail_content',
       '通数': 'delivery_count',
       '設定者': 'assignee',
       '確認者': 'reviewer',
@@ -1016,37 +1036,16 @@
   }
 
   function renderEditInput_(header, key, value) {
-    let input = '';
-    if (isWeekdayHeader(header) || key === 'weekday') {
-      input = renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']);
-    } else if (isFormatHeader(header) || key === 'format') {
-      input = renderSelectInput(key, value, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
-    } else if (isTimeHeader(header) || key === 'hour') {
-      input = renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions());
-    } else if (isDateTimeHeader(header)) {
-      input = `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
-    } else if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
-      input = `<input type="date" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateString(value))}">`;
-    } else if (String(value).length > 60 || String(value).includes('\n')) {
-      input = `<textarea name="${escapeAttribute(key)}">${escapeHtml(value)}</textarea>`;
-    } else {
-      input = `<input type="text" name="${escapeAttribute(key)}" value="${escapeAttribute(value)}">`;
-    }
-
-    return input;
+    return renderMasterFieldInput_(header, key, value, 'edit');
   }
 
-  function renderEditExtraFields_(entry) {
-    const container = document.getElementById('editExtraFields');
+  function renderEditModalFields_(entry) {
+    const container = document.getElementById('editCoreFields');
     if (!container) return;
 
     const excludedKeys = new Set([
       'schedule_id',
-      'format',
-      'mail_name',
-      'delivery_count',
-      'mail_content',
-      'notes'
+      'format'
     ]);
 
     container.innerHTML = getScheduleEditHeaders_().filter(header => {
@@ -1056,18 +1055,21 @@
       const key = normalizeScheduleEditKey_(header);
       const value = entry[key] != null ? entry[key] : entry[header];
       const isFullWidth = key === 'mail_content' || key === 'notes';
+      const input = renderEditInput_(header, key, value);
+      if (input === '') return '';
       return `
         <div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}">
           <label>${escapeHtml(getDisplayName(key))}</label>
-          ${renderEditInput_(header, key, value)}
+          ${input}
         </div>
       `;
     }).join('');
   }
 
   function syncReviewerLock_() {
-    const assigneeEl = document.getElementById('edit-assignee');
-    const reviewerEl = document.getElementById('edit-reviewer');
+    const modal = document.getElementById('editModal');
+    const assigneeEl = modal ? modal.querySelector('[name="setter"]') : null;
+    const reviewerEl = modal ? modal.querySelector('[name="checker"]') : null;
     if (!assigneeEl || !reviewerEl) return;
 
     const locked = CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY));
@@ -1085,6 +1087,57 @@
     }
   }
 
+  function collectNamedFormValues(form, options = {}) {
+    const values = {};
+    if (!form) return values;
+    const exclude = new Set(options.exclude || []);
+    const includeHidden = new Set(options.includeHidden || []);
+    form.querySelectorAll('[name]').forEach(input => {
+      if (!input.name || exclude.has(input.name)) return;
+      if (input.type === 'hidden' && !includeHidden.has(input.name)) return;
+      if (input.disabled) return;
+      values[input.name] = input.type === 'checkbox' ? input.checked : input.value;
+    });
+    return values;
+  }
+
+  function normalizeMasterSubmissionPayload_(payload) {
+    if (Object.prototype.hasOwnProperty.call(payload, 'setter')) {
+      payload.assignee = payload.setter;
+      delete payload.setter;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'checker')) {
+      payload.reviewer = payload.checker;
+      delete payload.checker;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'is_new')) {
+      payload.new_flag = payload.is_new ? 'TRUE' : 'FALSE';
+      delete payload.is_new;
+    }
+    return payload;
+  }
+
+  function bindEditModalInteractions_(modal) {
+    if (!modal) return;
+    bindCopyField_(modal, '[name="mail_name"]');
+    bindChangeField_(modal, '[name="setter"]', syncReviewerLock_);
+    syncReviewerLock_();
+  }
+
+  function bindCopyField_(root, selector) {
+    const field = root ? root.querySelector(selector) : null;
+    if (!field || field.dataset.copyBound) return;
+    field.dataset.copyBound = 'true';
+    field.addEventListener('click', () => copyTextToClipboard_(field.value));
+  }
+
+  function bindChangeField_(root, selector, handler) {
+    const field = root ? root.querySelector(selector) : null;
+    if (!field || field.dataset.changeBound) return;
+    field.dataset.changeBound = 'true';
+    field.addEventListener('change', handler);
+  }
+
   function saveMasterEdit() {
     const btn = event.target;
     btn.disabled = true;
@@ -1097,16 +1150,12 @@
       hideBusy();
     };
 
-    const payload = { __rowNumber: document.getElementById('master-row-number').value };
-
-    // name属性を持つ全入力を取得（タブ連動の形式含む）
-    document.querySelectorAll('#masterModal [name]').forEach(input => {
-      if (input.type === 'checkbox') {
-        payload[input.name] = input.checked;
-      } else {
-        payload[input.name] = input.value;
-      }
-    });
+    const payload = normalizeMasterSubmissionPayload_(
+      Object.assign(
+        { __rowNumber: document.getElementById('master-row-number').value },
+        collectNamedFormValues(document.getElementById('masterModal'), { includeHidden: ['format'] })
+      )
+    );
 
     // PR管理の場合のみ、target_ids (PRが入るメルマガ) を取得して savePRData を呼ぶ
     if (MASTER_DATA.sheetName === 'app_pr') {
@@ -1202,10 +1251,15 @@
     if (!modal) return;
 
     // 1. 追加フィールドのレンダリング
-    renderEditExtraFields_(CURRENT_ENTRY);
+    const editCoreFields = modal.querySelector('#editCoreFields');
+    if (editCoreFields) {
+      renderEditModalFields_(CURRENT_ENTRY);
+    }
 
     // 2. name属性を基準としたデータ流し込み
     populateModalFields(modal, CURRENT_ENTRY, getModalFieldAliases_('editModal'));
+    refreshAdminSelects_();
+    bindEditModalInteractions_(modal);
 
     // 3. PR情報の表示
     const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
@@ -1225,6 +1279,7 @@
     // 4. タブの初期化とルール適用
     const currentFormat = CURRENT_ENTRY.format || 'フリー';
     window.openAndInitModalWithTab(currentFormat, 'editModal');
+    loadCommentsForCurrentEntry();
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
@@ -1237,41 +1292,59 @@
 
     modal.querySelectorAll('.modal-tab').forEach(tab => {
       tab.addEventListener('click', function() {
-        // 同じモーダル内のみアクティブ状態を切り替え
-        modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-
-        const format = this.dataset.format;
-        
-        // 形式セレクトボックス/隠しフィールドと同期
-        const formatInput = modal.querySelector(`[name="format"]`);
-        if (formatInput) {
-          formatInput.value = format;
-        }
-
-        // 形式を同期
-        modal.dataset.format = format;
-        applyDynamicInputControl(format, modalId);
+        setModalFormatState(modal, this.dataset.format);
       });
     });
+
+    modal.querySelectorAll('select[name="format"]').forEach(select => {
+      if (select.dataset.formatBound === 'true') return;
+      select.dataset.formatBound = 'true';
+      select.addEventListener('change', event => {
+        setModalFormatState(modal, event.target.value);
+      });
+    });
+
+    if (modal.dataset.formatDelegationBound !== 'true') {
+      modal.dataset.formatDelegationBound = 'true';
+      modal.addEventListener('change', event => {
+        const target = event.target;
+        if (target && target.matches && target.matches('select[name="format"]')) {
+          setModalFormatState(modal, target.value);
+        }
+      });
+    }
   }
 
-  // フィールドの制御ロジック
+  function setModalFormatState(modal, format) {
+    if (!modal) return;
+    const nextFormat = String(format || 'フリー');
+    modal.dataset.format = nextFormat;
+    modal.querySelectorAll('.modal-tab').forEach(tab => {
+      tab.classList.toggle('active', tab.dataset.format === nextFormat);
+    });
+    modal.querySelectorAll('[name="format"]').forEach(input => {
+      input.value = nextFormat;
+    });
+    applyDynamicInputControl(nextFormat, modal.id);
+  }
+
+  // 形式ごとの入力制御
   function applyDynamicInputControl(format, modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
 
     const constraints = {
-      '自動求人特集': ['current_job_count', 'pr_id'],
-      'フリー': ['current_job_count', 'auto_job_feature_id', 'job_url', 'pr_id'],
-      '抽出': ['current_job_count', 'auto_job_feature_id', 'job_url', 'pr_id'],
+      '自動求人特集': ['auto_job_feature_id', 'job_url'],
+      'フリー': ['auto_job_feature_id', 'job_url'],
+      '抽出': ['auto_job_feature_id', 'job_url'],
       'その他': []
     };
 
     const disabledKeys = constraints[format] || [];
+    const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
+    const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
 
     modal.querySelectorAll('.form-group').forEach(group => {
-      const field = group.dataset.field;
       group.classList.remove('disabled');
       group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
     });
@@ -1283,30 +1356,29 @@
         group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
       }
     });
+
+    if (currentJobCountInput) {
+      currentJobCountInput.disabled = true;
+      currentJobCountInput.readOnly = true;
+      currentJobCountInput.placeholder = '保存後に自動取得されます';
+      currentJobCountGroup.classList.add('disabled');
+    }
+
+    if (modal.dataset.modalType === 'pr-master') {
+      const prIdInput = modal.querySelector('[name="pr_id"]');
+      if (prIdInput) {
+        prIdInput.disabled = false;
+        prIdInput.readOnly = true;
+        prIdInput.placeholder = '保存時に自動採番';
+      }
+    }
   }
 
-  // モーダルオープン時の初期化
-  window.openAndInitModalWithTab = function(format, modalId) {
+  function openAndInitModalWithTab(format, modalId) {
     const modal = document.getElementById(modalId);
     if (!modal) return;
-
-    modal.dataset.format = format;
-    const tabBtn = modal.querySelector(`.modal-tab[data-format="${format}"]`);
-    
-    if (tabBtn) {
-      modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
-      tabBtn.classList.add('active');
-    }
-
-    // 形式セレクトボックス/隠しフィールドと同期
-    const formatInput = modal.querySelector(`[name="format"]`);
-    if (formatInput) {
-      formatInput.value = format;
-    }
-
-    applyDynamicInputControl(format, modalId);
-  };
-
+    setModalFormatState(modal, format);
+  }
   function saveEdit() {
     if (CURRENT_ENTRY && isFixed(CURRENT_ENTRY)) {
       alert('確定済みの配信は編集できません');
@@ -1320,16 +1392,10 @@
     const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
     const itemId = getCheckItemId(CURRENT_ENTRY);
 
-    const nextValues = {
-      delivery_count: document.getElementById('edit-count').value,
-      assignee: document.getElementById('edit-assignee').value,
-      reviewer: document.getElementById('edit-reviewer').value,
-      notes: document.getElementById('edit-notes').value,
-      mail_content: document.getElementById('edit-mail-content').value
-    };
-    document.querySelectorAll('#editExtraFields [data-edit-key]').forEach(input => {
-      nextValues[input.dataset.editKey] = input.value;
-    });
+    const form = document.getElementById('editForm');
+    const nextValues = normalizeMasterSubmissionPayload_(
+      collectNamedFormValues(form, { exclude: ['schedule_id', 'current_job_count', 'job_count_updated_at'] })
+    );
 
     if (String(nextValues.assignee || '').trim() === 'R') {
       nextValues.reviewer = '';
@@ -1838,6 +1904,43 @@
       .filter(Boolean));
   }
 
+  function loadAdminList() {
+    google.script.run
+      .withSuccessHandler(rows => {
+        APP_DATA.adminMaster = Array.isArray(rows) ? rows : [];
+        refreshAdminSelects_();
+      })
+      .withFailureHandler(() => {
+        refreshAdminSelects_();
+      })
+      .getAdminList();
+  }
+
+  function getAdminSelectOptions_() {
+    return getAdminOptionValues().map(option => {
+      if (option && typeof option === 'object') {
+        return {
+          value: String(option.value == null ? '' : option.value).trim(),
+          label: String(option.label == null ? option.value : option.label)
+        };
+      }
+      const value = String(option == null ? '' : option).trim();
+      return { value, label: String(option == null ? '空白' : option) || '空白' };
+    });
+  }
+
+  function refreshAdminSelects_() {
+    const optionValues = getAdminSelectOptions_();
+    document.querySelectorAll('#masterModal select[name="setter"], #masterModal select[name="checker"], #editModal select[name="setter"], #editModal select[name="checker"]').forEach(select => {
+      const selected = String(select.value || '').trim();
+      select.innerHTML = optionValues.map(option => `<option value="${escapeAttribute(option.value)}" ${option.value === selected ? 'selected' : ''}>${escapeHtml(option.label || '空白')}</option>`).join('');
+      if (selected && !optionValues.some(option => option.value === selected)) {
+        select.insertAdjacentHTML('beforeend', `<option value="${escapeAttribute(selected)}" selected>${escapeHtml(selected)}</option>`);
+      }
+      select.value = selected;
+    });
+  }
+
   function renderSelectInput(header, currentValue, options) {
     const normalizedCurrent = String(currentValue == null ? '' : currentValue).trim();
     const normalizedOptions = options.map(option => {
@@ -1857,6 +1960,53 @@
       <option value="${escapeAttribute(option.value)}" ${option.value === normalizedCurrent ? 'selected' : ''}>${escapeHtml(option.label || '空白')}</option>
     `).join('');
     return `<select data-header="${escapeAttribute(header)}">${optionHtml}</select>`;
+  }
+
+  function renderNamedSelectInput(name, currentValue, options) {
+    return renderSelectInput(name, currentValue, options).replace('<select ', `<select name="${escapeAttribute(name)}" data-select-name="${escapeAttribute(name)}" `);
+  }
+
+  function renderMasterFieldInput_(header, key, value, mode) {
+    const textValue = value == null ? '' : value;
+    if (key === 'mail_content' || key === 'notes') {
+      return `<textarea name="${escapeAttribute(key)}">${escapeHtml(textValue)}</textarea>`;
+    }
+    if (key === 'mail_name') {
+      return `<input type="text" name="mail_name" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly' : ''}>`;
+    }
+    if (key === 'assignee') {
+      return renderNamedSelectInput('setter', textValue, getAdminSelectOptions_());
+    }
+    if (key === 'reviewer') {
+      return renderNamedSelectInput('checker', textValue, getAdminSelectOptions_());
+    }
+    if (key === 'new_flag') {
+      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''}>`;
+    }
+    if (key === 'current_job_count') {
+      return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
+    }
+    if (isWeekdayHeader(header) || key === 'weekday') {
+      return renderSelectInput(key, textValue, ['', '月', '火', '水', '木', '金', '土', '日']);
+    }
+    if (isFormatHeader(header) || key === 'format') {
+      return mode === 'edit'
+        ? ''
+        : renderSelectInput(key, textValue, ['', 'フリー', '抽出', '自動求人特集', 'その他']);
+    }
+    if (isTimeHeader(header) || key === 'hour') {
+      return renderSelectInput(key, normalizeMasterHourValue(textValue), buildHourOptions());
+    }
+    if (isDateTimeHeader(header)) {
+      return `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(textValue))}">`;
+    }
+    if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
+      return `<input type="date" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateString(textValue))}">`;
+    }
+    if (String(textValue).length > 60 || String(textValue).includes('\n')) {
+      return `<textarea name="${escapeAttribute(key)}">${escapeHtml(textValue)}</textarea>`;
+    }
+    return `<input type="text" name="${escapeAttribute(key)}" value="${escapeAttribute(textValue)}">`;
   }
 
   function buildHourOptions() {
@@ -2527,9 +2677,14 @@
 
     document.querySelectorAll('#editModal input, #editModal select, #editModal textarea').forEach(field => {
       if (field.id === 'new-comment') return;
-      if (field.id === 'edit-name') {
+      if (field.name === 'mail_name') {
         field.readOnly = true;
         field.disabled = false;
+        return;
+      }
+      if (field.name === 'current_job_count') {
+        field.readOnly = true;
+        field.disabled = true;
         return;
       }
       if (field.tagName === 'SELECT') {
@@ -2746,11 +2901,11 @@
     document.getElementById('editModal').addEventListener('click', event => {
       if (event.target.id === 'editModal') closeModal();
     });
-    const editName = document.getElementById('edit-name');
+    const editName = document.querySelector('#editModal [name="mail_name"]');
     if (editName) {
       editName.addEventListener('click', () => copyTextToClipboard_(editName.value));
     }
-    const editAssignee = document.getElementById('edit-assignee');
+    const editAssignee = document.querySelector('#editModal [name="setter"]');
     if (editAssignee) {
       editAssignee.addEventListener('change', syncReviewerLock_);
     }
@@ -2766,6 +2921,7 @@
 
     initModalTabs('editModal');
     initModalTabs('masterModal');
+    loadAdminList();
   }
 
   function stopAllForDay(dateStr) {
