@@ -810,6 +810,53 @@
     max-height: calc(100vh - 32px);
     overflow: auto;
   }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-top: 10px;
+  }
+  .form-group {
+    display: grid;
+    gap: 6px;
+    font-size: 12px;
+  }
+  .form-group label {
+    color: var(--muted);
+    font-weight: bold;
+  }
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    min-height: 34px;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: #fff;
+    color: var(--text);
+  }
+  .form-group textarea {
+    min-height: 80px;
+    resize: vertical;
+  }
+  .form-group.full-width {
+    grid-column: span 2;
+  }
+
+  /* 選択中のタブ（保存ボタンと同じ鮮やかな青背景＋白文字に反転） */
+  .modal-tab.active {
+    color: #ffffff !important;
+    background-color: #1a73e8 !important; /* システム標準の鮮やかな青 */
+    border-color: #1a73e8 !important;
+  }
+
+  .disabled-field, .disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    background-color: #f1f5f9;
+  }
+
   .master-form {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));

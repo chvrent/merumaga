@@ -81,7 +81,7 @@
     </div>
 
     <div id="editModal" class="modal" aria-hidden="true">
-      <div class="modal-card">
+      <div class="modal-card master-modal-card">
         <div class="modal-header">
           <h2>配信編集</h2>
           <button type="button" class="icon-button" onclick="closeModal()" aria-label="閉じる">×</button>
@@ -92,28 +92,33 @@
           <div class="modal-tab" data-format="自動求人特集">自動求人特集</div>
           <div class="modal-tab" data-format="その他">その他</div>
         </div>
-        <div id="modal-fields">
-          <input type="hidden" id="edit-id">
+        <form id="editForm" class="form-grid">
+          <input type="hidden" name="schedule_id" id="edit-id">
           <input type="hidden" name="format" id="edit-format">
-          <label class="field" id="field-mail_name">
-            <span>メルマガ名</span>
-            <input type="text" id="edit-name" readonly>
-          </label>
-          <label class="field" id="field-delivery_count">
-            <span>通数</span>
-            <input type="text" id="edit-count">
-          </label>
-          <label class="field" id="field-mail_content">
-            <span>メルマガ内容</span>
-            <textarea id="edit-mail-content"></textarea>
-          </label>
-          <label class="field" id="field-notes">
-            <span>備考</span>
-            <textarea id="edit-notes"></textarea>
-          </label>
-        </div>
-        <div id="editExtraFields" class="edit-extra-fields"></div>
+          
+          <div class="form-group" data-field="mail_name" id="field-mail_name">
+            <label>メルマガ名</label>
+            <input type="text" name="mail_name" id="edit-name" readonly>
+          </div>
+          <div class="form-group" data-field="delivery_count" id="field-delivery_count">
+            <label>通数</label>
+            <input type="text" name="delivery_count" id="edit-count">
+          </div>
+          <div class="form-group full-width" data-field="mail_content" id="field-mail_content">
+            <label>メルマガ内容</label>
+            <textarea name="mail_content" id="edit-mail-content"></textarea>
+          </div>
+          <div class="form-group full-width" data-field="notes" id="field-notes">
+            <label>備考</label>
+            <textarea name="notes" id="edit-notes"></textarea>
+          </div>
+          
+          <!-- 動的フィールド（初期化時にここに差し込まれる） -->
+          <div id="editExtraFields" class="form-grid full-width" style="margin-top:0;"></div>
+        </form>
+
         <div id="edit-pr-details" class="pr-info-container"></div>
+        
         <section class="comment-panel" aria-label="コメントスレッド">
           <div class="comment-panel-header">
             <h3>コメント</h3>
@@ -122,10 +127,10 @@
           <div id="comment-thread" class="comment-thread">
             <div class="empty-state">コメントを読み込み中...</div>
           </div>
-          <label class="field comment-input-field">
-            <span>新しいコメント</span>
+          <div class="form-group comment-input-field">
+            <label>新しいコメント</label>
             <textarea id="new-comment" placeholder="コメントを入力"></textarea>
-          </label>
+          </div>
           <div class="comment-actions">
             <button type="button" class="secondary-button" onclick="loadCommentsForCurrentEntry()">再読込</button>
             <button type="button" class="primary-button" onclick="postComment()">送信</button>

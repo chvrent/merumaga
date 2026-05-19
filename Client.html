@@ -977,9 +977,6 @@
   }
 
   function renderEditInput_(header, key, value) {
-    const dataAttr = `data-edit-key="${escapeAttribute(key)}"`;
-    const containerClass = `modal-field field-${key}`;
-    
     let input = '';
     if (isWeekdayHeader(header) || key === 'weekday') {
       input = renderSelectInput(key, value, ['', '月', '火', '水', '木', '金', '土', '日']);
@@ -988,30 +985,43 @@
     } else if (isTimeHeader(header) || key === 'hour') {
       input = renderSelectInput(key, normalizeMasterHourValue(value), buildHourOptions());
     } else if (isDateTimeHeader(header)) {
-      input = `<input type="datetime-local" ${dataAttr} value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
+      input = `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(value))}">`;
     } else if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
-      input = `<input type="date" ${dataAttr} value="${escapeAttribute(normalizeDateString(value))}">`;
+      input = `<input type="date" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateString(value))}">`;
     } else if (String(value).length > 60 || String(value).includes('\n')) {
-      input = `<textarea ${dataAttr}>${escapeHtml(value)}</textarea>`;
+      input = `<textarea name="${escapeAttribute(key)}">${escapeHtml(value)}</textarea>`;
     } else {
-      input = `<input type="text" ${dataAttr} value="${escapeAttribute(value)}">`;
+      input = `<input type="text" name="${escapeAttribute(key)}" value="${escapeAttribute(value)}">`;
     }
-    
-    return `<label class="${containerClass}" id="field-${key}"><span>${escapeHtml(getDisplayName(key))}</span>${input}</label>`;
+
+    return input;
   }
 
   function renderEditExtraFields_(entry) {
     const container = document.getElementById('editExtraFields');
     if (!container) return;
 
-    container.innerHTML = getScheduleEditHeaders_().map(header => {
+    const excludedKeys = new Set([
+      'schedule_id',
+      'format',
+      'mail_name',
+      'delivery_count',
+      'mail_content',
+      'notes'
+    ]);
+
+    container.innerHTML = getScheduleEditHeaders_().filter(header => {
+      const key = normalizeScheduleEditKey_(header);
+      return !excludedKeys.has(key);
+    }).map(header => {
       const key = normalizeScheduleEditKey_(header);
       const value = entry[key] != null ? entry[key] : entry[header];
+      const isFullWidth = key === 'mail_content' || key === 'notes';
       return `
-        <label class="field">
-          <span title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(key))}</span>
+        <div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}" id="field-${escapeAttribute(key)}">
+          <label>${escapeHtml(getDisplayName(key))}</label>
           ${renderEditInput_(header, key, value)}
-        </label>
+        </div>
       `;
     }).join('');
   }
@@ -1050,9 +1060,13 @@
 
     const payload = { __rowNumber: document.getElementById('master-row-number').value };
 
-    // 通常のフィールド取得
-    document.querySelectorAll('#masterForm [data-header]').forEach(input => {
-      payload[input.dataset.header] = input.value;
+    // name属性を持つ全入力を取得（タブ連動の形式含む）
+    document.querySelectorAll('#masterModal [name]').forEach(input => {
+      if (input.type === 'checkbox') {
+        payload[input.name] = input.checked;
+      } else {
+        payload[input.name] = input.value;
+      }
     });
 
     // PR管理の場合のみ、target_ids (PRが入るメルマガ) を取得して savePRData を呼ぶ
@@ -1148,38 +1162,22 @@
     const modal = document.getElementById('editModal');
     if (!modal) return;
 
-    // 1. 固定フィールドの流し込み（ID指定）
-    const fieldMapping = {
-      'schedule_id': 'edit-id',
-      'mail_name': 'edit-name',
-      'delivery_count': 'edit-count',
-      'mail_content': 'edit-mail-content',
-      'notes': 'edit-notes'
-    };
-
-    Object.keys(fieldMapping).forEach(key => {
-      const el = document.getElementById(fieldMapping[key]);
-      if (el) {
-        el.value = CURRENT_ENTRY[key] || '';
-      }
-    });
-
-    // 2. 追加フィールドのレンダリング
+    // 1. 追加フィールドのレンダリング
     renderEditExtraFields_(CURRENT_ENTRY);
 
-    // 3. 追加フィールドへのデータ流し込み（動的生成のため、再検索が必要）
+    // 2. name属性を基準としたデータ流し込み
     Object.keys(CURRENT_ENTRY).forEach(key => {
-      const el = modal.querySelector(`[data-edit-key="${key}"]`);
+      const el = modal.querySelector(`[name="${key}"]`);
       if (el) {
-        if (el.tagName === 'INPUT' && el.type === 'checkbox') {
+        if (el.type === 'checkbox') {
           el.checked = isTruthyValue(CURRENT_ENTRY[key]);
         } else {
-          el.value = CURRENT_ENTRY[key] || '';
+          el.value = CURRENT_ENTRY[key] !== undefined && CURRENT_ENTRY[key] !== null ? CURRENT_ENTRY[key] : '';
         }
       }
     });
 
-    // 4. PR情報の表示
+    // 3. PR情報の表示
     const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
     const prContainer = modal.querySelector('#edit-pr-details');
     if (prContainer) {
@@ -1194,8 +1192,9 @@
       }
     }
 
-    // 5. タブの初期化とルール適用
-    window.openAndInitModalWithTab(CURRENT_ENTRY.format || 'フリー', 'editModal');
+    // 4. タブの初期化とルール適用
+    const currentFormat = CURRENT_ENTRY.format || 'フリー';
+    window.openAndInitModalWithTab(currentFormat, 'editModal');
 
     modal.style.display = 'flex';
     modal.setAttribute('aria-hidden', 'false');
@@ -1214,6 +1213,12 @@
 
         const format = this.dataset.format;
         
+        // 形式セレクトボックス/隠しフィールドと同期
+        const formatInput = modal.querySelector(`[name="format"]`);
+        if (formatInput) {
+          formatInput.value = format;
+        }
+
         // 形式を同期
         modal.dataset.format = format;
         applyDynamicInputControl(format, modalId);
@@ -1235,16 +1240,17 @@
 
     const disabledKeys = constraints[format] || [];
 
-    modal.querySelectorAll('.modal-field, .form-group').forEach(field => {
-      field.classList.remove('disabled-field', 'disabled');
-      field.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
+    modal.querySelectorAll('.form-group').forEach(group => {
+      const field = group.dataset.field;
+      group.classList.remove('disabled');
+      group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
     });
 
     disabledKeys.forEach(key => {
-      const field = modal.querySelector(`#field-${key}`) || modal.querySelector(`[data-field="${key}"]`);
-      if (field) {
-        field.classList.add('disabled-field', 'disabled');
-        field.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
+      const group = modal.querySelector(`[data-field="${key}"]`) || modal.querySelector(`.field-${key}`);
+      if (group) {
+        group.classList.add('disabled');
+        group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = true);
       }
     });
   }
@@ -1261,6 +1267,13 @@
       modal.querySelectorAll('.modal-tab').forEach(t => t.classList.remove('active'));
       tabBtn.classList.add('active');
     }
+
+    // 形式セレクトボックス/隠しフィールドと同期
+    const formatInput = modal.querySelector(`[name="format"]`);
+    if (formatInput) {
+      formatInput.value = format;
+    }
+
     applyDynamicInputControl(format, modalId);
   };
 
@@ -2591,6 +2604,9 @@
         closeMasterModal();
       }
     });
+
+    initModalTabs('editModal');
+    initModalTabs('masterModal');
   }
 
   function stopAllForDay(dateStr) {
