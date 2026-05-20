@@ -3,7 +3,7 @@
 ## 起動時に読む
 - `START_HERE.md`（入口・更新ルール）
 - `SPEC.md`（仕様の正本）
-- `GEMINI.md`（運用フロー）
+- `ANTIGRAVITY.md`（運用フロー）
 
 ## デプロイ・プッシュ手順
 

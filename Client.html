@@ -1053,6 +1053,9 @@
   }
 
   function renderEditInput_(header, key, value) {
+    if (key === 'is_new' || key === 'new_flag') {
+      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(value) ? 'checked' : ''} disabled>`;
+    }
     return renderMasterFieldInput_(header, key, value, 'edit');
   }
 
@@ -2021,7 +2024,7 @@
       return renderNamedSelectInput('checker', textValue, getAdminSelectOptions_());
     }
     if (key === 'is_new' || key === 'new_flag') {
-      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''} ${mode === 'edit' ? 'disabled' : ''}>`;
+      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''}>`;
     }
     if (key === 'current_job_count') {
       return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
