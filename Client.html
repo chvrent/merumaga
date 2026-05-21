@@ -2850,12 +2850,6 @@
       .resumeAllDeliveriesForDay(dateStr);
   }
 
-  window.addEventListener('beforeunload', event => {
-    if (!getPendingCheckStatusUpdates().length) return;
-    flushPendingCheckPersist();
-    event.preventDefault();
-    event.returnValue = '';
-  });
   function getBgColor(entry) {
     const category = String(entry.category || entry.mail_type || '').trim();
     const cycle = String(entry.cycle || '').trim();
@@ -2863,6 +2857,13 @@
     if (cycle === 'B') return '#FFEBEF';
     return '#ffffff';
   }
+
+  window.addEventListener('beforeunload', event => {
+    if (!getPendingCheckStatusUpdates().length) return;
+    flushPendingCheckPersist();
+    event.preventDefault();
+    event.returnValue = '';
+  });
 
   loadPendingCheckStatuses();
   wireEvents();
