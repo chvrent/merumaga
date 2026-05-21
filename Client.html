@@ -977,6 +977,10 @@
         input.checked = isTruthyValue(value);
         return;
       }
+      if (input.tagName === 'SELECT' && !input.options.length) {
+        input.dataset.pendingValue = value != null ? String(value) : '';
+        return;
+      }
       input.value = value != null ? value : '';
     });
   }
@@ -1133,6 +1137,14 @@
     return values;
   }
 
+  function validateRequiredFields_(root) {
+    if (!root) return true;
+    const invalid = root.querySelector('select[required]:not(:disabled):invalid, input[required]:not(:disabled):invalid, textarea[required]:not(:disabled):invalid');
+    if (!invalid) return true;
+    invalid.reportValidity();
+    return false;
+  }
+
   function normalizeMasterSubmissionPayload_(payload) {
     if (Object.prototype.hasOwnProperty.call(payload, 'setter')) {
       payload.assignee = payload.setter;
@@ -1175,6 +1187,9 @@
   }
 
   function saveMasterEdit() {
+    const modal = document.getElementById('masterModal');
+    if (!validateRequiredFields_(modal)) return;
+
     const btn = event.target;
     btn.disabled = true;
     btn.textContent = '保存中...';
@@ -1435,12 +1450,14 @@
       return;
     }
 
+    const modal = document.getElementById('editModal');
+    if (!validateRequiredFields_(modal)) return;
+
     const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
     const itemId = getCheckItemId(CURRENT_ENTRY);
 
-    const form = document.getElementById('editForm');
     const nextValues = normalizeMasterSubmissionPayload_(
-      collectNamedFormValues(form, { exclude: ['schedule_id', 'current_job_count', 'job_count_updated_at'] })
+      collectNamedFormValues(modal, { exclude: ['schedule_id', 'current_job_count', 'job_count_updated_at'] })
     );
 
     if (String(nextValues.assignee || '').trim() === 'R') {
@@ -1978,13 +1995,19 @@
   function refreshAdminSelects_() {
     const optionValues = getAdminSelectOptions_();
     document.querySelectorAll('#masterModal select[name="setter"], #masterModal select[name="checker"], #editModal select[name="setter"], #editModal select[name="checker"]').forEach(select => {
-      const selected = String(select.value || '').trim();
-      const nextSelected = selected || (optionValues[0] ? optionValues[0].value : '');
-      select.innerHTML = optionValues.map(option => `<option value="${escapeAttribute(option.value)}" ${option.value === nextSelected ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>`).join('');
+      const pending = Object.prototype.hasOwnProperty.call(select.dataset, 'pendingValue')
+        ? String(select.dataset.pendingValue || '').trim()
+        : '';
+      const selected = pending || String(select.value || '').trim();
+      const nextSelected = selected;
+      const placeholder = `<option value="" ${nextSelected ? '' : 'selected '}disabled hidden>-- 選択してください --</option>`;
+      select.innerHTML = placeholder + optionValues.map(option => `<option value="${escapeAttribute(option.value)}" ${option.value === nextSelected ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>`).join('');
       if (nextSelected && !optionValues.some(option => option.value === nextSelected)) {
         select.insertAdjacentHTML('beforeend', `<option value="${escapeAttribute(nextSelected)}" selected>${escapeHtml(nextSelected)}</option>`);
       }
+      select.required = true;
       select.value = nextSelected;
+      delete select.dataset.pendingValue;
     });
   }
 
@@ -2000,15 +2023,16 @@
       const value = String(option == null ? '' : option).trim();
       return value ? { value, label: value } : null;
     }).filter(Boolean);
-    const selectedValue = normalizedCurrent || (normalizedOptions[0] ? normalizedOptions[0].value : '');
+    const selectedValue = normalizedCurrent;
     if (selectedValue && !normalizedOptions.some(option => option.value === selectedValue)) {
       normalizedOptions.push({ value: selectedValue, label: selectedValue });
     }
 
+    const placeholder = `<option value="" ${selectedValue ? '' : 'selected '}disabled hidden>-- 選択してください --</option>`;
     const optionHtml = normalizedOptions.map(option => `
       <option value="${escapeAttribute(option.value)}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>
     `).join('');
-    return `<select data-header="${escapeAttribute(header)}">${optionHtml}</select>`;
+    return `<select data-header="${escapeAttribute(header)}" required>${placeholder}${optionHtml}</select>`;
   }
 
   function renderNamedSelectInput(name, currentValue, options) {
