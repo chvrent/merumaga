@@ -1,4 +1,4 @@
-﻿/**
+/**
  * DataService.gs
  */
 const SOURCE_SPREADSHEET_ID = '1hr-bf6g0Lhe9tuTiGHjhM9uyfKOmiQ9ZCpgD5kVdnrs';
@@ -51,7 +51,6 @@ const SCHEDULE_FIELD_ALIASES = {
   target_address: ['target_address', '対象現住所'],
   is_new: ['is_new', 'new_flag', '新規'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数'],
-  job_count_updated_at: ['job_count_updated_at', '求人数最終取得日時', '最終取得日時'],
   cycle: ['cycle', 'サイクル'],
   current_week_cycle: ['current_week_cycle', '今週サイクル(内部)'],
   current_week_inactive: ['current_week_inactive', '今週非配信(内部)'],
@@ -1101,149 +1100,7 @@ function mergeCheckStatusRow_(headers, existingRow, nextRow) {
   });
 }
 
-function fetchJobCountFromUrl(url) {
-  const safeUrl = normalizeCell_(url);
-  if (!safeUrl) return null;
 
-  try {
-    const response = UrlFetchApp.fetch(safeUrl, {
-      muteHttpExceptions: true,
-      followRedirects: true,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; MailMagazineMaker/1.0)'
-      }
-    });
-    const status = response.getResponseCode();
-    if (status < 200 || status >= 300) return null;
-
-    return extractJobCountFromHtml_(response.getContentText('UTF-8'));
-  } catch (error) {
-    return null;
-  }
-}
-
-function extractJobCountFromHtml_(html) {
-  const source = String(html || '');
-  const xpathText = extractTextByJobCountXPath_(source);
-  if (xpathText) {
-    const xpathCount = parseJobCountText_(xpathText, true);
-    if (xpathCount != null) return xpathCount;
-  }
-
-  const normalized = source
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&#x2F;/g, '/')
-    .replace(/&amp;/g, '&')
-    .replace(/\s+/g, ' ');
-
-  return parseJobCountText_(stripHtml_(normalized), false);
-}
-
-function extractTextByJobCountXPath_(html) {
-  const form = getFirstTagBlock_(html, 'form');
-  const formDiv1 = getNthDirectChildTagBlock_(form, 'div', 1);
-  const formDiv1Div3 = getNthDirectChildTagBlock_(formDiv1, 'div', 3);
-  const main = getFirstTagBlock_(formDiv1Div3, 'main');
-  const mainDiv1 = getNthDirectChildTagBlock_(main, 'div', 1);
-  const mainDiv1Div1 = getNthDirectChildTagBlock_(mainDiv1, 'div', 1);
-  const mainDiv1Div1Div2 = getNthDirectChildTagBlock_(mainDiv1Div1, 'div', 2);
-  const targetDiv = getNthDirectChildTagBlock_(mainDiv1Div1Div2, 'div', 1);
-  const span = getNthDirectChildTagBlock_(targetDiv, 'span', 1);
-  return stripHtml_(span);
-}
-
-function getFirstTagBlock_(html, tagName) {
-  return getNthTagBlock_(html, tagName, 1);
-}
-
-function getNthDirectChildTagBlock_(html, tagName, targetIndex) {
-  if (!html) return '';
-  const searchHtml = getInnerHtml_(html) || html;
-
-  let depth = 0;
-  let count = 0;
-  const tagPattern = new RegExp(`<\\/?([a-zA-Z0-9]+)\\b[^>]*>`, 'g');
-  let match;
-  while ((match = tagPattern.exec(searchHtml)) !== null) {
-    const fullTag = match[0];
-    const name = match[1].toLowerCase();
-    const isClosing = fullTag.indexOf('</') === 0;
-    const isSelfClosing = /\/>$/.test(fullTag);
-
-    if (!isClosing && depth === 0 && name === tagName.toLowerCase()) {
-      count++;
-      if (count === targetIndex) {
-        const block = readTagBlockFrom_(searchHtml, match.index, tagName);
-        return block;
-      }
-    }
-
-    if (isClosing) {
-      depth = Math.max(0, depth - 1);
-    } else if (!isSelfClosing) {
-      depth++;
-    }
-  }
-  return '';
-}
-
-function getInnerHtml_(html) {
-  const text = String(html || '');
-  const openEnd = text.indexOf('>');
-  const closeStart = text.lastIndexOf('</');
-  if (openEnd < 0 || closeStart <= openEnd) return '';
-  return text.slice(openEnd + 1, closeStart);
-}
-
-function getNthTagBlock_(html, tagName, targetIndex) {
-  if (!html) return '';
-
-  const pattern = new RegExp(`<${tagName}\\b[^>]*>`, 'gi');
-  let match;
-  let count = 0;
-  while ((match = pattern.exec(html)) !== null) {
-    count++;
-    if (count === targetIndex) return readTagBlockFrom_(html, match.index, tagName);
-  }
-  return '';
-}
-
-function readTagBlockFrom_(html, startIndex, tagName) {
-  const pattern = new RegExp(`<\\/?${tagName}\\b[^>]*>`, 'gi');
-  pattern.lastIndex = startIndex;
-
-  let depth = 0;
-  let match;
-  while ((match = pattern.exec(html)) !== null) {
-    const fullTag = match[0];
-    const isClosing = fullTag.indexOf('</') === 0;
-    const isSelfClosing = /\/>$/.test(fullTag);
-
-    if (isClosing) {
-      depth--;
-      if (depth === 0) return html.slice(startIndex, pattern.lastIndex);
-    } else if (!isSelfClosing) {
-      depth++;
-    }
-  }
-  return '';
-}
-
-function parseJobCountText_(text, allowBareCount) {
-  const pattern = allowBareCount ? /(?:全\s*)?([\d,]+)\s*件?/ : /全\s*([\d,]+)\s*件/;
-  const match = String(text || '').match(pattern);
-  if (!match) return null;
-
-  const count = Number(match[1].replace(/,/g, ''));
-  return Number.isFinite(count) ? count : null;
-}
-
-function stripHtml_(value) {
-  return String(value || '')
-    .replace(/<[^>]+>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
 
 function updateAllJobCounts() {
   return withScriptLock_(() => updateAllJobCountsUnlocked_());
@@ -1259,73 +1116,32 @@ function updateAllJobCountsUnlocked_() {
   if (!values.length) return { success: true, updated: 0, failed: 0, skipped: 0 };
 
   const headers = values[0].map(header => String(header || '').trim());
-  const jobUrlIndex = ensureHeaderAtMinColumn_(sheet, headers, 'job_url', 15);
-  const jobCountIndex = ensureHeaderAtMinColumn_(sheet, headers, 'current_job_count', 16);
-  const jobCountUpdatedAtIndex = ensureHeaderAtMinColumn_(sheet, headers, 'job_count_updated_at', 17);
-  const refreshedValues = sheet.getDataRange().getValues();
-  const fetchedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
-
   let updated = 0;
-  let failed = 0;
   let skipped = 0;
 
-  for (let rowIndex = 1; rowIndex < refreshedValues.length; rowIndex++) {
-    const row = refreshedValues[rowIndex];
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    const row = values[rowIndex];
     if (isAutoJobFeatureRow_(headers, row)) {
       if (applyAutoJobCountFormulaForRow_(sheet, headers, rowIndex + 1)) updated++;
       else skipped++;
-      continue;
-    }
-    const url = normalizeCell_(row[jobUrlIndex]);
-
-    if (!url) {
+    } else {
       skipped++;
-      continue;
     }
-    if (!shouldRefreshJobCount_(row[jobCountUpdatedAtIndex], JOB_COUNT_REFRESH_INTERVAL_HOURS)) {
-      skipped++;
-      continue;
-    }
-
-    const count = fetchJobCountFromUrl(url);
-    if (count == null) {
-      failed++;
-      continue;
-    }
-
-    sheet.getRange(rowIndex + 1, jobCountIndex + 1).setValue(count);
-    sheet.getRange(rowIndex + 1, jobCountUpdatedAtIndex + 1).setValue(fetchedAt);
-    updated++;
   }
 
-  return { success: true, updated, failed, skipped };
+  return { success: true, updated, failed: 0, skipped };
 }
 
 function updateJobCountForRowUnlocked_(sheet, rowNumber, force) {
   if (!sheet || rowNumber < 2) return { success: true, updated: 0, skipped: 1 };
 
   const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 18)).getValues()[0].map(header => String(header || '').trim());
-  const jobUrlIndex = ensureHeaderAtMinColumn_(sheet, headers, 'job_url', 15);
-  const jobCountIndex = ensureHeaderAtMinColumn_(sheet, headers, 'current_job_count', 16);
-  const jobCountUpdatedAtIndex = ensureHeaderAtMinColumn_(sheet, headers, 'job_count_updated_at', 17);
   const row = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (isAutoJobFeatureRow_(headers, row)) {
     const formulaResult = applyAutoJobCountFormulaForRow_(sheet, headers, rowNumber);
     return formulaResult ? { success: true, updated: 1, skipped: 0 } : { success: true, updated: 0, skipped: 1 };
   }
-  const url = normalizeCell_(row[jobUrlIndex]);
-  if (!url) return { success: true, updated: 0, skipped: 1 };
-  if (!force && !shouldRefreshJobCount_(row[jobCountUpdatedAtIndex], JOB_COUNT_REFRESH_INTERVAL_HOURS)) {
-    return { success: true, updated: 0, skipped: 1 };
-  }
-
-  const count = fetchJobCountFromUrl(url);
-  if (count == null) return { success: false, updated: 0, failed: 1 };
-
-  const fetchedAt = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
-  sheet.getRange(rowNumber, jobCountIndex + 1).setValue(count);
-  sheet.getRange(rowNumber, jobCountUpdatedAtIndex + 1).setValue(fetchedAt);
-  return { success: true, updated: 1, skipped: 0 };
+  return { success: true, updated: 0, skipped: 1 };
 }
 
 function isAutoJobFeatureRow_(headers, row) {
@@ -1366,12 +1182,7 @@ function columnToLetter_(columnNumber) {
   return letters;
 }
 
-function shouldRefreshJobCount_(updatedAt, intervalHours) {
-  const intervalMs = Number(intervalHours || JOB_COUNT_REFRESH_INTERVAL_HOURS) * 60 * 60 * 1000;
-  const lastUpdated = parseDateTime_(updatedAt);
-  if (!lastUpdated) return true;
-  return new Date().getTime() - lastUpdated.getTime() >= intervalMs;
-}
+
 
 function setupWeeklyJobCountTrigger() {
   ScriptApp.getProjectTriggers()
@@ -2347,7 +2158,6 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     target_address: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_address),
     is_new: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_new),
     current_job_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_job_count),
-    job_count_updated_at: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_count_updated_at),
     current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),
     current_week_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_inactive),
     is_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_inactive),
