@@ -88,6 +88,11 @@
     { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: 'サブカテゴリ: 商品' },
     { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: 'サブカテゴリ: その他(他部署)' }
   ]);
+  const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
+
+  function isEditModalLockedField_(key) {
+    return EDIT_MODAL_LOCKED_FIELDS.includes(String(key || '').trim());
+  }
 
   function getBgColor(entry) {
     var category = String(entry.category || entry.mail_type || '').trim();
@@ -1102,7 +1107,7 @@
 
   function renderEditInput_(header, key, value) {
     if (key === 'is_new' || key === 'new_flag') {
-      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(value) ? 'checked' : ''} disabled>`;
+      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_('is_new') ? 'disabled' : ''}>`;
     }
     return renderMasterFieldInput_(header, key, value, 'edit');
   }
@@ -1425,7 +1430,6 @@
     const isAutoJob = normalizedFormat === '自動求人特集';
     const isOther = normalizedFormat === 'その他';
     const autoJobFields = ['auto_job_feature_id', 'job_url'];
-    const editLockedFields = ['is_new', 'pr'];
 
     const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
     const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
@@ -1446,7 +1450,7 @@
     });
 
     if (modalId === 'editModal') {
-      editLockedFields.forEach(key => {
+      EDIT_MODAL_LOCKED_FIELDS.forEach(key => {
         const group = modal.querySelector(`[data-field="${key}"]`);
         if (!group) return;
         group.classList.add('disabled');
@@ -2113,7 +2117,8 @@
       return renderSelectInput(key, textValue, buildUniqueScheduleValues_('cycle'));
     }
     if (key === 'pr') {
-      return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly disabled' : ''}>`;
+      const locked = mode === 'edit' && isEditModalLockedField_(key);
+      return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${locked ? 'readonly disabled' : ''}>`;
     }
     if (key === 'format') {
       return '';
