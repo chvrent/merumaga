@@ -2109,11 +2109,33 @@
     return null;
   }
 
+  function getMasterTextInputConfig_(header, key, value) {
+    const textValue = value == null ? '' : String(value);
+    if (key === 'mail_content' || key === 'notes') {
+      return { type: 'textarea', name: key, value: textValue };
+    }
+    if (isDateTimeHeader(header)) {
+      return { type: 'datetime-local', name: key, value: normalizeDateTimeLocalString(textValue) };
+    }
+    if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
+      return { type: 'date', name: key, value: normalizeDateString(textValue) };
+    }
+    if (textValue.length > 60 || textValue.includes('\n')) {
+      return { type: 'textarea', name: key, value: textValue };
+    }
+    return { type: 'text', name: key, value: textValue };
+  }
+
+  function renderTextInputFromConfig_(config) {
+    if (!config) return '';
+    if (config.type === 'textarea') {
+      return `<textarea name="${escapeAttribute(config.name)}">${escapeHtml(config.value)}</textarea>`;
+    }
+    return `<input type="${escapeAttribute(config.type)}" name="${escapeAttribute(config.name)}" value="${escapeAttribute(config.value)}">`;
+  }
+
   function renderMasterFieldInput_(header, key, value, mode) {
     const textValue = value == null ? '' : value;
-    if (key === 'mail_content' || key === 'notes') {
-      return `<textarea name="${escapeAttribute(key)}">${escapeHtml(textValue)}</textarea>`;
-    }
     if (key === 'mail_name') {
       return `<input type="text" name="mail_name" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly' : ''}>`;
     }
@@ -2143,16 +2165,7 @@
     if (selectConfig) {
       return renderSelectInput(selectConfig.name, selectConfig.value, selectConfig.options);
     }
-    if (isDateTimeHeader(header)) {
-      return `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(textValue))}">`;
-    }
-    if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
-      return `<input type="date" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateString(textValue))}">`;
-    }
-    if (String(textValue).length > 60 || String(textValue).includes('\n')) {
-      return `<textarea name="${escapeAttribute(key)}">${escapeHtml(textValue)}</textarea>`;
-    }
-    return `<input type="text" name="${escapeAttribute(key)}" value="${escapeAttribute(textValue)}">`;
+    return renderTextInputFromConfig_(getMasterTextInputConfig_(header, key, textValue));
   }
 
   function buildHourOptions() {
