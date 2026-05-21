@@ -62,13 +62,39 @@
     'category:イレギュラー': false,
     'category:検証': false
   };
+  const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
+    weekly: '#FFFFFF',
+    special: '#E6E6FA',
+    monthly: '#FFF0F5',
+    biweeklyA: '#E0FFE0',
+    biweeklyB: '#FFF5F7',
+    ma: '#FFF8D6',
+    otherCheck: '#E0FFFF'
+  });
+  const SCHEDULE_LINE_COLORS = Object.freeze({
+    special: '#800080',
+    product: '#008080',
+    others: '#FFA500'
+  });
+  const SCHEDULE_LEGEND_ITEMS = Object.freeze([
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '特殊配信' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '毎月' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyA, label: '隔週A' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyB, label: '隔週B' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.ma, label: 'MA' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.otherCheck, label: 'その他/検証' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: 'サブカテゴリ: 特殊' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: 'サブカテゴリ: 商品' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: 'サブカテゴリ: その他(他部署)' }
+  ]);
 
   function getBgColor(entry) {
     var category = String(entry.category || entry.mail_type || '').trim();
     var cycle = String(entry.cycle || '').trim();
-    if (category === 'MA') return '#FFF8D6';
-    if (cycle === 'B') return '#FFF5F7';
-    return '#ffffff';
+    if (category === 'MA') return SCHEDULE_BACKGROUND_COLORS.ma;
+    if (cycle === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
+    return SCHEDULE_BACKGROUND_COLORS.weekly;
   }
 
   const CYCLE_BASE_DATE = new Date(2026, 3, 28);
@@ -2139,13 +2165,26 @@
     const rowCycle = normalizeCycleLabel(cycle);
     const rowCycleNum = extractCycleNumber(rowCycle);
 
-    if (category === 'MA') return '#FFF8D6';
-    if (text.includes('毎月')) return '#FFF0F5';
-    if (text.includes('特殊') || text.includes('特段') || rowCycleNum != null) return '#E6E6FA';
-    if (text.includes('隔週A') || rowCycle === 'A') return '#E0FFE0';
-    if (text.includes('隔週B') || rowCycle === 'B') return '#FFF5F7';
-    if (text.includes('その他') || text.includes('検証')) return '#E0FFFF';
-    return '#FFFFFF';
+    if (category === 'MA') return SCHEDULE_BACKGROUND_COLORS.ma;
+    if (text.includes('毎月')) return SCHEDULE_BACKGROUND_COLORS.monthly;
+    if (text.includes('特殊') || text.includes('特段') || rowCycleNum != null) return SCHEDULE_BACKGROUND_COLORS.special;
+    if (text.includes('隔週A') || rowCycle === 'A') return SCHEDULE_BACKGROUND_COLORS.biweeklyA;
+    if (text.includes('隔週B') || rowCycle === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
+    if (text.includes('その他') || text.includes('検証')) return SCHEDULE_BACKGROUND_COLORS.otherCheck;
+    return SCHEDULE_BACKGROUND_COLORS.weekly;
+  }
+
+  function renderScheduleLegend() {
+    document.documentElement.style.setProperty('--schedule-line-special', SCHEDULE_LINE_COLORS.special);
+    document.documentElement.style.setProperty('--schedule-line-product', SCHEDULE_LINE_COLORS.product);
+    document.documentElement.style.setProperty('--schedule-line-others', SCHEDULE_LINE_COLORS.others);
+
+    const container = document.getElementById('scheduleLegend');
+    if (!container) return;
+    container.innerHTML = SCHEDULE_LEGEND_ITEMS.map(item => {
+      const className = item.type === 'line' ? 'legend-line' : 'legend-color';
+      return `<div class="legend-item"><span class="${className}" style="background-color: ${item.color};"></span>${escapeHtml(item.label)}</div>`;
+    }).join('');
   }
 
   function getSubCategoryClass(row) {
@@ -3005,6 +3044,7 @@
   }
 
   function wireEvents() {
+    renderScheduleLegend();
     document.addEventListener('click', handleActionClick);
     document.querySelectorAll('.tab-button').forEach(button => {
       button.addEventListener('click', () => switchTab(button.dataset.tab));

@@ -28,18 +28,7 @@
         </div>
         <div class="toolbar-controls">
           <input type="date" id="startInput" class="hidden-start-input" aria-label="開始日">
-          <div class="legend-container toolbar-legend" aria-label="凡例">
-            <div class="legend-item"><span class="legend-color" style="background-color: #FFFFFF;"></span>毎週</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #E6E6FA;"></span>特殊配信</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #FFF0F5;"></span>毎月</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #E0FFE0;"></span>隔週A</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #FFF5F7;"></span>隔週B</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #FFF8D6;"></span>MA</div>
-            <div class="legend-item"><span class="legend-color" style="background-color: #E0FFFF;"></span>その他/検証</div>
-            <div class="legend-item"><span class="legend-line" style="background-color: #800080;"></span>サブカテゴリ: 特殊</div>
-            <div class="legend-item"><span class="legend-line" style="background-color: #008080;"></span>サブカテゴリ: 商品</div>
-            <div class="legend-item"><span class="legend-line" style="background-color: #FFA500;"></span>サブカテゴリ: その他(他部署)</div>
-          </div>
+          <div id="scheduleLegend" class="legend-container toolbar-legend" aria-label="凡例"></div>
           <button type="button" id="saveDailyChecksButton" class="primary-button toolbar-button" data-action="save-pending-check-statuses" disabled>本日の状態を一括保存（0）</button>
           <button type="button" id="moveModeToggle" class="secondary-button toolbar-button" data-action="toggle-move-mode">移動: OFF</button>
           <button type="button" class="secondary-button toolbar-button" data-action="jump-to-current-week">今週</button>
