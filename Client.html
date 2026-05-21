@@ -91,6 +91,7 @@
   const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
   const WEEKDAY_OPTIONS = Object.freeze(['月', '火', '水', '木', '金', '土', '日']);
   const FORMAT_OPTIONS = Object.freeze(['フリー', '抽出', '自動求人特集', 'その他']);
+  const AUTO_JOB_CONTROL_FIELDS = Object.freeze(['auto_job_feature_id', 'job_url']);
 
   function isEditModalLockedField_(key) {
     return EDIT_MODAL_LOCKED_FIELDS.includes(String(key || '').trim());
@@ -1423,6 +1424,56 @@
     applyDynamicInputControl(nextFormat, modal.id);
   }
 
+  function resetModalFieldStates_(modal) {
+    modal.querySelectorAll('.form-group').forEach(group => {
+      group.classList.remove('disabled');
+      group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
+    });
+  }
+
+  function setFieldGroupEnabled_(modal, key, enabled) {
+    const group = modal.querySelector(`[data-field="${key}"]`);
+    if (!group) return;
+    group.classList.toggle('disabled', !enabled);
+    group.querySelectorAll('input, select, textarea').forEach(input => {
+      input.disabled = !enabled;
+    });
+  }
+
+  function applyAutoJobFieldControls_(modal, isAutoJob) {
+    const shouldEnable = isAutoJob || String(modal.dataset.format || '').trim() === 'その他';
+    AUTO_JOB_CONTROL_FIELDS.forEach(key => {
+      setFieldGroupEnabled_(modal, key, shouldEnable);
+    });
+  }
+
+  function applyEditModalLockedFieldControls_(modal) {
+    EDIT_MODAL_LOCKED_FIELDS.forEach(key => {
+      setFieldGroupEnabled_(modal, key, false);
+    });
+  }
+
+  function applyCurrentJobCountControls_(modal, isAutoJob) {
+    const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
+    const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
+    if (!currentJobCountInput || !currentJobCountGroup) return;
+    currentJobCountInput.disabled = true;
+    currentJobCountInput.readOnly = true;
+    currentJobCountInput.placeholder = isAutoJob
+      ? '保存後にURLから自動取得されます'
+      : '保存後に自動取得されます';
+    currentJobCountGroup.classList.add('disabled');
+  }
+
+  function applyPrMasterControls_(modal) {
+    if (modal.dataset.modalType !== 'pr-master') return;
+    const prIdInput = modal.querySelector('[name="pr_id"]');
+    if (!prIdInput) return;
+    prIdInput.readOnly = true;
+    prIdInput.disabled = true;
+    prIdInput.placeholder = '保存時に自動採番';
+  }
+
   // 形式ごとの入力制御
   function applyDynamicInputControl(format, modalId) {
     const modal = document.getElementById(modalId);
@@ -1430,55 +1481,15 @@
 
     const normalizedFormat = String(format || '').trim();
     const isAutoJob = normalizedFormat === '自動求人特集';
-    const isOther = normalizedFormat === 'その他';
-    const autoJobFields = ['auto_job_feature_id', 'job_url'];
-
-    const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
-    const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
-
-    modal.querySelectorAll('.form-group').forEach(group => {
-      group.classList.remove('disabled');
-      group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
-    });
-
-    autoJobFields.forEach(key => {
-      const group = modal.querySelector(`[data-field="${key}"]`);
-      if (!group) return;
-      const shouldEnable = isAutoJob || isOther;
-      group.classList.toggle('disabled', !shouldEnable);
-      group.querySelectorAll('input, select, textarea').forEach(input => {
-        input.disabled = !shouldEnable;
-      });
-    });
+    resetModalFieldStates_(modal);
+    applyAutoJobFieldControls_(modal, isAutoJob);
 
     if (modalId === 'editModal') {
-      EDIT_MODAL_LOCKED_FIELDS.forEach(key => {
-        const group = modal.querySelector(`[data-field="${key}"]`);
-        if (!group) return;
-        group.classList.add('disabled');
-        group.querySelectorAll('input, select, textarea').forEach(input => {
-          input.disabled = true;
-        });
-      });
+      applyEditModalLockedFieldControls_(modal);
     }
 
-    if (currentJobCountInput) {
-      currentJobCountInput.disabled = true;
-      currentJobCountInput.readOnly = true;
-      currentJobCountInput.placeholder = isAutoJob
-        ? '保存後にURLから自動取得されます'
-        : '保存後に自動取得されます';
-      currentJobCountGroup.classList.add('disabled');
-    }
-
-    if (modal.dataset.modalType === 'pr-master') {
-      const prIdInput = modal.querySelector('[name="pr_id"]');
-      if (prIdInput) {
-        prIdInput.readOnly = true;
-        prIdInput.disabled = true;
-        prIdInput.placeholder = '保存時に自動採番';
-      }
-    }
+    applyCurrentJobCountControls_(modal, isAutoJob);
+    applyPrMasterControls_(modal);
   }
 
   function openAndInitModalWithTab(format, modalId) {
