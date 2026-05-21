@@ -1,4 +1,4 @@
-<style>
+﻿<style>
 .modal-tabs-container {
   display: flex !important;
   flex-direction: row !important; /* 必ず横並びにする */
@@ -62,6 +62,15 @@
     'category:イレギュラー': false,
     'category:検証': false
   };
+
+  function getBgColor(entry) {
+    var category = String(entry.category || entry.mail_type || '').trim();
+    var cycle = String(entry.cycle || '').trim();
+    if (category === 'MA') return '#FFF2E6';
+    if (cycle === 'B') return '#FFEBEF';
+    return '#ffffff';
+  }
+
   const CYCLE_BASE_DATE = new Date(2026, 3, 28);
   const DAY_MS = 24 * 60 * 60 * 1000;
   const PR_START_DATE_KEYS = ['start_date', '開始日', '開始'];
@@ -99,6 +108,7 @@
     target_address: '対象現住所',
     is_new: '新規',
     current_job_count: '現在求人数',
+    job_count_updated_at: '求人数最終取得日時',
     is_inactive: '配信停止',
     is_fixed: '確定済',
     target_ids: 'PRが入るメルマガ',
@@ -145,6 +155,7 @@
     google.script.run
       .withSuccessHandler(data => {
         APP_DATA = data || {};
+        loadPendingCheckStatuses();
         renderScheduleGrid();
         updatePendingCheckSaveButton();
         if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
@@ -938,201 +949,6 @@
         setter: ['setter', 'assignee', '設定者'],
         checker: ['checker', 'reviewer', '確認者'],
         is_new: ['is_new', 'new_flag', '新規']
-    const targetHeader = MASTER_DATA.sheetName === 'app_pr' ? 'target_mails' : '';
-    const tableHeaders = visibleHeaders.filter(h => {
-      if (!targetHeader) return true;
-      return h !== 'target_mails' && h !== 'mail_name';
-    });
-    tableHeaders.forEach(header => {
-      html += `<th title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</th>`;
-    });
-    if (targetHeader) html += `<th>紐づいたメルマガ</th>`;
-    html += '</tr></thead><tbody>';
-
-    visibleRows.forEach(row => {
-      const linkedNames = row.target_mails || row.mail_name || '（未設定）';
-      const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
-
-      html += `
-      <tr>
-      <td class="actions-col">
-        <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
-        <button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>
-      </td>
-    `;
-
-      tableHeaders.forEach(h => {
-        const cellValue = row[h] == null ? '' : String(row[h]);
-        const isExpandable = cellValue.length > 60 || cellValue.includes('\n');
-        html += `<td class="${isExpandable ? 'expandable-cell' : ''}" ${isExpandable ? 'data-action="toggle-cell-expand"' : ''} title="${escapeAttribute(cellValue)}">${escapeHtml(cellValue)}</td>`;
-      });
-
-      if (targetHeader) html += `<td>${escapeHtml(linkedNames)}</td>`;
-      html += '</tr>';
-    });
-
-    html += '</tbody></table>';
-    container.innerHTML = html;
-  }
-
-  function getNewsletterNameMap_() { // 509行目：独立した関数として開始
-    const map = {};
-    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
-    schedule.forEach(row => {
-      const id = String(getValueByKeys(row, ['schedule_id', 'id'])).trim();
-      if (id) map[id] = row.mail_name || id;
-    });
-    return map;
-  }
-
-  function updateMasterFormFields() {
-    const modal = document.getElementById('masterModal');
-    const format = String(modal && modal.dataset.format ? modal.dataset.format : 'フリー');
-    const fields = {
-      'auto_job_feature_id': ['自動求人特集', 'その他'],
-      'job_url': ['自動求人特集', 'その他'],
-      'pr_id': ['自動求人特集', 'その他']
-    };
-
-    Object.keys(fields).forEach(key => {
-      const fieldContainer = modal ? modal.querySelector(`[data-field="${key}"]`) : null;
-      if (fieldContainer) {
-        const isActive = fields[key].includes(format) || format === 'その他';
-        fieldContainer.classList.toggle('disabled', !isActive);
-        const inputs = fieldContainer.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => input.disabled = !isActive);
-      }
-    });
-
-    const currentJobCountContainer = modal ? modal.querySelector('[data-field="current_job_count"]') : null;
-    if (currentJobCountContainer) {
-      currentJobCountContainer.classList.add('disabled');
-      currentJobCountContainer.querySelectorAll('input, select, textarea').forEach(input => {
-        input.disabled = true;
-        input.readOnly = true;
-        input.placeholder = format === '自動求人特集'
-          ? '保存後にURLから自動取得されます'
-          : '保存後に自動取得されます';
-      });
-    }
-  }
-
-  function openMasterModal(encodedRow) {
-    const row = encodedRow ? JSON.parse(decodeURIComponent(encodedRow)) : {};
-    const headers = MASTER_DATA.headers || [];
-    const visibleHeaders = getVisibleMasterHeaders(headers);
-    const form = document.getElementById('masterForm');
-    const modal = document.getElementById('masterModal');
-    const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
-    const mode = row.__rowNumber ? 'edit' : 'master';
-    const tabsContainer = modal ? modal.querySelector('.modal-tabs-container') : null;
-
-    document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
-    document.getElementById('master-row-number').value = row.__rowNumber || '';
-    if (tabsContainer) tabsContainer.style.display = isPrMaster ? 'none' : '';
-    if (modal) modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
-    if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
-
-    // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
-    const html = visibleHeaders.map(header => {
-      if (isPrMaster && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
-      if (isHiddenMasterInputHeader(header)) return '';
-
-      const key = normalizeScheduleEditKey_(header);
-      if (key === 'format') return '';
-      const value = row[key] != null ? row[key] : row[header];
-      const isFullWidth = ['mail_content', 'notes'].includes(key);
-      const input = renderMasterFieldInput_(header, key, value, mode);
-      if (input === '') return '';
-
-      return `<div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}"><label>${escapeHtml(getDisplayName(key))}</label>${input}</div>`;
-    }).join('');
-
-    form.innerHTML = html;
-
-    if (isPrMaster) {
-      const formatGroup = form.querySelector('[data-field="format"]');
-      if (formatGroup) formatGroup.style.display = 'none';
-      form.insertAdjacentHTML('beforeend', renderNewsletterSelector_(row.pr_id));
-    }
-
-    // タブの初期化とルール適用
-    populateModalFields(form, row, getModalFieldAliases_('masterModal'));
-    refreshAdminSelects_();
-
-    if (modal) {
-      const prIdField = modal.querySelector('[name="pr_id"]');
-      if (prIdField) {
-        prIdField.readOnly = true;
-        prIdField.disabled = true;
-        prIdField.placeholder = '保存時に自動採番';
-      }
-      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
-      modal.style.display = 'flex';
-      modal.setAttribute('aria-hidden', 'false');
-    }
-  }
-
-  function renderNewsletterSelector_(prId) {
-    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
-    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
-
-    // 現在紐付いているメルマガ名のセットを作成
-    const linkedMailNames = new Set(
-      prTargets.filter(t => String(t.pr_id) === String(prId)).map(t => String(t.mail_name))
-    );
-
-    // メルマガ一覧を mail_name でユニーク化
-    const uniqueNewsletters = [];
-    const seenNames = new Set();
-    schedule.forEach(item => {
-      const name = String(item.mail_name || '').trim();
-      if (name && !seenNames.has(name)) {
-        uniqueNewsletters.push({ name });
-        seenNames.add(name);
-      }
-    });
-
-    uniqueNewsletters.sort((a, b) => a.name.localeCompare(b.name));
-
-    return `
-      <div class="newsletter-selector">
-        <div class="newsletter-selector-header">
-          <strong>PRが入るメルマガを選択 (全${uniqueNewsletters.length}件)</strong>
-          <input type="text" class="newsletter-selector-search" placeholder="メルマガ名で検索..." oninput="filterNewsletterList_(this.value)">
-        </div>
-        <div id="newsletterList" class="newsletter-list">
-          ${uniqueNewsletters.map(nl => `
-            <label class="newsletter-item">
-              <input type="checkbox" data-target-name="${escapeAttribute(nl.name)}" ${linkedMailNames.has(nl.name) ? 'checked' : ''}>
-              <span>${escapeHtml(nl.name)}</span>
-            </label>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  function filterNewsletterList_(keyword) {
-    const k = keyword.trim().toLowerCase();
-    document.querySelectorAll('#newsletterList .newsletter-item').forEach(item => {
-      const text = item.textContent.toLowerCase();
-      item.style.display = text.includes(k) ? 'flex' : 'none';
-    });
-  };
-
-  function getModalFieldAliases_(modalId) {
-    if (modalId === 'editModal') {
-      return {
-        mail_name: ['mail_name', 'block_name', 'メルマガ名'],
-        delivery_count: ['delivery_count', 'mail_count', '通数'],
-        mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
-        notes: ['notes', 'note', '備考'],
-        mail_type: ['mail_type', 'category', '種別'],
-        format: ['format', '形式'],
-        setter: ['setter', 'assignee', '設定者'],
-        checker: ['checker', 'reviewer', '確認者'],
-        is_new: ['is_new', 'new_flag', '新規']
       };
     }
 
@@ -1151,6 +967,29 @@
 
   function populateModalFields(modal, entry, aliasMap) {
     if (!modal || !entry) return;
+
+    modal.querySelectorAll('[name]').forEach(input => {
+      if (input.type === 'hidden') return;
+      const name = input.name;
+      const aliases = aliasMap[name] || [name];
+      const value = getValueByKeys(entry, aliases);
+      if (input.type === 'checkbox') {
+        input.checked = isTruthyValue(value);
+        return;
+      }
+      input.value = value != null ? value : '';
+    });
+  }
+
+  function closeMasterModal() {
+    const modal = document.getElementById('masterModal');
+    modal.style.display = 'none';
+    modal.setAttribute('aria-hidden', 'true');
+  }
+
+  function buildUniqueScheduleValues_(key) {
+    const set = new Set();
+    (APP_DATA.schedule || []).forEach(row => {
       const v = String((row && row[key]) || '').trim();
       if (v) set.add(v);
     });
@@ -1218,7 +1057,7 @@
     // マスタ全ヘッダーを取得し、モーダル用に整理
     return (APP_DATA.scheduleHeaders || []).filter(header => {
       const key = normalizeScheduleEditKey_(header);
-      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed'].includes(key);
+      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed', 'job_count_updated_at'].includes(key);
     });
   }
 
@@ -1601,7 +1440,7 @@
 
     const form = document.getElementById('editForm');
     const nextValues = normalizeMasterSubmissionPayload_(
-      collectNamedFormValues(form, { exclude: ['schedule_id', 'current_job_count'] })
+      collectNamedFormValues(form, { exclude: ['schedule_id', 'current_job_count', 'job_count_updated_at'] })
     );
 
     if (String(nextValues.assignee || '').trim() === 'R') {
@@ -2196,6 +2035,371 @@
     if (key === 'is_new' || key === 'new_flag') {
       return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''}>`;
     }
+    if (key === 'current_job_count') {
+      return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
+    }
+    if (key === 'job_count_updated_at') {
+      return `<input type="text" name="job_count_updated_at" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動更新されます">`;
+    }
+    if (key === 'mail_type' || key === 'category') {
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('mail_type')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+    }
+    if (key === 'sub_category') {
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('sub_category')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+    }
+    if (key === 'cycle') {
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('cycle')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+    }
+    if (key === 'pr') {
+      return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly disabled' : ''}>`;
+    }
+    if (key === 'format') {
+      return '';
+    }
+    if (isWeekdayHeader(header) || key === 'weekday') {
+      return renderSelectInput(key, textValue, ['月', '火', '水', '木', '金', '土', '日']);
+    }
+    if (isFormatHeader(header) || key === 'format') {
+      return mode === 'edit'
+        ? ''
+        : renderSelectInput(key, textValue, ['フリー', '抽出', '自動求人特集', 'その他']);
+    }
+    if (isTimeHeader(header) || key === 'hour') {
+      return renderSelectInput(key, normalizeMasterHourValue(textValue), buildHourOptions());
+    }
+    if (isDateTimeHeader(header)) {
+      return `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(textValue))}">`;
+    }
+    if (isDateHeader(header) || key === 'start_date' || key === 'end_date') {
+      return `<input type="date" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateString(textValue))}">`;
+    }
+    if (String(textValue).length > 60 || String(textValue).includes('\n')) {
+      return `<textarea name="${escapeAttribute(key)}">${escapeHtml(textValue)}</textarea>`;
+    }
+    return `<input type="text" name="${escapeAttribute(key)}" value="${escapeAttribute(textValue)}">`;
+  }
+
+  function buildHourOptions() {
+    const options = [];
+    for (let hour = 8; hour <= 21; hour++) {
+      options.push(`${hour}:00`);
+    }
+    return options;
+  }
+
+  function normalizeMasterHourValue(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const match = text.match(/^(\d{1,2})(?::\d{2})?/);
+    if (!match) return text;
+    return `${Number(match[1])}:00`;
+  }
+
+  function getBgColor(row) {
+    const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
+    const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
+    const format = String(row && row.format != null ? row.format : '').trim();
+    const text = [category, cycle, format].join(' ');
+    const rowCycle = normalizeCycleLabel(cycle);
+    const rowCycleNum = extractCycleNumber(rowCycle);
+
+    if (text.includes('毎月')) return '#FFF0F5';
+    if (text.includes('特殊') || text.includes('特段')) return '#E6E6FA';
+    if (text.includes('隔週A') || rowCycle === 'A') return '#E0FFE0';
+    if (text.includes('隔週B') || rowCycle === 'B') return '#FFD1DC';
+    if (text.includes('自動求人') || text.includes('その他') || rowCycleNum != null) return '#E0FFFF';
+    return '#FFFFFF';
+  }
+
+  function getSubCategoryClass(row) {
+    const className = String(row && row.sub_category_class != null ? row.sub_category_class : '').trim();
+    if (['is-special', 'is-product', 'is-others'].includes(className)) return className;
+
+    const text = String(row && row.sub_category != null ? row.sub_category : '').trim();
+    if (text.includes('特殊')) return 'is-special';
+    if (text.includes('商品')) return 'is-product';
+    if (text.includes('その他') || text.includes('他部署')) return 'is-others';
+    return text ? 'is-others' : '';
+  }
+
+  function isPositionMatch(row) {
+    const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
+    const mailName = String(row && row.mail_name != null ? row.mail_name : '').trim();
+    const notes = String(row && row.notes != null ? row.notes : '').trim();
+    const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
+    const text = [category, mailName, notes].join(' ');
+
+    // キーワードが含まれているか、もしくはサイクルが数値（1,2,3）であれば3週サイクルとみなす
+    return text.includes('ポジションマッチ') || extractCycleNumber(normalizeCycleLabel(cycle)) != null;
+  }
+
+  function getJobCountAlert(row) {
+    const countText = String(row && row.current_job_count != null ? row.current_job_count : '').replace(/,/g, '').trim();
+    if (countText === '') return null;
+
+    const count = Number(countText);
+    const hasUrl = !!String(row && row.job_url != null ? row.job_url : '').trim();
+
+    if (!hasUrl) return null;
+    if (!Number.isFinite(count)) return null;
+    if (count === 0) {
+      return {
+        level: 'critical',
+        icon: '[!]',
+        count,
+        updatedAt: row && row.job_count_updated_at,
+        message: '求人数が0件です'
+      };
+    }
+    return null;
+  }
+
+  function renderJobAlertIcon(alert) {
+    if (!alert) return '';
+    return `<span class="job-alert-icon job-alert-${alert.level}" title="${escapeAttribute(getJobAlertTooltip(alert))}">${escapeHtml(alert.icon)}</span>`;
+  }
+
+  function getJobAlertTooltip(alert) {
+    if (!alert) return '';
+    const countText = alert.count == null ? '取得不可' : `${alert.count.toLocaleString()}件`;
+    const updatedAt = alert.updatedAt ? String(alert.updatedAt) : '未取得';
+    return `最終取得日時：${updatedAt}、件数：${countText} / ${alert.message}`;
+  }
+
+  function renderJobAlertGuidance(row) {
+    const alert = getJobCountAlert(row);
+    const panel = document.getElementById('job-alert-guidance');
+    if (!panel) return;
+    if (!alert) {
+      panel.style.display = 'none';
+      panel.textContent = '';
+      panel.className = 'job-alert-guidance';
+      return;
+    }
+    panel.className = `job-alert-guidance job-alert-guidance-${alert.level}`;
+    panel.textContent = getJobAlertTooltip(alert);
+    panel.style.display = 'block';
+  }
+
+  function getPrStates(row, targetDateString) {
+    const records = getPrRecordsForSchedule(row);
+    const states = records
+      .map(record => getPrState(record, targetDateString))
+      .filter(Boolean);
+    return collapsePrStates_(states);
+  }
+
+  function getPrState(record, targetDateString) {
+    const prId = String(record && record.pr_id != null ? record.pr_id : '').trim();
+    if (!prId) return null;
+
+    const startDate = normalizeDateString(record.start_date);
+    const endDate = normalizeDateString(record.end_date);
+    const targetMs = dateStringToMs(targetDateString);
+    const startMs = dateStringToMs(startDate);
+    const endMs = dateStringToMs(endDate);
+    if (targetMs == null) return null;
+
+    let status = '';
+    let action = '';
+    if (startMs != null && targetMs >= startMs && targetMs < startMs + 7 * DAY_MS) {
+      status = 'add';
+      action = '追加';
+    } else if (endMs != null && targetMs > endMs - 7 * DAY_MS && targetMs <= endMs) {
+      status = 'remove';
+      action = '削除';
+    } else if (startMs != null && endMs != null && targetMs >= startMs && targetMs <= endMs) {
+      status = 'active';
+      action = '掲出中';
+    } else if (startMs != null && endMs == null && targetMs >= startMs + 7 * DAY_MS) {
+      status = 'active';
+      action = '掲出中';
+    }
+
+    return status ? { pr_id: prId, status, label: `└PR[${prId}]${action}` } : null;
+  }
+
+  function collapsePrStates_(states) {
+    const priority = { add: 3, remove: 2, active: 1 };
+    const byPrId = new Map();
+
+    states.forEach(state => {
+      const key = normalizeText(state.pr_id);
+      if (!key) return;
+      const current = byPrId.get(key);
+      if (!current || priority[state.status] > priority[current.status]) {
+        byPrId.set(key, state);
+      }
+    });
+
+    return Array.from(byPrId.values());
+  }
+
+  function getPrRecordsForSchedule(row) {
+    if (!row) return [];
+
+    const scheduleId = String(getValueByKeys(row, ['schedule_id', 'id'])).trim();
+    const mailName = normalizeText(row.mail_name);
+    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr : [];
+
+    // 1. target_ids (schedule_id) での紐付け (新方式)
+    const matchedPrs = prRows.filter(prRow => {
+      const targetIds = String(getValueByKeys(prRow, ['target_ids', '紐付けID']) || '').split(',').map(s => s.trim());
+      if (scheduleId && targetIds.includes(scheduleId)) return true;
+
+      // 互換性: メルマガ名での検索
+      if (mailName) {
+        return Object.keys(prRow).some(key => normalizeText(prRow[key]) === mailName);
+      }
+      return false;
+    });
+
+    const records = matchedPrs.map(prRow => ({
+      pr_id: getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id']),
+      start_date: getPrStartDate_(prRow),
+      end_date: getPrEndDate_(prRow)
+    })).filter(record => record.pr_id);
+
+    // 2. app_pr_targets からの紐付け (旧方式・互換性)
+    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
+    const prById = new Map(prRows.map(prRow => [normalizeText(getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id'])), prRow]));
+
+    const targetRecords = mailName ? prTargets
+      .filter(target => normalizeText(getValueByKeys(target, ['mail_name', 'メルマガ内容', 'target_mail_name', '対象メルマガ'])) === mailName)
+      .map(target => buildPrRecordFromTarget_(target, prById))
+      .filter(Boolean) : [];
+
+    // 3. schedule シートの直書き PR 列 (互換性)
+    const directPrId = getValueByKeys(row, ['pr', 'PR', 'pr_id', 'PR_ID']);
+    const directRecord = directPrId ? [{
+      pr_id: directPrId,
+      start_date: getPrStartDate_(row),
+      end_date: getPrEndDate_(row)
+    }] : [];
+
+    return dedupePrRecords_(records.concat(targetRecords, directRecord));
+  }
+
+  function buildPrRecordFromTarget_(target, prById) {
+    const prId = normalizeText(getValueByKeys(target, ['pr_id', 'PR', 'pr', 'id']));
+    if (!prId) return null;
+
+    const prRow = prById.get(prId) || {};
+    return {
+      pr_id: prId,
+      start_date: getPrStartDate_(prRow) || getPrStartDate_(target),
+      end_date: getPrEndDate_(prRow) || getPrEndDate_(target)
+    };
+  }
+
+  function getPrRecordsByScanningPrRows_(mailName, prRows) {
+    return prRows
+      .filter(prRow => Object.keys(prRow).some(key => normalizeText(prRow[key]) === mailName))
+      .map(prRow => ({
+        pr_id: getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id']),
+        start_date: getPrStartDate_(prRow),
+        end_date: getPrEndDate_(prRow)
+      }))
+      .filter(record => record.pr_id);
+  }
+
+  function getPrStartDate_(row) {
+    return getValueByKeys(row, PR_START_DATE_KEYS);
+  }
+
+  function getPrEndDate_(row) {
+    return getValueByKeys(row, PR_END_DATE_KEYS);
+  }
+
+  function dedupePrRecords_(records) {
+    const seen = new Set();
+    return records.filter(record => {
+      const key = [record.pr_id, normalizeDateString(record.start_date), normalizeDateString(record.end_date)].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function getValueByKeys(obj, keys) {
+    for (const key of keys) {
+      if (obj && obj[key] != null && String(obj[key]).trim() !== '') return obj[key];
+    }
+    return '';
+  }
+
+  function normalizeText(value) {
+    return String(value == null ? '' : value).trim();
+  }
+
+  function getDisplayName(key) {
+    const text = String(key == null ? '' : key).trim();
+    return DISPLAY_NAMES[text] || DISPLAY_NAMES[text.toLowerCase()] || text;
+  }
+
+  function getVisibleMasterHeaders(headers) {
+    const systemHeaders = ['source_sheet', 'source_row', '元シート', '元行', 'is_inactive', '配信停止', 'schedule_action'];
+    const visible = headers.filter(header => {
+      const h = String(header).trim();
+      return !isMasterIdHeader(header) && (!systemHeaders.includes(h) || h === 'target_ids');
+    });
+    // PR管理画面では紐づいたメルマガを一覧の最後に別列表示する
+    if (MASTER_DATA.sheetName === 'app_pr' && !visible.includes('target_mails')) {
+      visible.push('target_mails');
+    }
+    return visible;
+  }
+
+  function isMasterIdHeader(header) {
+    const idHeaders = MASTER_ID_HEADERS[MASTER_DATA.sheetName] || [];
+    return idHeaders.includes(String(header || '').trim());
+  }
+
+  function getCycleInfo(date) {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const base = new Date(CYCLE_BASE_DATE.getFullYear(), CYCLE_BASE_DATE.getMonth(), CYCLE_BASE_DATE.getDate());
+    const elapsedDays = Math.floor((target.getTime() - base.getTime()) / DAY_MS);
+    const diffWeeks = Math.floor(elapsedDays / 7);
+    const weekGroup = getBiweeklyCycle(diffWeeks);
+    const positionMatchCycle = getPositionMatchCycle(target);
+    return {
+      weekGroup,
+      threeWeekNum: positionMatchCycle,
+      positionMatchCycle,
+      weekLabel: `隔週${weekGroup}`,
+      threeWeekLabel: `特殊${positionMatchCycle}週目${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
+    };
+  }
+
+  function getCycleForRow(row, targetDate) {
+    const diffWeeks = getDiffWeeks(targetDate);
+    if (isPositionMatch(row)) {
+      return ((diffWeeks % 3) + 3) % 3 + 1;
+    }
+    return getBiweeklyCycle(diffWeeks);
+  }
+
+  function cycleContains(cycleValue, targetCycle) {
+    return String(cycleValue == null ? '' : cycleValue).indexOf(String(targetCycle)) !== -1;
+  }
+
+  function parseScheduleDate_(value) {
+    if (!value) return new Date();
+    if (value instanceof Date) return value;
+    const parts = String(value).split('/');
+    if (parts.length === 3) {
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    return new Date(value);
+  }
+
+  function getDiffWeeks(targetDate) {
+    // 基準日(2026-04-27月曜)を基準にすると、火曜始まり週の計算が複雑になるため、
+    // 「直近の火曜日」を基準にした週番号計算に変更する
+    const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+
+    // 火曜日を起点(0)とするためのオフセット計算
+    // 2026-04-27(月) は基準日。次の火曜は 2026-04-28。
     // その週を第0週とする。
     const baseTuesday = new Date(2026, 3, 28);
     const diffDays = Math.floor((target.getTime() - baseTuesday.getTime()) / DAY_MS);
@@ -2303,13 +2507,16 @@
     return [
       'timestamp',
       'updated_at',
-      'confirmed_at'
+      'confirmed_at',
+      'job_count_updated_at'
     ].includes(key) || key.includes('日時');
   }
 
   function isHiddenMasterInputHeader(header) {
     const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'is_fixed' ||
+    return key === 'job_count_updated_at' ||
+      key === 'is_fixed' ||
+      key === '求人数最終取得日時' ||
       key === '確定済';
   }
 
@@ -2847,18 +3054,7 @@
     event.preventDefault();
     event.returnValue = '';
   });
-
   loadPendingCheckStatuses();
   wireEvents();
   loadData();
-</script>
-
-<script>
-  function getBgColor(entry) {
-    var category = String(entry.category || entry.mail_type || '').trim();
-    var cycle = String(entry.cycle || '').trim();
-    if (category === 'MA') return '#FFF2E6';
-    if (cycle === 'B') return '#FFEBEF';
-    return '#ffffff';
-  }
 </script>
