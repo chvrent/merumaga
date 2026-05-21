@@ -846,11 +846,15 @@
     document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
     document.getElementById('master-row-number').value = row.__rowNumber || '';
     if (tabsContainer) {
-      tabsContainer.hidden = true;
-      tabsContainer.style.setProperty('display', 'none', 'important');
+      tabsContainer.hidden = isPrMaster;
+      if (isPrMaster) {
+        tabsContainer.style.setProperty('display', 'none', 'important');
+      } else {
+        tabsContainer.style.removeProperty('display');
+      }
     }
     if (modal) modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
-    if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : String(row.format || '');
+    if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
     const html = visibleHeaders.map(header => {
@@ -858,6 +862,7 @@
       if (isHiddenMasterInputHeader(header)) return '';
 
       const key = normalizeScheduleEditKey_(header);
+      if (key === 'format') return '';
       const value = row[key] != null ? row[key] : row[header];
       const isFullWidth = ['mail_content', 'notes'].includes(key);
       const input = renderMasterFieldInput_(header, key, value, mode);
@@ -886,7 +891,7 @@
         prIdField.disabled = true;
         prIdField.placeholder = '保存時に自動採番';
       }
-      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : String(row.format || ''), 'masterModal');
+      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
       modal.style.display = 'flex';
       modal.setAttribute('aria-hidden', 'false');
     }
@@ -1367,7 +1372,7 @@
 
   function setModalFormatState(modal, format) {
     if (!modal) return;
-    const nextFormat = String(format || (modal.id === 'masterModal' ? '' : 'フリー'));
+    const nextFormat = String(format || 'フリー');
     modal.dataset.format = nextFormat;
     modal.querySelectorAll('.modal-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.format === nextFormat);
@@ -2086,11 +2091,16 @@
     if (key === 'pr') {
       return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly disabled' : ''}>`;
     }
+    if (key === 'format') {
+      return '';
+    }
     if (isWeekdayHeader(header) || key === 'weekday') {
       return renderSelectInput(key, textValue, ['月', '火', '水', '木', '金', '土', '日']);
     }
     if (isFormatHeader(header) || key === 'format') {
-      return renderSelectInput(key, textValue, ['フリー', '抽出', '自動求人特集', 'その他']);
+      return mode === 'edit'
+        ? ''
+        : renderSelectInput(key, textValue, ['フリー', '抽出', '自動求人特集', 'その他']);
     }
     if (isTimeHeader(header) || key === 'hour') {
       return renderSelectInput(key, normalizeMasterHourValue(textValue), buildHourOptions());
