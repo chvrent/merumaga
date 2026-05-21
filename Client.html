@@ -2134,39 +2134,46 @@
     return `<input type="${escapeAttribute(config.type)}" name="${escapeAttribute(config.name)}" value="${escapeAttribute(config.value)}">`;
   }
 
-  function renderMasterSpecialFieldInput_(key, value, mode) {
-    const textValue = value == null ? '' : value;
+  function getMasterSpecialFieldConfig_(header, key, value, mode) {
+    const textValue = value == null ? '' : String(value);
     if (key === 'mail_name') {
-      return `<input type="text" name="mail_name" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly' : ''}>`;
+      return { kind: 'input', html: `<input type="text" name="mail_name" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly' : ''}>` };
     }
     if (key === 'pr_id') {
-      return `<input type="text" name="pr_id" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存時に自動採番">`;
+      return { kind: 'input', html: `<input type="text" name="pr_id" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存時に自動採番">` };
     }
     if (key === 'assignee') {
-      return renderNamedSelectInput('setter', textValue, getAdminSelectOptions_());
+      return { kind: 'input', html: renderNamedSelectInput('setter', textValue, getAdminSelectOptions_()) };
     }
     if (key === 'reviewer') {
-      return renderNamedSelectInput('checker', textValue, getAdminSelectOptions_());
+      return { kind: 'input', html: renderNamedSelectInput('checker', textValue, getAdminSelectOptions_()) };
     }
     if (key === 'is_new' || key === 'new_flag') {
-      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''}>`;
+      return { kind: 'input', html: `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''}>` };
     }
     if (key === 'current_job_count') {
-      return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
+      return { kind: 'input', html: `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">` };
     }
     if (key === 'pr') {
       const locked = mode === 'edit' && isEditModalLockedField_(key);
-      return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${locked ? 'readonly disabled' : ''}>`;
+      return { kind: 'input', html: `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${locked ? 'readonly disabled' : ''}>` };
     }
     if (key === 'format') {
-      return '';
+      return { kind: 'skip' };
     }
     return null;
   }
 
+  function renderMasterSpecialFieldInput_(header, key, value, mode) {
+    const config = getMasterSpecialFieldConfig_(header, key, value, mode);
+    if (!config) return null;
+    if (config.kind === 'skip') return '';
+    return config.html;
+  }
+
   function renderMasterFieldInput_(header, key, value, mode) {
     const textValue = value == null ? '' : value;
-    const specialInput = renderMasterSpecialFieldInput_(key, textValue, mode);
+    const specialInput = renderMasterSpecialFieldInput_(header, key, textValue, mode);
     if (specialInput != null) return specialInput;
 
     const selectConfig = getMasterSelectConfig_(header, key, textValue, mode);
