@@ -1399,7 +1399,7 @@
     const isAutoJob = normalizedFormat === '自動求人特集';
     const isOther = normalizedFormat === 'その他';
     const autoJobFields = ['auto_job_feature_id', 'job_url'];
-    const editLockedFields = ['mail_type', 'sub_category', 'is_new', 'cycle', 'pr'];
+    const editLockedFields = ['is_new', 'pr'];
 
     const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
     const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
@@ -2078,13 +2078,13 @@
       return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
     }
     if (key === 'mail_type' || key === 'category') {
-      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('mail_type')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('mail_type'));
     }
     if (key === 'sub_category') {
-      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('sub_category')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('sub_category'));
     }
     if (key === 'cycle') {
-      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('cycle')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
+      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('cycle'));
     }
     if (key === 'pr') {
       return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly disabled' : ''}>`;
