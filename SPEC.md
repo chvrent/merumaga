@@ -176,6 +176,7 @@ UI仕様を変更する場合は、該当箇所の近傍だけで判断しては
 - マスタ編集・配信編集のテキスト/日付/日時/長文項目は `Client.html` の `getMasterTextInputConfig_()` と `renderTextInputFromConfig_()` を経由して描画する。入力タイプを増減する場合は、個別HTMLを追加する前に同設定関数へ集約できるか確認する。
 - マスタ編集・配信編集の特殊項目（メルマガ名、PR ID、設定者、確認者、新規、求人件数、PR、形式非表示）は `Client.html` の `getMasterSpecialFieldConfig_()` / `renderMasterSpecialFieldInput_()` を経由して描画する。特殊扱いを追加・解除する場合は、select/text の共通描画に入る前の同関数を更新する。
 - `applyDynamicInputControl()` のモード別制御は `resetModalFieldStates_()`、`applyAutoJobFieldControls_()`、`applyEditModalLockedFieldControls_()`、`applyCurrentJobCountControls_()`、`applyPrMasterControls_()` に分かれている。モーダル状態の条件を増減する場合は、同じ責務の関数へ寄せてから変更する。
+- 形式タブは `Client.html` の `setModalFormatState()` と `setModalFormatTabLockState()` を正とし、`dataset.mode === 'edit'` のモーダルではタブをロック状態にする。編集時はタブの有効/無効と `format` の値が必ず同期しているか確認する。
 
 ## 6. セレクトボックス（プルダウン）におけるプレースホルダー制御ルール
 

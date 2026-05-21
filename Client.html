@@ -37,6 +37,10 @@
   border-color: #1a73e8 !important;
   font-weight: bold !important;
 }
+.modal-tab.is-locked {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+}
 </style>
 <script>
   let APP_DATA = {};
@@ -888,6 +892,7 @@
       }
     }
     if (modal) modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
+    if (modal) modal.dataset.mode = mode;
     if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
@@ -1344,6 +1349,7 @@
 
     const modal = document.getElementById('editModal');
     if (!modal) return;
+    modal.dataset.mode = 'edit';
 
     // 1. 追加フィールドのレンダリング
     const editCoreFields = modal.querySelector('#editCoreFields');
@@ -1387,6 +1393,7 @@
 
     modal.querySelectorAll('.modal-tab').forEach(tab => {
       tab.addEventListener('click', function() {
+        if (this.dataset.locked === 'true') return;
         setModalFormatState(modal, this.dataset.format);
       });
     });
@@ -1405,10 +1412,25 @@
     });
   }
 
+  function isModalFormatLocked_(modal) {
+    return String(modal && modal.dataset && modal.dataset.mode || '').trim() === 'edit';
+  }
+
+  function setModalFormatTabLockState(modal, locked) {
+    if (!modal) return;
+    modal.querySelectorAll('.modal-tab').forEach(tab => {
+      tab.dataset.locked = locked ? 'true' : 'false';
+      tab.setAttribute('aria-disabled', locked ? 'true' : 'false');
+      tab.tabIndex = locked ? -1 : 0;
+      tab.classList.toggle('is-locked', locked);
+    });
+  }
+
   function setModalFormatState(modal, format) {
     if (!modal) return;
     const nextFormat = String(format || 'フリー');
     modal.dataset.format = nextFormat;
+    setModalFormatTabLockState(modal, isModalFormatLocked_(modal));
     modal.querySelectorAll('.modal-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.format === nextFormat);
     });
@@ -2876,6 +2898,7 @@
     const locked = fixed || stopped;
     const modalCard = document.querySelector('#editModal .modal-card');
     if (modalCard) modalCard.classList.toggle('is-stopped-edit', !!stopped && !fixed);
+    setModalFormatTabLockState(document.getElementById('editModal'), true);
 
     document.querySelectorAll('#editModal input, #editModal select, #editModal textarea').forEach(field => {
       if (field.id === 'new-comment') return;
