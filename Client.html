@@ -2312,16 +2312,13 @@
     return [
       'timestamp',
       'updated_at',
-      'confirmed_at',
-      'job_count_updated_at'
+      'confirmed_at'
     ].includes(key) || key.includes('日時');
   }
 
   function isHiddenMasterInputHeader(header) {
     const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'job_count_updated_at' ||
-      key === 'is_fixed' ||
-      key === '求人数最終取得日時' ||
+    return key === 'is_fixed' ||
       key === '確定済';
   }
 
