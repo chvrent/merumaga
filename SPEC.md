@@ -174,6 +174,7 @@ UI仕様を変更する場合は、該当箇所の近傍だけで判断しては
 - マスタ編集の `mail_type` / `種別`、`sub_category` / `サブカテゴリ`、`cycle` / `サイクル` は編集可能項目とし、配信編集専用ロックの対象に含めない。ロック対象を変更する場合は、`EDIT_MODAL_LOCKED_FIELDS` を変更し、項目描画時の `disabled` 指定と動的入力制御が同じ定数を参照していることを確認する。
 - マスタ編集・配信編集の select 項目は `Client.html` の `getMasterSelectConfig_()` を経由して描画する。select 項目を増減する場合は、個別分岐を増やす前に同関数へ設定を追加し、初期値・候補・編集可否が既存ルールと矛盾しないか確認する。
 - マスタ編集・配信編集のテキスト/日付/日時/長文項目は `Client.html` の `getMasterTextInputConfig_()` と `renderTextInputFromConfig_()` を経由して描画する。入力タイプを増減する場合は、個別HTMLを追加する前に同設定関数へ集約できるか確認する。
+- マスタ編集・配信編集の特殊項目（メルマガ名、PR ID、設定者、確認者、新規、求人件数、PR、形式非表示）は `Client.html` の `renderMasterSpecialFieldInput_()` を経由して描画する。特殊扱いを追加・解除する場合は、select/text の共通描画に入る前の同関数を更新する。
 
 ## 6. セレクトボックス（プルダウン）におけるプレースホルダー制御ルール
 

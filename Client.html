@@ -2134,7 +2134,7 @@
     return `<input type="${escapeAttribute(config.type)}" name="${escapeAttribute(config.name)}" value="${escapeAttribute(config.value)}">`;
   }
 
-  function renderMasterFieldInput_(header, key, value, mode) {
+  function renderMasterSpecialFieldInput_(key, value, mode) {
     const textValue = value == null ? '' : value;
     if (key === 'mail_name') {
       return `<input type="text" name="mail_name" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly' : ''}>`;
@@ -2161,6 +2161,14 @@
     if (key === 'format') {
       return '';
     }
+    return null;
+  }
+
+  function renderMasterFieldInput_(header, key, value, mode) {
+    const textValue = value == null ? '' : value;
+    const specialInput = renderMasterSpecialFieldInput_(key, textValue, mode);
+    if (specialInput != null) return specialInput;
+
     const selectConfig = getMasterSelectConfig_(header, key, textValue, mode);
     if (selectConfig) {
       return renderSelectInput(selectConfig.name, selectConfig.value, selectConfig.options);
