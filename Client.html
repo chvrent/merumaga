@@ -845,9 +845,12 @@
 
     document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
     document.getElementById('master-row-number').value = row.__rowNumber || '';
-    if (tabsContainer) tabsContainer.style.display = isPrMaster ? 'none' : '';
+    if (tabsContainer) {
+      tabsContainer.hidden = true;
+      tabsContainer.style.setProperty('display', 'none', 'important');
+    }
     if (modal) modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
-    if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
+    if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : String(row.format || '');
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
     const html = visibleHeaders.map(header => {
@@ -855,7 +858,6 @@
       if (isHiddenMasterInputHeader(header)) return '';
 
       const key = normalizeScheduleEditKey_(header);
-      if (key === 'format') return '';
       const value = row[key] != null ? row[key] : row[header];
       const isFullWidth = ['mail_content', 'notes'].includes(key);
       const input = renderMasterFieldInput_(header, key, value, mode);
@@ -875,6 +877,7 @@
     // タブの初期化とルール適用
     populateModalFields(form, row, getModalFieldAliases_('masterModal'));
     refreshAdminSelects_();
+    bindFormatSelects_(modal);
 
     if (modal) {
       const prIdField = modal.querySelector('[name="pr_id"]');
@@ -883,7 +886,7 @@
         prIdField.disabled = true;
         prIdField.placeholder = '保存時に自動採番';
       }
-      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
+      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : String(row.format || ''), 'masterModal');
       modal.style.display = 'flex';
       modal.setAttribute('aria-hidden', 'false');
     }
@@ -1348,6 +1351,11 @@
       });
     });
 
+    bindFormatSelects_(modal);
+  }
+
+  function bindFormatSelects_(modal) {
+    if (!modal) return;
     modal.querySelectorAll('select[name="format"]').forEach(select => {
       if (select.dataset.formatBound === 'true') return;
       select.dataset.formatBound = 'true';
@@ -1359,7 +1367,7 @@
 
   function setModalFormatState(modal, format) {
     if (!modal) return;
-    const nextFormat = String(format || 'フリー');
+    const nextFormat = String(format || (modal.id === 'masterModal' ? '' : 'フリー'));
     modal.dataset.format = nextFormat;
     modal.querySelectorAll('.modal-tab').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.format === nextFormat);
@@ -2011,8 +2019,9 @@
     });
   }
 
-  function renderSelectInput(header, currentValue, options) {
+  function renderSelectInput(header, currentValue, options, selectName) {
     const normalizedCurrent = String(currentValue == null ? '' : currentValue).trim();
+    const name = String(selectName == null ? header : selectName).trim();
     const normalizedOptions = options.map(option => {
       if (option && typeof option === 'object') {
         return {
@@ -2032,11 +2041,11 @@
     const optionHtml = normalizedOptions.map(option => `
       <option value="${escapeAttribute(option.value)}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>
     `).join('');
-    return `<select data-header="${escapeAttribute(header)}" required>${placeholder}${optionHtml}</select>`;
+    return `<select name="${escapeAttribute(name)}" data-header="${escapeAttribute(header)}" required>${placeholder}${optionHtml}</select>`;
   }
 
   function renderNamedSelectInput(name, currentValue, options) {
-    return renderSelectInput(name, currentValue, options).replace('<select ', `<select name="${escapeAttribute(name)}" data-select-name="${escapeAttribute(name)}" `);
+    return renderSelectInput(name, currentValue, options, name).replace('<select ', `<select data-select-name="${escapeAttribute(name)}" `);
   }
 
   function renderMasterFieldInput_(header, key, value, mode) {
@@ -2077,16 +2086,11 @@
     if (key === 'pr') {
       return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly disabled' : ''}>`;
     }
-    if (key === 'format') {
-      return '';
-    }
     if (isWeekdayHeader(header) || key === 'weekday') {
       return renderSelectInput(key, textValue, ['月', '火', '水', '木', '金', '土', '日']);
     }
     if (isFormatHeader(header) || key === 'format') {
-      return mode === 'edit'
-        ? ''
-        : renderSelectInput(key, textValue, ['フリー', '抽出', '自動求人特集', 'その他']);
+      return renderSelectInput(key, textValue, ['フリー', '抽出', '自動求人特集', 'その他']);
     }
     if (isTimeHeader(header) || key === 'hour') {
       return renderSelectInput(key, normalizeMasterHourValue(textValue), buildHourOptions());
