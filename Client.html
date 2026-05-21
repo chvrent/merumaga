@@ -145,15 +145,6 @@
     google.script.run
       .withSuccessHandler(data => {
         APP_DATA = data || {};
-        function getBgColor(entry) {
-    const category = String(entry.category || entry.mail_type || '').trim();
-    const cycle = String(entry.cycle || '').trim();
-    if (category === 'MA') return '#FFF2E6';
-    if (cycle === 'B') return '#FFEBEF';
-    return '#ffffff';
-  }
-
-  loadPendingCheckStatuses();
         renderScheduleGrid();
         updatePendingCheckSaveButton();
         if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
