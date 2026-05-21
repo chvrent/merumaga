@@ -66,8 +66,8 @@
   function getBgColor(entry) {
     var category = String(entry.category || entry.mail_type || '').trim();
     var cycle = String(entry.cycle || '').trim();
-    if (category === 'MA') return '#FFF2E6';
-    if (cycle === 'B') return '#FFEBEF';
+    if (category === 'MA') return '#FFF8D6';
+    if (cycle === 'B') return '#FFF5F7';
     return '#ffffff';
   }
 
@@ -108,7 +108,6 @@
     target_address: '対象現住所',
     is_new: '新規',
     current_job_count: '現在求人数',
-    job_count_updated_at: '求人数最終取得日時',
     is_inactive: '配信停止',
     is_fixed: '確定済',
     target_ids: 'PRが入るメルマガ',
@@ -126,6 +125,7 @@
     app_pr: ['id'],
     app_pr_targets: ['pr_target_id', 'id']
   };
+  const DEPRECATED_SCHEDULE_HEADERS = ['job_count_updated_at', '求人数最終取得日時'];
   const MASTER_CONFIG = {
     schedule: {
       title: 'メルマガ一覧',
@@ -1069,7 +1069,8 @@
     // マスタ全ヘッダーを取得し、モーダル用に整理
     return (APP_DATA.scheduleHeaders || []).filter(header => {
       const key = normalizeScheduleEditKey_(header);
-      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed', 'job_count_updated_at'].includes(key);
+      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed'].includes(key) &&
+        !isDeprecatedScheduleHeader(header);
     });
   }
 
@@ -1470,7 +1471,7 @@
     const itemId = getCheckItemId(CURRENT_ENTRY);
 
     const nextValues = normalizeMasterSubmissionPayload_(
-      collectNamedFormValues(modal, { exclude: ['schedule_id', 'current_job_count', 'job_count_updated_at'] })
+      collectNamedFormValues(modal, { exclude: ['schedule_id', 'current_job_count'] })
     );
 
     if (String(nextValues.assignee || '').trim() === 'R') {
@@ -2076,9 +2077,6 @@
     if (key === 'current_job_count') {
       return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
     }
-    if (key === 'job_count_updated_at') {
-      return `<input type="text" name="job_count_updated_at" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動更新されます">`;
-    }
     if (key === 'mail_type' || key === 'category') {
       return renderSelectInput(key, textValue, buildUniqueScheduleValues_('mail_type')).replace('<select ', `<select ${mode === 'edit' ? 'disabled ' : ''}`);
     }
@@ -2141,10 +2139,11 @@
     const rowCycle = normalizeCycleLabel(cycle);
     const rowCycleNum = extractCycleNumber(rowCycle);
 
+    if (category === 'MA') return '#FFF8D6';
     if (text.includes('毎月')) return '#FFF0F5';
     if (text.includes('特殊') || text.includes('特段')) return '#E6E6FA';
     if (text.includes('隔週A') || rowCycle === 'A') return '#E0FFE0';
-    if (text.includes('隔週B') || rowCycle === 'B') return '#FFD1DC';
+    if (text.includes('隔週B') || rowCycle === 'B') return '#FFF5F7';
     if (text.includes('自動求人') || text.includes('その他') || rowCycleNum != null) return '#E0FFFF';
     return '#FFFFFF';
   }
@@ -2185,7 +2184,6 @@
         level: 'critical',
         icon: '[!]',
         count,
-        updatedAt: row && row.job_count_updated_at,
         message: '求人数が0件です'
       };
     }
@@ -2200,8 +2198,7 @@
   function getJobAlertTooltip(alert) {
     if (!alert) return '';
     const countText = alert.count == null ? '取得不可' : `${alert.count.toLocaleString()}件`;
-    const updatedAt = alert.updatedAt ? String(alert.updatedAt) : '未取得';
-    return `最終取得日時：${updatedAt}、件数：${countText} / ${alert.message}`;
+    return `件数：${countText} / ${alert.message}`;
   }
 
   function renderJobAlertGuidance(row) {
@@ -2545,17 +2542,19 @@
     return [
       'timestamp',
       'updated_at',
-      'confirmed_at',
-      'job_count_updated_at'
+      'confirmed_at'
     ].includes(key) || key.includes('日時');
   }
 
   function isHiddenMasterInputHeader(header) {
     const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'job_count_updated_at' ||
+    return isDeprecatedScheduleHeader(header) ||
       key === 'is_fixed' ||
-      key === '求人数最終取得日時' ||
       key === '確定済';
+  }
+
+  function isDeprecatedScheduleHeader(header) {
+    return DEPRECATED_SCHEDULE_HEADERS.includes(String(header == null ? '' : header).trim());
   }
 
   function isWeekdayHeader(header) {

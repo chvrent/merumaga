@@ -57,6 +57,7 @@ const SCHEDULE_FIELD_ALIASES = {
   is_inactive: ['is_inactive', '配信停止'],
   is_fixed: ['is_fixed', '確定済']
 };
+const DEPRECATED_SCHEDULE_HEADERS = ['job_count_updated_at', '求人数最終取得日時'];
 
 function getInitialData(options) {
   const ss = getSourceSpreadsheet_();
@@ -133,18 +134,20 @@ function getMasterData(sheetName) {
   }
 
   const headers = values[0].map(header => String(header || '').trim());
+  const visibleHeaders = headers.filter(header => !isDeprecatedScheduleHeader_(safeSheetName, header));
   const rows = values
     .slice(1)
     .map((row, index) => {
       const obj = { __rowNumber: String(index + 2) };
       headers.forEach((header, columnIndex) => {
+        if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
         obj[header || `column_${columnIndex + 1}`] = normalizeCell_(row[columnIndex]);
       });
       return obj;
     })
     .filter(row => Object.keys(row).some(key => key !== '__rowNumber' && row[key] !== ''));
 
-  return { sheetName: safeSheetName, headers, rows };
+  return { sheetName: safeSheetName, headers: visibleHeaders, rows };
 }
 
 /**
@@ -2164,6 +2167,7 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     is_fixed: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_fixed)
   };
   headers.forEach((header, index) => {
+    if (isDeprecatedScheduleHeader_(sheetName, header)) return;
     if (!header || Object.prototype.hasOwnProperty.call(record, header)) return;
     record[header] = normalizeCell_(row[index]);
   });
@@ -2219,16 +2223,23 @@ function getSheetObjects_(sheetName, allowMissing = false) {
   if (!values.length) return [];
 
   const headers = values[0].map(header => String(header || '').trim());
+  const safeSheetName = String(sheetName || '').trim();
   return values
     .slice(1)
     .filter(row => row.some(v => v !== ''))
     .map(row => {
       const obj = {};
       headers.forEach((header, index) => {
+        if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
         obj[header] = normalizeCell_(row[index]);
       });
       return obj;
     });
+}
+
+function isDeprecatedScheduleHeader_(sheetName, header) {
+  return String(sheetName || '').trim() === SCHEDULE_SHEET_NAME &&
+    DEPRECATED_SCHEDULE_HEADERS.indexOf(String(header || '').trim()) !== -1;
 }
 
 function upsertScheduleData(data) {
