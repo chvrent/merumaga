@@ -2149,6 +2149,9 @@
   }
 
   function getSubCategoryClass(row) {
+    const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
+    if (category === 'MA') return '';
+
     const className = String(row && row.sub_category_class != null ? row.sub_category_class : '').trim();
     if (['is-special', 'is-product', 'is-others'].includes(className)) return className;
 

@@ -2171,13 +2171,15 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     if (!header || Object.prototype.hasOwnProperty.call(record, header)) return;
     record[header] = normalizeCell_(row[index]);
   });
-  record.sub_category_class = getSubCategoryClass_(record.sub_category);
+  record.sub_category_class = getSubCategoryClass_(record.sub_category, record.mail_type);
 
   if (!record.mail_name) return null;
   return record;
 }
 
-function getSubCategoryClass_(value) {
+function getSubCategoryClass_(value, category) {
+  if (normalizeCell_(category) === 'MA') return '';
+
   const text = normalizeCell_(value);
   if (text.indexOf('特殊') !== -1) return 'is-special';
   if (text.indexOf('商品') !== -1) return 'is-product';
