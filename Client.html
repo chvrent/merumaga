@@ -89,6 +89,8 @@
     { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: 'サブカテゴリ: その他(他部署)' }
   ]);
   const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
+  const WEEKDAY_OPTIONS = Object.freeze(['月', '火', '水', '木', '金', '土', '日']);
+  const FORMAT_OPTIONS = Object.freeze(['フリー', '抽出', '自動求人特集', 'その他']);
 
   function isEditModalLockedField_(key) {
     return EDIT_MODAL_LOCKED_FIELDS.includes(String(key || '').trim());
@@ -2084,6 +2086,29 @@
     return renderSelectInput(name, currentValue, options, name).replace('<select ', `<select data-select-name="${escapeAttribute(name)}" `);
   }
 
+  function getMasterSelectConfig_(header, key, value, mode) {
+    if (key === 'mail_type' || key === 'category') {
+      return { name: key, value, options: buildUniqueScheduleValues_('mail_type') };
+    }
+    if (key === 'sub_category') {
+      return { name: key, value, options: buildUniqueScheduleValues_('sub_category') };
+    }
+    if (key === 'cycle') {
+      return { name: key, value, options: buildUniqueScheduleValues_('cycle') };
+    }
+    if (isWeekdayHeader(header) || key === 'weekday') {
+      return { name: key, value, options: WEEKDAY_OPTIONS };
+    }
+    if (isFormatHeader(header) || key === 'format') {
+      if (mode === 'edit') return null;
+      return { name: key, value, options: FORMAT_OPTIONS };
+    }
+    if (isTimeHeader(header) || key === 'hour') {
+      return { name: key, value: normalizeMasterHourValue(value), options: buildHourOptions() };
+    }
+    return null;
+  }
+
   function renderMasterFieldInput_(header, key, value, mode) {
     const textValue = value == null ? '' : value;
     if (key === 'mail_content' || key === 'notes') {
@@ -2107,15 +2132,6 @@
     if (key === 'current_job_count') {
       return `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">`;
     }
-    if (key === 'mail_type' || key === 'category') {
-      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('mail_type'));
-    }
-    if (key === 'sub_category') {
-      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('sub_category'));
-    }
-    if (key === 'cycle') {
-      return renderSelectInput(key, textValue, buildUniqueScheduleValues_('cycle'));
-    }
     if (key === 'pr') {
       const locked = mode === 'edit' && isEditModalLockedField_(key);
       return `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${locked ? 'readonly disabled' : ''}>`;
@@ -2123,16 +2139,9 @@
     if (key === 'format') {
       return '';
     }
-    if (isWeekdayHeader(header) || key === 'weekday') {
-      return renderSelectInput(key, textValue, ['月', '火', '水', '木', '金', '土', '日']);
-    }
-    if (isFormatHeader(header) || key === 'format') {
-      return mode === 'edit'
-        ? ''
-        : renderSelectInput(key, textValue, ['フリー', '抽出', '自動求人特集', 'その他']);
-    }
-    if (isTimeHeader(header) || key === 'hour') {
-      return renderSelectInput(key, normalizeMasterHourValue(textValue), buildHourOptions());
+    const selectConfig = getMasterSelectConfig_(header, key, textValue, mode);
+    if (selectConfig) {
+      return renderSelectInput(selectConfig.name, selectConfig.value, selectConfig.options);
     }
     if (isDateTimeHeader(header)) {
       return `<input type="datetime-local" name="${escapeAttribute(key)}" value="${escapeAttribute(normalizeDateTimeLocalString(textValue))}">`;
