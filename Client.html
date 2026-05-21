@@ -931,8 +931,7 @@
         prIdField.placeholder = '保存時に自動採番';
       }
       window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
-      modal.style.display = 'flex';
-      modal.setAttribute('aria-hidden', 'false');
+      setModalVisible_(modal, true);
     }
   }
 
@@ -1032,10 +1031,15 @@
     });
   }
 
+  function setModalVisible_(modal, visible) {
+    if (!modal) return;
+    modal.style.display = visible ? 'flex' : 'none';
+    modal.setAttribute('aria-hidden', visible ? 'false' : 'true');
+  }
+
   function closeMasterModal() {
     const modal = document.getElementById('masterModal');
-    modal.style.display = 'none';
-    modal.setAttribute('aria-hidden', 'true');
+    setModalVisible_(modal, false);
   }
 
   function buildUniqueScheduleValues_(key) {
@@ -1330,10 +1334,7 @@
 
   function closeModal() {
     const modal = document.getElementById('editModal');
-    if (modal) {
-      modal.style.display = 'none';
-      modal.setAttribute('aria-hidden', 'true');
-    }
+    setModalVisible_(modal, false);
   }
 
   function openModal(encodedEntry) {
@@ -1382,8 +1383,7 @@
     window.openAndInitModalWithTab(currentFormat, 'editModal');
     loadCommentsForCurrentEntry();
 
-    modal.style.display = 'flex';
-    modal.setAttribute('aria-hidden', 'false');
+    setModalVisible_(modal, true);
   }
 
   // モーダルごとのタブ初期化（イベントリスナー登録）
