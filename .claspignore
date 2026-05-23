@@ -1,6 +1,12 @@
 **/**
 !Code.js
 !Client.html
+!ClientCheckStatus.html
+!ClientComments.html
+!ClientModals.html
+!ClientUtils.html
+!DataCommentService.gs
+!DataExceptionService.gs
 !DataService.gs
 !appsscript.json
 !Index.html

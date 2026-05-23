@@ -1,4 +1,4 @@
-﻿<style>
+<style>
 .modal-tabs-container {
   display: flex !important;
   flex-direction: row !important; /* 必ず横並びにする */
@@ -75,6 +75,18 @@
     ma: '#FFF8D6',
     otherCheck: '#E0FFFF'
   });
+  const SCHEDULE_CYCLE_OPTIONS = Object.freeze([
+    '単発',
+    '毎日',
+    '毎週',
+    '毎月',
+    '月末',
+    'サイクル1',
+    'サイクル2',
+    'サイクル3',
+    '隔週A',
+    '隔週B'
+  ]);
   const SCHEDULE_LINE_COLORS = Object.freeze({
     special: '#800080',
     product: '#008080',
@@ -82,15 +94,16 @@
   });
   const SCHEDULE_LEGEND_ITEMS = Object.freeze([
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '特殊配信' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '単発/サイクル1-3' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '毎月' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '月末' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyA, label: '隔週A' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyB, label: '隔週B' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.ma, label: 'MA' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.otherCheck, label: 'その他/検証' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: 'サブカテゴリ: 特殊' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: 'サブカテゴリ: 商品' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: 'サブカテゴリ: その他(他部署)' }
+    { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: '担当部署: 特殊' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: '担当部署: 商品' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: '担当部署: その他(他部署)' }
   ]);
   const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
   const WEEKDAY_OPTIONS = Object.freeze(['月', '火', '水', '木', '金', '土', '日']);
@@ -111,8 +124,8 @@
 
   const CYCLE_BASE_DATE = new Date(2026, 3, 28);
   const DAY_MS = 24 * 60 * 60 * 1000;
-  const PR_START_DATE_KEYS = ['start_date', '開始日', '開始'];
-  const PR_END_DATE_KEYS = ['end_date', '終了日', '終了'];
+  const PR_START_DATE_KEYS = ['start_date', '開始日', '開始', 'start'];
+  const PR_END_DATE_KEYS = ['end_date', '終了日', '終了', 'end'];
   const DISPLAY_NAMES = {
     __rowNumber: '行番号',
     schedule_id: 'ID',
@@ -122,8 +135,8 @@
     mail_name: 'メルマガ名',
     mail_type: '種別',
     category: '種別',
-    sub_category: 'サブカテゴリ',
-    sub_category_class: 'サブカテゴリクラス',
+    sub_category: '担当部署',
+    sub_category_class: '担当部署クラス',
     cycle: 'サイクル',
     weekday: '曜日',
     hour: '時間',
@@ -140,13 +153,19 @@
     insert_position: '挿入位置',
     notes: '備考',
     mail_content: 'メルマガ内容',
-    job_url: '自動求人特集URL',
-    auto_job_feature_id: '自動求人特集ID',
-    target_age: '対象年齢',
-    target_address: '対象現住所',
+    job_url: '自動求人特集_URL',
+    auto_job_feature_id: '自動求人特集_ID',
+    target_age: 'USER_年齢',
+    target_address: 'USER_現住所',
+    user_desired_location: 'USER_希望勤務地',
+    user_experience_job: 'USER_経験職種',
+    user_desired_job: 'USER_希望職種',
+    job_location: 'JOB_勤務地',
+    job_type: 'JOB_職種',
+    job_keyword: 'JOB_フリーワード',
     is_new: '新規',
-    current_job_count: '現在求人数',
-    is_inactive: '配信停止',
+    current_job_count: '自動求人特集_求人数',
+    is_inactive: '配信終了',
     is_fixed: '確定済',
     target_ids: 'PRが入るメルマガ',
     target_mails: '紐づいたメルマガ',
@@ -159,9 +178,9 @@
     pr_title: 'PRタイトル'
   };
   const MASTER_ID_HEADERS = {
-    app_schedule: ['schedule_id', 'id'],
-    app_pr: ['id'],
-    app_pr_targets: ['pr_target_id', 'id']
+    app_schedule: ['schedule_id', 'ID', 'id'],
+    app_pr: ['pr_id', 'PR ID', 'PR', 'ID', 'id'],
+    app_pr_targets: ['pr_target_id', '紐付けID', 'ID', 'id']
   };
   const DEPRECATED_SCHEDULE_HEADERS = ['job_count_updated_at', '求人数最終取得日時'];
   const MASTER_CONFIG = {
@@ -398,7 +417,7 @@
       const headerDateControl = index === 0
         ? `<input type="date" class="date-header-picker ${isWeekend || isHoliday ? 'is-emphasis-date' : ''} ${isToday ? 'is-today' : ''}" value="${formatDateForInput(date)}" onchange="setCalendarStartDate(this.value)" aria-label="開始日">`
         : `<div class="date-title">${label}</div>`;
-      
+
       const bulkActions = `
         <div class="day-bulk-actions">
            <button type="button" class="bulk-stop-button" data-action="stop-all-for-day" data-date="${escapeAttribute(dateStr)}" title="この日の配信予定をすべて停止します">全停止</button>
@@ -452,9 +471,7 @@
           const endDate = normalizeDateString(row.end_date);
           const prStates = getPrStates(row, dateStr);
           const weekday = normalizeWeekdayLabel(row.weekday);
-          const category = String(row.mail_type || row.category || '').trim();
-          const rowCycle = normalizeCycleLabel(row.cycle);
-          const rowCycleNum = extractCycleNumber(rowCycle);
+          const scheduleCycleType = getScheduleCycleType(row);
           const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
 
           if (isInactive(row)) return false;
@@ -471,20 +488,25 @@
             // ただし、もし他の日時に移動されている場合はこの枠には出さない
             if (isMovedOriginalOccurrence(row, dateStr)) return false;
 
-            isMatch = (isWithinScheduleRange || prStates.length > 0) &&
-              weekday === dayLabel &&
-              rowHour === String(hour);
+            isMatch = (isWithinScheduleRange || prStates.length > 0) && rowHour === String(hour);
 
             // サイクル判定も本来の日程で行う
             if (isMatch) {
-              if (category.includes('毎月') && !monthEndInfo.isInWindow) isMatch = false;
-              else if (rowCycle === 'A' || rowCycle === 'B') {
-                if (rowCycle !== getCycleForRow(row, date)) isMatch = false;
-              } else if (rowCycleNum != null) {
+              if (scheduleCycleType === 'single') {
+                isMatch = !!startDate && startDate === dateStr;
+              } else if (scheduleCycleType === 'daily') {
+                isMatch = true;
+              } else if (scheduleCycleType === 'monthly') {
+                isMatch = isMonthlyCycleDate_(startDate, date);
+              } else if (scheduleCycleType === 'month_end') {
+                isMatch = monthEndInfo.isInWindow && weekday === dayLabel;
+              } else if (scheduleCycleType === 'A' || scheduleCycleType === 'B') {
+                isMatch = weekday === dayLabel && scheduleCycleType === getCycleForRow(row, date);
+              } else if (typeof scheduleCycleType === 'number') {
                 const expectedCycle = getCycleForRow(row, date);
-                if (typeof expectedCycle !== 'number' || !cycleContains(row.cycle, expectedCycle)) isMatch = false;
-              } else if (rowCycle && rowCycle !== '毎週') {
-                isMatch = false;
+                isMatch = weekday === dayLabel && typeof expectedCycle === 'number' && cycleContains(row.cycle, expectedCycle);
+              } else {
+                isMatch = weekday === dayLabel;
               }
             }
           }
@@ -634,7 +656,7 @@
 
     container.style.display = 'flex';
     const headers = MASTER_DATA.headers || [];
-    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
+    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ', '担当部署'].includes(String(h || '').trim())) || '';
     const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
     const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
 
@@ -727,10 +749,10 @@
     const searchInput = document.getElementById('masterSearchInput');
     const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
 
-    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ'].includes(String(h || '').trim())) || '';
+    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ', '担当部署'].includes(String(h || '').trim())) || '';
     const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
     const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
-    const endDateHeader = headers.find(h => ['end_date', '終了日'].includes(String(h || '').trim())) || '';
+    const endDateHeader = headers.find(h => ['end_date', '終了日', '配信終了'].includes(String(h || '').trim())) || '';
     const isNewHeader = headers.find(h => ['is_new', 'new_flag', '新規'].includes(String(h || '').trim())) || '';
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
@@ -839,1213 +861,6 @@
     return map;
   }
 
-  function updateMasterFormFields() {
-    const modal = document.getElementById('masterModal');
-    const format = String(modal && modal.dataset.format ? modal.dataset.format : 'フリー');
-    const fields = {
-      'auto_job_feature_id': ['自動求人特集', 'その他'],
-      'job_url': ['自動求人特集', 'その他'],
-      'pr_id': ['自動求人特集', 'その他']
-    };
-
-    Object.keys(fields).forEach(key => {
-      const fieldContainer = modal ? modal.querySelector(`[data-field="${key}"]`) : null;
-      if (fieldContainer) {
-        const isActive = fields[key].includes(format) || format === 'その他';
-        fieldContainer.classList.toggle('disabled', !isActive);
-        const inputs = fieldContainer.querySelectorAll('input, select, textarea');
-        inputs.forEach(input => input.disabled = !isActive);
-      }
-    });
-
-    const currentJobCountContainer = modal ? modal.querySelector('[data-field="current_job_count"]') : null;
-    if (currentJobCountContainer) {
-      currentJobCountContainer.classList.add('disabled');
-      currentJobCountContainer.querySelectorAll('input, select, textarea').forEach(input => {
-        input.disabled = true;
-        input.readOnly = true;
-        input.placeholder = format === '自動求人特集'
-          ? '保存後にURLから自動取得されます'
-          : '保存後に自動取得されます';
-      });
-    }
-  }
-
-  function openMasterModal(encodedRow) {
-    const row = encodedRow ? JSON.parse(decodeURIComponent(encodedRow)) : {};
-    const headers = MASTER_DATA.headers || [];
-    const visibleHeaders = getVisibleMasterHeaders(headers);
-    const form = document.getElementById('masterForm');
-    const modal = document.getElementById('masterModal');
-    const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
-    const mode = row.__rowNumber ? 'edit' : 'master';
-    const tabsContainer = modal ? modal.querySelector('.modal-tabs-container') : null;
-
-    document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
-    document.getElementById('master-row-number').value = row.__rowNumber || '';
-    if (tabsContainer) {
-      tabsContainer.hidden = isPrMaster;
-      if (isPrMaster) {
-        tabsContainer.style.setProperty('display', 'none', 'important');
-      } else {
-        tabsContainer.style.removeProperty('display');
-      }
-    }
-    if (modal) modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
-    if (modal) modal.dataset.mode = mode;
-    if (modal) modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
-
-    // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
-    const html = visibleHeaders.map(header => {
-      if (isPrMaster && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
-      if (isHiddenMasterInputHeader(header)) return '';
-
-      const key = normalizeScheduleEditKey_(header);
-      if (key === 'format') return '';
-      const value = row[key] != null ? row[key] : row[header];
-      const isFullWidth = ['mail_content', 'notes'].includes(key);
-      const input = renderMasterFieldInput_(header, key, value, mode);
-      if (input === '') return '';
-
-      return `<div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}"><label>${escapeHtml(getDisplayName(key))}</label>${input}</div>`;
-    }).join('');
-
-    form.innerHTML = html;
-
-    if (isPrMaster) {
-      const formatGroup = form.querySelector('[data-field="format"]');
-      if (formatGroup) formatGroup.style.display = 'none';
-      form.insertAdjacentHTML('beforeend', renderNewsletterSelector_(row.pr_id));
-    }
-
-    // タブの初期化とルール適用
-    populateModalFields(form, row, getModalFieldAliases_('masterModal'));
-    refreshAdminSelects_();
-    bindFormatSelects_(modal);
-
-    if (modal) {
-      const prIdField = modal.querySelector('[name="pr_id"]');
-      if (prIdField) {
-        prIdField.readOnly = true;
-        prIdField.disabled = true;
-        prIdField.placeholder = '保存時に自動採番';
-      }
-      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
-      setModalVisible_(modal, true);
-    }
-  }
-
-  function renderNewsletterSelector_(prId) {
-    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
-    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
-
-    // 現在紐付いているメルマガ名のセットを作成
-    const linkedMailNames = new Set(
-      prTargets.filter(t => String(t.pr_id) === String(prId)).map(t => String(t.mail_name))
-    );
-
-    // メルマガ一覧を mail_name でユニーク化
-    const uniqueNewsletters = [];
-    const seenNames = new Set();
-    schedule.forEach(item => {
-      const name = String(item.mail_name || '').trim();
-      if (name && !seenNames.has(name)) {
-        uniqueNewsletters.push({ name });
-        seenNames.add(name);
-      }
-    });
-
-    uniqueNewsletters.sort((a, b) => a.name.localeCompare(b.name));
-
-    return `
-      <div class="newsletter-selector">
-        <div class="newsletter-selector-header">
-          <strong>PRが入るメルマガを選択 (全${uniqueNewsletters.length}件)</strong>
-          <input type="text" class="newsletter-selector-search" placeholder="メルマガ名で検索..." oninput="filterNewsletterList_(this.value)">
-        </div>
-        <div id="newsletterList" class="newsletter-list">
-          ${uniqueNewsletters.map(nl => `
-            <label class="newsletter-item">
-              <input type="checkbox" data-target-name="${escapeAttribute(nl.name)}" ${linkedMailNames.has(nl.name) ? 'checked' : ''}>
-              <span>${escapeHtml(nl.name)}</span>
-            </label>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-
-  function filterNewsletterList_(keyword) {
-    const k = keyword.trim().toLowerCase();
-    document.querySelectorAll('#newsletterList .newsletter-item').forEach(item => {
-      const text = item.textContent.toLowerCase();
-      item.style.display = text.includes(k) ? 'flex' : 'none';
-    });
-  };
-
-  function getModalFieldAliases_(modalId) {
-    if (modalId === 'editModal') {
-      return {
-        mail_name: ['mail_name', 'block_name', 'メルマガ名'],
-        delivery_count: ['delivery_count', 'mail_count', '通数'],
-        mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
-        notes: ['notes', 'note', '備考'],
-        mail_type: ['mail_type', 'category', '種別'],
-        format: ['format', '形式'],
-        setter: ['setter', 'assignee', '設定者'],
-        checker: ['checker', 'reviewer', '確認者'],
-        is_new: ['is_new', 'new_flag', '新規']
-      };
-    }
-
-    return {
-      mail_name: ['mail_name', 'block_name', 'メルマガ名'],
-      delivery_count: ['delivery_count', 'mail_count', '通数'],
-      mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
-      notes: ['notes', 'note', '備考'],
-      mail_type: ['mail_type', 'category', '種別'],
-      format: ['format', '形式'],
-      setter: ['setter', 'assignee', '設定者'],
-      checker: ['checker', 'reviewer', '確認者'],
-      is_new: ['is_new', 'new_flag', '新規']
-    };
-  }
-
-  function populateModalFields(modal, entry, aliasMap) {
-    if (!modal || !entry) return;
-
-    modal.querySelectorAll('[name]').forEach(input => {
-      if (input.type === 'hidden') return;
-      const name = input.name;
-      const aliases = aliasMap[name] || [name];
-      const value = getValueByKeys(entry, aliases);
-      if (input.type === 'checkbox') {
-        input.checked = isTruthyValue(value);
-        return;
-      }
-      if (input.tagName === 'SELECT' && !input.options.length) {
-        input.dataset.pendingValue = value != null ? String(value) : '';
-        return;
-      }
-      input.value = value != null ? value : '';
-    });
-  }
-
-  function setModalVisible_(modal, visible) {
-    if (!modal) return;
-    modal.style.display = visible ? 'flex' : 'none';
-    modal.setAttribute('aria-hidden', visible ? 'false' : 'true');
-  }
-
-  function closeMasterModal() {
-    const modal = document.getElementById('masterModal');
-    setModalVisible_(modal, false);
-  }
-
-  function buildUniqueScheduleValues_(key) {
-    const set = new Set();
-    (APP_DATA.schedule || []).forEach(row => {
-      const v = String((row && row[key]) || '').trim();
-      if (v) set.add(v);
-    });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
-  }
-
-  function normalizeScheduleEditKey_(header) {
-    const key = String(header == null ? '' : header).trim();
-    const lower = key.toLowerCase();
-    const map = {
-      'メルマガ内容': 'mail_content',
-      '通数': 'delivery_count',
-      '設定者': 'assignee',
-      '確認者': 'reviewer',
-      '備考': 'notes',
-      '種別': 'mail_type',
-      'category': 'mail_type',
-      'サブカテゴリ': 'sub_category',
-      '形式': 'format',
-      '曜日': 'weekday',
-      '時間': 'hour',
-      '開始': 'start_date',
-      '開始日': 'start_date',
-      '終了': 'end_date',
-      '終了日': 'end_date',
-      '自動求人特集URL': 'job_url',
-      '求人URL': 'job_url',
-      '自動求人特集ID': 'auto_job_feature_id',
-      '対象年齢': 'target_age',
-      '対象現住所': 'target_address',
-      'is_new': 'is_new',
-      'new_flag': 'is_new',
-      '新規': 'is_new',
-      'サイクル': 'cycle',
-      'PR': 'pr'
-    };
-    if (map[key]) return map[key];
-    if ([
-      'schedule_id',
-      'mail_name',
-      'delivery_count',
-      'assignee',
-      'reviewer',
-      'notes',
-      'mail_type',
-      'category',
-      'sub_category',
-      'format',
-      'weekday',
-      'hour',
-      'start_date',
-      'end_date',
-      'job_url',
-      'auto_job_feature_id',
-      'target_age',
-      'target_address',
-      'is_new',
-      'cycle',
-      'pr'
-    ].includes(lower)) return lower;
-    return key;
-  }
-
-  function getScheduleEditHeaders_() {
-    // マスタ全ヘッダーを取得し、モーダル用に整理
-    return (APP_DATA.scheduleHeaders || []).filter(header => {
-      const key = normalizeScheduleEditKey_(header);
-      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed'].includes(key) &&
-        !isDeprecatedScheduleHeader(header);
-    });
-  }
-
-  function renderEditInput_(header, key, value) {
-    if (key === 'is_new' || key === 'new_flag') {
-      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_('is_new') ? 'disabled' : ''}>`;
-    }
-    return renderMasterFieldInput_(header, key, value, 'edit');
-  }
-
-  function renderEditModalFields_(entry) {
-    const container = document.getElementById('editCoreFields');
-    if (!container) return;
-
-    const excludedKeys = new Set([
-      'schedule_id',
-      'format',
-      'mail_name',
-      'assignee',
-      'reviewer'
-    ]);
-
-    container.innerHTML = getScheduleEditHeaders_().filter(header => {
-      const key = normalizeScheduleEditKey_(header);
-      return !excludedKeys.has(key);
-    }).map(header => {
-      const key = normalizeScheduleEditKey_(header);
-      const value = entry[key] != null ? entry[key] : entry[header];
-      const isFullWidth = key === 'mail_content' || key === 'notes';
-      const input = renderEditInput_(header, key, value);
-      if (input === '') return '';
-      return `
-        <div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}">
-          <label>${escapeHtml(getDisplayName(key))}</label>
-          ${input}
-        </div>
-      `;
-    }).join('');
-  }
-
-  function syncReviewerLock_() {
-    const modal = document.getElementById('editModal');
-    const assigneeEl = modal ? modal.querySelector('[name="setter"]') : null;
-    const reviewerEl = modal ? modal.querySelector('[name="checker"]') : null;
-    if (!assigneeEl || !reviewerEl) return;
-
-    const locked = CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY));
-    if (locked) {
-      reviewerEl.disabled = true;
-      return;
-    }
-
-    const assignee = String(assigneeEl.value || '').trim();
-    if (assignee === 'R') {
-      reviewerEl.value = '';
-      reviewerEl.disabled = true;
-    } else {
-      reviewerEl.disabled = false;
-    }
-  }
-
-  function collectNamedFormValues(form, options = {}) {
-    const values = {};
-    if (!form) return values;
-    const exclude = new Set(options.exclude || []);
-    const includeHidden = new Set(options.includeHidden || []);
-    form.querySelectorAll('[name]').forEach(input => {
-      if (!input.name || exclude.has(input.name)) return;
-      if (input.type === 'hidden' && !includeHidden.has(input.name)) return;
-      if (input.disabled) return;
-      values[input.name] = input.type === 'checkbox' ? input.checked : input.value;
-    });
-    return values;
-  }
-
-  function validateRequiredFields_(root) {
-    if (!root) return true;
-    const invalid = root.querySelector('select[required]:not(:disabled):invalid, input[required]:not(:disabled):invalid, textarea[required]:not(:disabled):invalid');
-    if (!invalid) return true;
-    invalid.reportValidity();
-    return false;
-  }
-
-  function normalizeMasterSubmissionPayload_(payload) {
-    if (Object.prototype.hasOwnProperty.call(payload, 'setter')) {
-      payload.assignee = payload.setter;
-      delete payload.setter;
-    }
-    if (Object.prototype.hasOwnProperty.call(payload, 'checker')) {
-      payload.reviewer = payload.checker;
-      delete payload.checker;
-    }
-    if (Object.prototype.hasOwnProperty.call(payload, 'is_new')) {
-      payload.is_new = payload.is_new ? 'TRUE' : 'FALSE';
-      delete payload.new_flag;
-    }
-    if (Object.prototype.hasOwnProperty.call(payload, 'new_flag') && !Object.prototype.hasOwnProperty.call(payload, 'is_new')) {
-      payload.is_new = payload.new_flag ? 'TRUE' : 'FALSE';
-      delete payload.new_flag;
-    }
-    return payload;
-  }
-
-  function bindEditModalInteractions_(modal) {
-    if (!modal) return;
-    bindCopyField_(modal, '[name="mail_name"]');
-    bindChangeField_(modal, '[name="setter"]', syncReviewerLock_);
-    syncReviewerLock_();
-  }
-
-  function bindCopyField_(root, selector) {
-    const field = root ? root.querySelector(selector) : null;
-    if (!field || field.dataset.copyBound) return;
-    field.dataset.copyBound = 'true';
-    field.addEventListener('click', () => copyTextToClipboard_(field.value));
-  }
-
-  function bindChangeField_(root, selector, handler) {
-    const field = root ? root.querySelector(selector) : null;
-    if (!field || field.dataset.changeBound) return;
-    field.dataset.changeBound = 'true';
-    field.addEventListener('change', handler);
-  }
-
-  function saveMasterEdit() {
-    const modal = document.getElementById('masterModal');
-    if (!validateRequiredFields_(modal)) return;
-
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '保存中...';
-    showBusy('マスタを保存中...');
-    const handlePreSaveFailure = err => {
-      alert('未保存の設定・確認状態を一括保存できなかったため、マスタ保存を中止しました: ' + (err.message || String(err)));
-      btn.disabled = false;
-      btn.textContent = '保存';
-      hideBusy();
-    };
-
-    const payload = normalizeMasterSubmissionPayload_(
-      Object.assign(
-        { __rowNumber: document.getElementById('master-row-number').value },
-        collectNamedFormValues(document.getElementById('masterModal'))
-      )
-    );
-    payload.format = document.getElementById('masterModal').dataset.format || 'フリー';
-
-    // PR管理の場合のみ、target_ids (PRが入るメルマガ) を取得して savePRData を呼ぶ
-    if (MASTER_DATA.sheetName === 'app_pr') {
-      const selectedNewsletters = [];
-      document.querySelectorAll('#newsletterList input[type="checkbox"]:checked').forEach(cb => {
-        const mailName = cb.dataset.targetName;
-        // source_row は APP_DATA.schedule から検索
-        const rowData = APP_DATA.schedule.find(s => String(s.mail_name || '').trim() === mailName);
-        selectedNewsletters.push({
-          mail_name: mailName,
-          source_row: rowData ? rowData.source_row : ''
-        });
-      });
-      payload.target_ids = selectedNewsletters.map(n => n.mail_name).join(',');
-
-      flushPendingCheckStatusesBefore(() => {
-        google.script.run
-          .withSuccessHandler(() => {
-            closeMasterModal();
-            loadActiveMaster();
-            loadData();
-            btn.disabled = false;
-            btn.textContent = '保存';
-            hideBusy();
-          })
-          .withFailureHandler(err => {
-            alert('保存に失敗しました: ' + (err.message || err));
-            btn.disabled = false;
-            btn.textContent = '保存';
-            hideBusy();
-          })
-          .savePRData(payload, selectedNewsletters);
-      }, handlePreSaveFailure);
-    } else {
-      flushPendingCheckStatusesBefore(() => {
-        google.script.run
-          .withSuccessHandler(() => {
-            closeMasterModal();
-            loadActiveMaster();
-            loadData();
-            btn.disabled = false;
-            btn.textContent = '保存';
-            hideBusy();
-          })
-          .withFailureHandler(err => {
-            alert('保存に失敗しました: ' + (err.message || err));
-            btn.disabled = false;
-            btn.textContent = '保存';
-            hideBusy();
-          })
-          .saveMasterData(MASTER_DATA.sheetName, payload);
-      }, handlePreSaveFailure);
-    }
-  }
-
-  function deleteMasterRow(rowNumber) {
-    if (!rowNumber || !confirm('この行を削除しますか？')) return;
-
-    showBusy('行を削除中...');
-    google.script.run
-      .withSuccessHandler(() => {
-        hideBusy();
-        loadActiveMaster();
-        loadData();
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        alert('削除に失敗しました: ' + (err.message || err));
-      })
-      .deleteMasterData(MASTER_DATA.sheetName, rowNumber);
-  }
-
-  function closeModal() {
-    const modal = document.getElementById('editModal');
-    setModalVisible_(modal, false);
-  }
-
-  function openModal(encodedEntry) {
-    const entry = JSON.parse(decodeURIComponent(encodedEntry));
-    const scheduleRow = (APP_DATA.schedule || []).find(row => String(row && row.schedule_id || '').trim() === String(entry && entry.schedule_id || '').trim());
-    const baseEntry = scheduleRow ? Object.assign({}, scheduleRow) : Object.assign({}, entry);
-    baseEntry.target_date = entry.target_date;
-    if (entry.hour) baseEntry.hour = entry.hour;
-    if (entry.source_row) baseEntry.source_row = entry.source_row;
-    
-    CURRENT_ENTRY_BASE = baseEntry;
-    CURRENT_ENTRY = applyOccurrenceOverrideToEntry(baseEntry);
-
-    const modal = document.getElementById('editModal');
-    if (!modal) return;
-    modal.dataset.mode = 'edit';
-
-    // 1. 追加フィールドのレンダリング
-    const editCoreFields = modal.querySelector('#editCoreFields');
-    if (editCoreFields) {
-      renderEditModalFields_(CURRENT_ENTRY);
-    }
-
-    // 2. name属性を基準としたデータ流し込み
-    populateModalFields(modal, CURRENT_ENTRY, getModalFieldAliases_('editModal'));
-    refreshAdminSelects_();
-    bindEditModalInteractions_(modal);
-
-    // 3. PR情報の表示
-    const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
-    const prContainer = modal.querySelector('#edit-pr-details');
-    if (prContainer) {
-      if (prDetails.length > 0) {
-        const prList = prDetails.map(pr => {
-          const prData = (APP_DATA.pr || []).find(p => String(p.pr_id) === String(pr.pr_id));
-          return `<div class="pr-info-item"><strong>ID:</strong> ${escapeHtml(pr.pr_id)}<br><strong>タイトル:</strong> ${escapeHtml(prData ? prData.name : '不明')}</div>`;
-        }).join('<hr>');
-        prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
-      } else {
-        prContainer.innerHTML = '<h4>紐付いているPR</h4><p>なし</p>';
-      }
-    }
-
-    // 4. タブの初期化とルール適用
-    const currentFormat = CURRENT_ENTRY.format || 'フリー';
-    window.openAndInitModalWithTab(currentFormat, 'editModal');
-    loadCommentsForCurrentEntry();
-
-    setModalVisible_(modal, true);
-  }
-
-  // モーダルごとのタブ初期化（イベントリスナー登録）
-  function initModalTabs(modalId) {
-    const modal = document.getElementById(modalId);
-    if (!modal) return;
-
-    modal.querySelectorAll('.modal-tab').forEach(tab => {
-      tab.addEventListener('click', function() {
-        if (this.dataset.locked === 'true') return;
-        setModalFormatState(modal, this.dataset.format);
-      });
-    });
-
-    bindFormatSelects_(modal);
-  }
-
-  function bindFormatSelects_(modal) {
-    if (!modal) return;
-    modal.querySelectorAll('select[name="format"]').forEach(select => {
-      if (select.dataset.formatBound === 'true') return;
-      select.dataset.formatBound = 'true';
-      select.addEventListener('change', event => {
-        setModalFormatState(modal, event.target.value);
-      });
-    });
-  }
-
-  function isModalFormatLocked_(modal) {
-    return String(modal && modal.dataset && modal.dataset.mode || '').trim() === 'edit';
-  }
-
-  function setModalFormatTabLockState(modal, locked) {
-    if (!modal) return;
-    modal.querySelectorAll('.modal-tab').forEach(tab => {
-      tab.dataset.locked = locked ? 'true' : 'false';
-      tab.setAttribute('aria-disabled', locked ? 'true' : 'false');
-      tab.tabIndex = locked ? -1 : 0;
-      tab.classList.toggle('is-locked', locked);
-    });
-  }
-
-  function setModalFormatState(modal, format) {
-    if (!modal) return;
-    const nextFormat = String(format || 'フリー');
-    modal.dataset.format = nextFormat;
-    setModalFormatTabLockState(modal, isModalFormatLocked_(modal));
-    modal.querySelectorAll('.modal-tab').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.format === nextFormat);
-    });
-    modal.querySelectorAll('[name="format"]').forEach(input => {
-      input.value = nextFormat;
-    });
-    if (modal.id === 'masterModal') {
-      if (modal.dataset.modalType !== 'pr-master') {
-        updateMasterFormFields();
-      }
-      return;
-    }
-    applyDynamicInputControl(nextFormat, modal.id);
-  }
-
-  function resetModalFieldStates_(modal) {
-    modal.querySelectorAll('.form-group').forEach(group => {
-      group.classList.remove('disabled');
-      group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
-    });
-  }
-
-  function setFieldGroupEnabled_(modal, key, enabled) {
-    const group = modal.querySelector(`[data-field="${key}"]`);
-    if (!group) return;
-    group.classList.toggle('disabled', !enabled);
-    group.querySelectorAll('input, select, textarea').forEach(input => {
-      input.disabled = !enabled;
-    });
-  }
-
-  function applyAutoJobFieldControls_(modal, isAutoJob) {
-    const shouldEnable = isAutoJob || String(modal.dataset.format || '').trim() === 'その他';
-    AUTO_JOB_CONTROL_FIELDS.forEach(key => {
-      setFieldGroupEnabled_(modal, key, shouldEnable);
-    });
-  }
-
-  function applyEditModalLockedFieldControls_(modal) {
-    EDIT_MODAL_LOCKED_FIELDS.forEach(key => {
-      setFieldGroupEnabled_(modal, key, false);
-    });
-  }
-
-  function applyCurrentJobCountControls_(modal, isAutoJob) {
-    const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
-    const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
-    if (!currentJobCountInput || !currentJobCountGroup) return;
-    currentJobCountInput.disabled = true;
-    currentJobCountInput.readOnly = true;
-    currentJobCountInput.placeholder = isAutoJob
-      ? '保存後にURLから自動取得されます'
-      : '保存後に自動取得されます';
-    currentJobCountGroup.classList.add('disabled');
-  }
-
-  function applyPrMasterControls_(modal) {
-    if (modal.dataset.modalType !== 'pr-master') return;
-    const prIdInput = modal.querySelector('[name="pr_id"]');
-    if (!prIdInput) return;
-    prIdInput.readOnly = true;
-    prIdInput.disabled = true;
-    prIdInput.placeholder = '保存時に自動採番';
-  }
-
-  // 形式ごとの入力制御
-  function applyDynamicInputControl(format, modalId) {
-    const modal = document.getElementById(modalId);
-    if (!modal) return;
-
-    const normalizedFormat = String(format || '').trim();
-    const isAutoJob = normalizedFormat === '自動求人特集';
-    resetModalFieldStates_(modal);
-    applyAutoJobFieldControls_(modal, isAutoJob);
-
-    if (modalId === 'editModal') {
-      applyEditModalLockedFieldControls_(modal);
-    }
-
-    applyCurrentJobCountControls_(modal, isAutoJob);
-    applyPrMasterControls_(modal);
-  }
-
-  function openAndInitModalWithTab(format, modalId) {
-    const modal = document.getElementById(modalId);
-    if (!modal) return;
-    setModalFormatState(modal, format);
-  }
-  function saveEdit() {
-    if (CURRENT_ENTRY && isFixed(CURRENT_ENTRY)) {
-      alert('確定済みの配信は編集できません');
-      return;
-    }
-    if (CURRENT_ENTRY && isStopped(CURRENT_ENTRY)) {
-      alert('配信停止中の配信は編集できません。再開してから編集してください。');
-      return;
-    }
-
-    const modal = document.getElementById('editModal');
-    if (!validateRequiredFields_(modal)) return;
-
-    const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
-    const itemId = getCheckItemId(CURRENT_ENTRY);
-
-    const nextValues = normalizeMasterSubmissionPayload_(
-      collectNamedFormValues(modal, { exclude: ['schedule_id', 'current_job_count'] })
-    );
-
-    if (String(nextValues.assignee || '').trim() === 'R') {
-      nextValues.reviewer = '';
-    }
-
-    const overrideFields = [];
-    const payload = {
-      item_id: itemId,
-      schedule_id: CURRENT_ENTRY.schedule_id,
-      original_date: CURRENT_ENTRY.target_date,
-      delivery_date: CURRENT_ENTRY.target_date,
-      hour: CURRENT_ENTRY.hour,
-      mail_name: CURRENT_ENTRY.mail_name
-    };
-
-    Object.keys(nextValues).forEach(key => {
-      const next = String(nextValues[key] == null ? '' : nextValues[key]);
-      const prev = String(base[key] == null ? '' : base[key]);
-      if (next !== prev) {
-        overrideFields.push(key);
-        payload[key] = next;
-      }
-    });
-    payload.override_fields = overrideFields.join(',');
-
-    showBusy('配信内容を保存中...');
-    flushPendingCheckStatusesBefore(() => {
-      google.script.run
-        .withSuccessHandler(() => {
-          hideBusy();
-          closeModal();
-          loadData();
-        })
-        .withFailureHandler(err => {
-          hideBusy();
-          alert('保存に失敗しました: ' + (err.message || err));
-        })
-        .saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
-    }, err => {
-      hideBusy();
-      alert('未保存の設定・確認状態を一括保存できなかったため、配信内容の保存を中止しました: ' + (err.message || String(err)));
-    });
-  }
-
-  function stopCurrentDelivery() {
-    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id || !CURRENT_ENTRY.target_date) return;
-    if (isFixed(CURRENT_ENTRY)) {
-      alert('確定済みの配信は停止状態を変更できません');
-      return;
-    }
-    if (!confirm('この週の配信を停止し、カレンダーをグレーアウトします。よろしいですか？')) return;
-
-    showBusy('配信停止を保存中...');
-    google.script.run
-      .withSuccessHandler(() => {
-        hideBusy();
-        setStoppedOccurrence(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date, true);
-        setEditState(false, true);
-        renderScheduleGrid();
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        alert('配信停止に失敗しました: ' + (err.message || err));
-      })
-      .stopDelivery(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
-  }
-
-  function resumeCurrentDelivery() {
-    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id || !CURRENT_ENTRY.target_date) return;
-    if (isFixed(CURRENT_ENTRY)) {
-      alert('確定済みの配信は停止状態を変更できません');
-      return;
-    }
-
-    showBusy('配信再開を保存中...');
-    google.script.run
-      .withSuccessHandler(() => {
-        hideBusy();
-        setStoppedOccurrence(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date, false);
-        setEditState(false, false);
-        renderScheduleGrid();
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        alert('配信再開に失敗しました: ' + (err.message || err));
-      })
-      .resumeDelivery(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
-  }
-
-  function loadCommentsForCurrentEntry() {
-    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id) {
-      renderComments([]);
-      return;
-    }
-
-    document.getElementById('comment-thread').innerHTML = '<div class="empty-state">コメントを読み込み中...</div>';
-    google.script.run
-      .withSuccessHandler(comments => {
-        renderComments(Array.isArray(comments) ? comments : []);
-      })
-      .withFailureHandler(err => {
-        document.getElementById('comment-thread').innerHTML =
-          '<div class="empty-state">コメントの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
-      })
-      .getCommentsByScheduleId(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
-  }
-
-  function postComment() {
-    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id) return;
-
-    const input = document.getElementById('new-comment');
-    const commentText = input.value.trim();
-    if (!commentText) return;
-
-    google.script.run
-      .withSuccessHandler(() => {
-        input.value = '';
-        incrementCommentCount(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
-        renderScheduleGrid();
-        loadCommentsForCurrentEntry();
-      })
-      .withFailureHandler(err => {
-        alert('コメントの送信に失敗しました: ' + (err.message || err));
-      })
-      .saveComment(CURRENT_ENTRY.schedule_id, commentText, CURRENT_ENTRY.target_date);
-  }
-
-  function renderComments(comments) {
-    const thread = document.getElementById('comment-thread');
-    const countLabel = document.getElementById('comment-count-label');
-    countLabel.textContent = `${comments.length}件`;
-
-    if (!comments.length) {
-      thread.innerHTML = '<div class="empty-state">コメントはまだありません。</div>';
-      return;
-    }
-
-    thread.innerHTML = comments.map(comment => `
-      <div class="comment-item">
-        <div class="comment-meta">${escapeHtml(comment.timestamp)} - ${escapeHtml(comment.user || 'ユーザー')}</div>
-        <div class="comment-text">${escapeHtml(comment.comment_text).replace(/\n/g, '<br>')}</div>
-      </div>
-    `).join('');
-    thread.scrollTop = thread.scrollHeight;
-  }
-
-  function renderCommentBadge(row) {
-    const count = getCommentCount(row);
-    return count ? `<span class="comment-badge" title="コメント ${count}件">${count}</span>` : '';
-  }
-
-  function getCommentCount(row) {
-    const scheduleId = row && row.schedule_id;
-    const targetDate = row && row.target_date;
-    const counts = APP_DATA.commentCounts || {};
-    return Number(counts[getCommentKey(scheduleId, targetDate)] || 0);
-  }
-
-  function incrementCommentCount(scheduleId, targetDate) {
-    if (!APP_DATA.commentCounts) APP_DATA.commentCounts = {};
-    const key = getCommentKey(scheduleId, targetDate);
-    APP_DATA.commentCounts[key] = Number(APP_DATA.commentCounts[key] || 0) + 1;
-  }
-
-  function getCommentKey(scheduleId, targetDate) {
-    return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
-  }
-
-  function getCheckItemId(row) {
-    return [
-      row && row.schedule_id,
-      row && row.target_date,
-    ].map(value => String(value || '').trim().replace(/\s+/g, ' ')).join('|');
-  }
-
-  function isPastDateString(dateStr) {
-    return normalizeDateString(dateStr) < formatDate(new Date());
-  }
-
-  function getArchivedOccurrenceForRow(row, dateStr) {
-    const sourceRow = row && row.source_row;
-    if (!sourceRow || !dateStr) return null;
-    return (APP_DATA.archivedOccurrences || {})[`${sourceRow}|${dateStr}`] || null;
-  }
-
-  function getArchivedOccurrencesForSlot(dateStr, hour, keyword) {
-    if (!isPastDateString(dateStr)) return [];
-    const targetHour = String(hour || '').split(':')[0].trim();
-    return Object.values(APP_DATA.archivedOccurrences || {}).filter(row => {
-      if (normalizeDateString(row && row.target_date) !== dateStr) return false;
-      if (String(row.hour || '').split(':')[0].trim() !== targetHour) return false;
-      if (!keyword) return true;
-      return [
-        row.mail_name,
-        row.weekday,
-        row.hour,
-        row.mail_type || row.category,
-        row.cycle,
-        row.format,
-        row.assignee,
-        row.reviewer,
-        row.source_sheet
-      ]
-        .map(value => String(value || '').toLowerCase())
-        .join(' ')
-        .includes(keyword);
-    });
-  }
-
-  function isArchivedDate(dateStr) {
-    const d = new Date(dateStr);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diff = (today.getTime() - d.getTime()) / DAY_MS;
-    return diff >= 14;
-  }
-
-  function renderCheckStatusCell(itemId, field, value, className, row) {
-    const active = isCheckStatusActive(itemId, field);
-    const archived = isArchivedDate(row.target_date);
-    const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
-    const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
-
-    const actionAttr = archived ? '' : 'data-action="toggle-check-status"';
-    const cursor = archived ? 'default' : 'pointer';
-
-    return `
-      <div
-        class="${className} check-status-cell ${active ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''}"
-        data-item-id="${escapeAttribute(itemId)}"
-        data-check-field="${escapeAttribute(field)}"
-        data-log-payload="${escapeAttribute(logPayload)}"
-        data-encoded-item-id="${escapeAttribute(encodedItemId)}"
-        ${actionAttr}
-        style="cursor: ${cursor}"
-        title="${archived ? '過去14日以上前のデータは編集できません' : 'クリックで赤塗りを切り替え'}"
-      >${escapeHtml(value)}</div>
-    `;
-  }
-
-  function toggleCheckStatus(event, encodedItemId, field) {
-    event.stopPropagation();
-    const itemId = decodeURIComponent(encodedItemId);
-    const nextActive = !isCheckStatusActive(itemId, field);
-    const cell = event.currentTarget;
-    const payload = parseCheckLogPayload(cell.dataset.logPayload);
-    setPendingCheckStatus(itemId, field, nextActive, payload);
-    schedulePendingCheckPersist();
-    cell.classList.toggle('is-active-red', nextActive);
-    cell.classList.toggle('is-pending-check', hasPendingCheckStatus(itemId, field));
-    updatePendingCheckSaveButton();
-  }
-
-  function buildCheckLogPayload(itemId, field, row) {
-    return {
-      item_id: itemId,
-      field,
-      schedule_id: row && row.schedule_id,
-      source_row: row && row.source_row,
-      delivery_date: row && row.target_date,
-      hour: row && row.hour,
-      mail_name: row && row.mail_name,
-      assignee: row && row.assignee,
-      reviewer: row && row.reviewer,
-      job_url: row && row.job_url,
-      current_job_count: row && row.current_job_count
-    };
-  }
-
-  function applyArchiveResult_(archive) {
-    if (!archive || !archive.source_row || !archive.target_date) return;
-    if (!APP_DATA.fixedOccurrences) APP_DATA.fixedOccurrences = {};
-    const key = `${archive.source_row}|${archive.target_date}`;
-    if (archive.archived) {
-      APP_DATA.fixedOccurrences[key] = true;
-    } else if (archive.deleted) {
-      delete APP_DATA.fixedOccurrences[key];
-    }
-  }
-
-  function parseCheckLogPayload(encodedPayload) {
-    if (!encodedPayload) return {};
-    try {
-      return JSON.parse(decodeURIComponent(encodedPayload));
-    } catch (error) {
-      return {};
-    }
-  }
-
-  function isCheckStatusActive(itemId, field) {
-    const pending = LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
-    if (pending) return !!pending.active;
-    const archivedActive = getArchivedCheckStatusActive(itemId, field);
-    if (archivedActive != null) return archivedActive;
-    if (field === 'setter' || field === 'checker') return false;
-    const statuses = APP_DATA.checkStatuses || {};
-    return !!statuses[getCheckStatusKey(itemId, field)];
-  }
-
-  function isSavedCheckStatusActive(itemId, field) {
-    const archivedActive = getArchivedCheckStatusActive(itemId, field);
-    if (archivedActive != null) return archivedActive;
-    if (field === 'setter' || field === 'checker') return false;
-    const statuses = APP_DATA.checkStatuses || {};
-    return !!statuses[getCheckStatusKey(itemId, field)];
-  }
-
-  function setLocalCheckStatus(itemId, field, active) {
-    if (!APP_DATA.checkStatuses) APP_DATA.checkStatuses = {};
-    const key = getCheckStatusKey(itemId, field);
-    if (active) {
-      APP_DATA.checkStatuses[key] = true;
-    } else {
-      delete APP_DATA.checkStatuses[key];
-    }
-    setArchivedCheckStatus(itemId, field, active);
-  }
-
-  function getArchivedCheckStatusActive(itemId, field) {
-    const row = Object.values(APP_DATA.archivedOccurrences || {}).find(item => getCheckItemId(item) === itemId);
-    if (!row) return null;
-    const key = field === 'setter' ? 'check_setter_active' : field === 'checker' ? 'check_checker_active' : '';
-    if (!key || !Object.prototype.hasOwnProperty.call(row, key)) return null;
-    return isTruthyValue(row[key]);
-  }
-
-  function setArchivedCheckStatus(itemId, field, active) {
-    const row = Object.values(APP_DATA.archivedOccurrences || {}).find(item => getCheckItemId(item) === itemId);
-    if (!row) return;
-    const key = field === 'setter' ? 'check_setter_active' : field === 'checker' ? 'check_checker_active' : '';
-    if (key) row[key] = !!active;
-  }
-
-  function isTruthyValue(value) {
-    const text = String(value == null ? '' : value).trim().toLowerCase();
-    return value === true || text === 'true' || text === '1' || text === 'yes' || text === 'y' || text === '済';
-  }
-
-  function setPendingCheckStatus(itemId, field, active, payload) {
-    const key = getCheckStatusKey(itemId, field);
-    const savedActive = isSavedCheckStatusActive(itemId, field);
-    if (savedActive === !!active) {
-      delete LOCAL_CHECK_CHANGES[key];
-      return;
-    }
-    LOCAL_CHECK_CHANGES[key] = {
-      itemId,
-      field,
-      active: !!active,
-      payload: payload || {},
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  function hasPendingCheckStatus(itemId, field) {
-    return !!LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
-  }
-
-  function getPendingCheckStatusUpdates() {
-    return Object.values(LOCAL_CHECK_CHANGES)
-      .filter(change => {
-        const assignee = String(change && change.payload && change.payload.assignee || '').trim();
-        if (assignee === 'R') return change.field === 'setter';
-        return change.field === 'checker';
-      })
-      .map(change => ({
-        itemId: change.itemId,
-        field: change.field,
-        active: !!change.active,
-        payload: change.payload || {}
-      }));
-  }
-
-  function loadPendingCheckStatuses() {
-    try {
-      const parsed = JSON.parse(localStorage.getItem(CHECK_STATUS_STORAGE_KEY) || '{}');
-      LOCAL_CHECK_CHANGES = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
-    } catch (error) {
-      LOCAL_CHECK_CHANGES = {};
-    }
-  }
-
-  function persistPendingCheckStatuses() {
-    try {
-      localStorage.setItem(CHECK_STATUS_STORAGE_KEY, JSON.stringify(LOCAL_CHECK_CHANGES));
-    } catch (error) {
-      // localStorageが使えない場合も画面上の一時状態は維持する
-    }
-  }
-
-  function schedulePendingCheckPersist() {
-    if (PENDING_CHECK_SAVE_TIMER) clearTimeout(PENDING_CHECK_SAVE_TIMER);
-    PENDING_CHECK_SAVE_TIMER = setTimeout(() => {
-      PENDING_CHECK_SAVE_TIMER = null;
-      persistPendingCheckStatuses();
-    }, 120);
-  }
-
-  function flushPendingCheckPersist() {
-    if (PENDING_CHECK_SAVE_TIMER) {
-      clearTimeout(PENDING_CHECK_SAVE_TIMER);
-      PENDING_CHECK_SAVE_TIMER = null;
-    }
-    persistPendingCheckStatuses();
-  }
-
-  function clearPendingCheckStatuses() {
-    LOCAL_CHECK_CHANGES = {};
-    if (PENDING_CHECK_SAVE_TIMER) {
-      clearTimeout(PENDING_CHECK_SAVE_TIMER);
-      PENDING_CHECK_SAVE_TIMER = null;
-    }
-    try {
-      localStorage.removeItem(CHECK_STATUS_STORAGE_KEY);
-    } catch (error) {
-      // ignore storage errors
-    }
-    updatePendingCheckSaveButton();
-  }
-
-  function updatePendingCheckSaveButton() {
-    const button = document.getElementById('saveDailyChecksButton');
-    if (!button) return;
-    const count = getPendingCheckStatusUpdates().length;
-    button.textContent = `本日の状態を一括保存（${count}）`;
-    button.disabled = count === 0;
-  }
-
-  function savePendingCheckStatuses() {
-    flushPendingCheckPersist();
-    const updates = getPendingCheckStatusUpdates();
-    if (!updates.length) {
-      updatePendingCheckSaveButton();
-      return;
-    }
-
-    showBusy('本日の状態を一括保存中...');
-    google.script.run
-      .withSuccessHandler(results => {
-        (Array.isArray(results) ? results : []).forEach(result => {
-          if (!result || !result.success) return;
-          setLocalCheckStatus(result.item_id, result.field, !!result.active);
-          applyArchiveResult_(result.archive);
-        });
-        clearPendingCheckStatuses();
-        renderScheduleGrid();
-        hideBusy();
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        persistPendingCheckStatuses();
-        updatePendingCheckSaveButton();
-        alert('一括保存に失敗しました。画面上の未保存状態は保持しています: ' + (err.message || String(err)));
-      })
-      .saveDailyCheckStatuses(updates);
-  }
-
-  function flushPendingCheckStatusesBefore(next, onFailure) {
-    flushPendingCheckPersist();
-    const updates = getPendingCheckStatusUpdates();
-    if (!updates.length) {
-      next();
-      return;
-    }
-
-    google.script.run
-      .withSuccessHandler(results => {
-        (Array.isArray(results) ? results : []).forEach(result => {
-          if (!result || !result.success) return;
-          setLocalCheckStatus(result.item_id, result.field, !!result.active);
-          applyArchiveResult_(result.archive);
-        });
-        clearPendingCheckStatuses();
-        renderScheduleGrid();
-        next();
-      })
-      .withFailureHandler(err => {
-        persistPendingCheckStatuses();
-        updatePendingCheckSaveButton();
-        if (typeof onFailure === 'function') onFailure(err);
-      })
-      .saveDailyCheckStatuses(updates);
-  }
-
-  function getCheckStatusKey(itemId, field) {
-    return `${String(itemId || '').trim()}|${String(field || '').trim()}`;
-  }
-
-  function buildAssigneeOptions() {
-    const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
-    return rows.map(row => {
-      const value = row.initial || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
-      const label = row.full_name || row.fullName || row.name || row['氏名'] || row['名前'] || value;
-      return `<option value="${escapeAttribute(value)}">${escapeHtml(value)}${label && label !== value ? ` (${escapeHtml(label)})` : ''}</option>`;
-    }).join('');
-  }
-
-  function getAdminOptionValues() {
-    const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
-    return rows
-      .map(row => {
-        const value = row.initial || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
-        const label = row.full_name || row.fullName || row.name || row['氏名'] || row['名前'] || value;
-        return value ? { value, label: label && label !== value ? `${value} (${label})` : value } : null;
-      })
-      .filter(Boolean);
-  }
-
   function loadAdminList() {
     google.script.run
       .withSuccessHandler(rows => {
@@ -2084,10 +899,11 @@
       if (nextSelected && !optionValues.some(option => option.value === nextSelected)) {
         select.insertAdjacentHTML('beforeend', `<option value="${escapeAttribute(nextSelected)}" selected>${escapeHtml(nextSelected)}</option>`);
       }
-      select.required = true;
+      select.required = select.name !== 'checker' || String(select.closest('#editModal') ? select.closest('#editModal').querySelector('[name="setter"]')?.value || '' : '').trim() !== 'R';
       select.value = nextSelected;
       delete select.dataset.pendingValue;
     });
+    if (typeof syncReviewerLock_ === 'function') syncReviewerLock_();
   }
 
   function renderSelectInput(header, currentValue, options, selectName) {
@@ -2127,7 +943,7 @@
       return { name: key, value, options: buildUniqueScheduleValues_('sub_category') };
     }
     if (key === 'cycle') {
-      return { name: key, value, options: buildUniqueScheduleValues_('cycle') };
+      return { name: key, value: normalizeCycleSelectValue_(value), options: SCHEDULE_CYCLE_OPTIONS };
     }
     if (isWeekdayHeader(header) || key === 'weekday') {
       return { name: key, value, options: WEEKDAY_OPTIONS };
@@ -2232,21 +1048,56 @@
     return `${Number(match[1])}:00`;
   }
 
+  function normalizeCycleSelectValue_(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const normalized = normalizeCycleLabel(text);
+    if (normalized === 'A') return '隔週A';
+    if (normalized === 'B') return '隔週B';
+    if (['単発', '毎日', '毎月', '月末'].includes(normalized)) return normalized;
+    const cycleNumber = extractCycleNumber(normalized);
+    if (cycleNumber != null) return `サイクル${cycleNumber}`;
+    return text;
+  }
+
   function getBgColor(row) {
     const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
     const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
     const format = String(row && row.format != null ? row.format : '').trim();
     const text = [category, cycle, format].join(' ');
-    const rowCycle = normalizeCycleLabel(cycle);
-    const rowCycleNum = extractCycleNumber(rowCycle);
+    const scheduleCycleType = getScheduleCycleType(row);
 
     if (category === 'MA') return SCHEDULE_BACKGROUND_COLORS.ma;
-    if (text.includes('毎月')) return SCHEDULE_BACKGROUND_COLORS.monthly;
-    if (text.includes('特殊') || text.includes('特段') || rowCycleNum != null) return SCHEDULE_BACKGROUND_COLORS.special;
-    if (text.includes('隔週A') || rowCycle === 'A') return SCHEDULE_BACKGROUND_COLORS.biweeklyA;
-    if (text.includes('隔週B') || rowCycle === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
+    if (scheduleCycleType === 'monthly' || scheduleCycleType === 'month_end') return SCHEDULE_BACKGROUND_COLORS.monthly;
+    if (scheduleCycleType === 'single' || typeof scheduleCycleType === 'number' || text.includes('特殊') || text.includes('特段')) return SCHEDULE_BACKGROUND_COLORS.special;
+    if (scheduleCycleType === 'A') return SCHEDULE_BACKGROUND_COLORS.biweeklyA;
+    if (scheduleCycleType === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
     if (text.includes('その他') || text.includes('検証')) return SCHEDULE_BACKGROUND_COLORS.otherCheck;
     return SCHEDULE_BACKGROUND_COLORS.weekly;
+  }
+
+  function getScheduleCycleType(row) {
+    const cycle = normalizeCycleLabel(row && row.cycle);
+    const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
+
+    if (cycle === '単発') return 'single';
+    if (cycle === '毎日') return 'daily';
+    if (cycle === '毎月') return 'monthly';
+    if (cycle === '月末') return 'month_end';
+    if (cycle === 'A' || cycle === 'B') return cycle;
+    const cycleNumber = extractCycleNumber(cycle);
+    if (cycleNumber != null) return cycleNumber;
+
+    // 旧データ互換: 種別で運用していた周期情報を読み取る。
+    if (category.includes('月末')) return 'month_end';
+    if (category.includes('毎月')) return 'monthly';
+    return 'weekly';
+  }
+
+  function isMonthlyCycleDate_(startDate, date) {
+    if (!startDate) return false;
+    const day = Number(String(startDate).slice(8, 10));
+    return Number.isFinite(day) && day > 0 && date.getDate() === day;
   }
 
   function renderScheduleLegend() {
@@ -2273,7 +1124,7 @@
     if (text.includes('特殊')) return 'is-special';
     if (text.includes('商品')) return 'is-product';
     if (text.includes('その他') || text.includes('他部署')) return 'is-others';
-    return text ? 'is-others' : '';
+    return '';
   }
 
   function isPositionMatch(row) {
@@ -2342,7 +1193,7 @@
   }
 
   function getPrState(record, targetDateString) {
-    const prId = String(record && record.pr_id != null ? record.pr_id : '').trim();
+    const prId = normalizeIdKey(record && record.pr_id);
     if (!prId) return null;
 
     const startDate = normalizeDateString(record.start_date);
@@ -2390,8 +1241,8 @@
   function getPrRecordsForSchedule(row) {
     if (!row) return [];
 
-    const scheduleId = String(getValueByKeys(row, ['schedule_id', 'id'])).trim();
-    const mailName = normalizeText(row.mail_name);
+    const scheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
+    const mailName = normalizeText(getValueByKeys(row, ['mail_name', 'メルマガ名']));
     const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr : [];
 
     // 1. target_ids (schedule_id) での紐付け (新方式)
@@ -2407,14 +1258,16 @@
     });
 
     const records = matchedPrs.map(prRow => ({
-      pr_id: getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id']),
+      pr_id: normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])),
+      pr_title: getPrTitle_(prRow),
+      pr_text: getPrText_(prRow),
       start_date: getPrStartDate_(prRow),
       end_date: getPrEndDate_(prRow)
     })).filter(record => record.pr_id);
 
     // 2. app_pr_targets からの紐付け (旧方式・互換性)
     const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
-    const prById = new Map(prRows.map(prRow => [normalizeText(getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id'])), prRow]));
+    const prById = new Map(prRows.map(prRow => [normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])), prRow]));
 
     const targetRecords = mailName ? prTargets
       .filter(target => normalizeText(getValueByKeys(target, ['mail_name', 'メルマガ内容', 'target_mail_name', '対象メルマガ'])) === mailName)
@@ -2422,23 +1275,37 @@
       .filter(Boolean) : [];
 
     // 3. schedule シートの直書き PR 列 (互換性)
-    const directPrId = getValueByKeys(row, ['pr', 'PR', 'pr_id', 'PR_ID']);
+    const directPrId = normalizeIdKey(getValueByKeys(row, ['pr', 'PR', 'PR ID', 'pr_id', 'PR_ID']));
+    const directPrRow = directPrId ? (prById.get(normalizeIdKey(directPrId)) || {}) : {};
     const directRecord = directPrId ? [{
       pr_id: directPrId,
+      pr_title: getPrTitle_(directPrRow) || getPrTitle_(row),
+      pr_text: getPrText_(directPrRow) || getPrText_(row),
       start_date: getPrStartDate_(row),
       end_date: getPrEndDate_(row)
     }] : [];
 
-    return dedupePrRecords_(records.concat(targetRecords, directRecord));
+    const normalizedTargetRecords = mailName ? prTargets
+      .filter(target => getPrTargetMailName_(target) === mailName)
+      .map(target => buildPrRecordFromTarget_(target, prById))
+      .filter(Boolean) : [];
+
+    return dedupePrRecords_(records.concat(targetRecords, normalizedTargetRecords, directRecord));
+  }
+
+  function getPrTargetMailName_(target) {
+    return normalizeText(getValueByKeys(target, ['mail_name', 'メルマガ名', '対象メルマガ', 'target_mail_name']));
   }
 
   function buildPrRecordFromTarget_(target, prById) {
-    const prId = normalizeText(getValueByKeys(target, ['pr_id', 'PR', 'pr', 'id']));
+    const prId = normalizeIdKey(getValueByKeys(target, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id']));
     if (!prId) return null;
 
     const prRow = prById.get(prId) || {};
     return {
       pr_id: prId,
+      pr_title: getPrTitle_(prRow) || getPrTitle_(target),
+      pr_text: getPrText_(prRow) || getPrText_(target),
       start_date: getPrStartDate_(prRow) || getPrStartDate_(target),
       end_date: getPrEndDate_(prRow) || getPrEndDate_(target)
     };
@@ -2448,7 +1315,7 @@
     return prRows
       .filter(prRow => Object.keys(prRow).some(key => normalizeText(prRow[key]) === mailName))
       .map(prRow => ({
-        pr_id: getValueByKeys(prRow, ['pr_id', 'PR', 'pr', 'id']),
+        pr_id: normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])),
         start_date: getPrStartDate_(prRow),
         end_date: getPrEndDate_(prRow)
       }))
@@ -2464,434 +1331,32 @@
   }
 
   function dedupePrRecords_(records) {
-    const seen = new Set();
-    return records.filter(record => {
-      const key = [record.pr_id, normalizeDateString(record.start_date), normalizeDateString(record.end_date)].join('|');
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  }
-
-  function getValueByKeys(obj, keys) {
-    for (const key of keys) {
-      if (obj && obj[key] != null && String(obj[key]).trim() !== '') return obj[key];
-    }
-    return '';
-  }
-
-  function normalizeText(value) {
-    return String(value == null ? '' : value).trim();
-  }
-
-  function getDisplayName(key) {
-    const text = String(key == null ? '' : key).trim();
-    return DISPLAY_NAMES[text] || DISPLAY_NAMES[text.toLowerCase()] || text;
-  }
-
-  function getVisibleMasterHeaders(headers) {
-    const systemHeaders = ['source_sheet', 'source_row', '元シート', '元行', 'is_inactive', '配信停止', 'schedule_action'];
-    const visible = headers.filter(header => {
-      const h = String(header).trim();
-      return !isMasterIdHeader(header) && (!systemHeaders.includes(h) || h === 'target_ids');
-    });
-    // PR管理画面では紐づいたメルマガを一覧の最後に別列表示する
-    if (MASTER_DATA.sheetName === 'app_pr' && !visible.includes('target_mails')) {
-      visible.push('target_mails');
-    }
-    return visible;
-  }
-
-  function isMasterIdHeader(header) {
-    const idHeaders = MASTER_ID_HEADERS[MASTER_DATA.sheetName] || [];
-    return idHeaders.includes(String(header || '').trim());
-  }
-
-  function getCycleInfo(date) {
-    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const base = new Date(CYCLE_BASE_DATE.getFullYear(), CYCLE_BASE_DATE.getMonth(), CYCLE_BASE_DATE.getDate());
-    const elapsedDays = Math.floor((target.getTime() - base.getTime()) / DAY_MS);
-    const diffWeeks = Math.floor(elapsedDays / 7);
-    const weekGroup = getBiweeklyCycle(diffWeeks);
-    const positionMatchCycle = getPositionMatchCycle(target);
-    return {
-      weekGroup,
-      threeWeekNum: positionMatchCycle,
-      positionMatchCycle,
-      weekLabel: `隔週${weekGroup}`,
-      threeWeekLabel: `特殊${positionMatchCycle}週目${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
-    };
-  }
-
-  function getCycleForRow(row, targetDate) {
-    const diffWeeks = getDiffWeeks(targetDate);
-    if (isPositionMatch(row)) {
-      return ((diffWeeks % 3) + 3) % 3 + 1;
-    }
-    return getBiweeklyCycle(diffWeeks);
-  }
-
-  function cycleContains(cycleValue, targetCycle) {
-    return String(cycleValue == null ? '' : cycleValue).indexOf(String(targetCycle)) !== -1;
-  }
-
-  function parseScheduleDate_(value) {
-    if (!value) return new Date();
-    if (value instanceof Date) return value;
-    const parts = String(value).split('/');
-    if (parts.length === 3) {
-      return new Date(parts[0], parts[1] - 1, parts[2]);
-    }
-    return new Date(value);
-  }
-
-  function getDiffWeeks(targetDate) {
-    // 基準日(2026-04-27月曜)を基準にすると、火曜始まり週の計算が複雑になるため、
-    // 「直近の火曜日」を基準にした週番号計算に変更する
-    const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-
-    // 火曜日を起点(0)とするためのオフセット計算
-    // 2026-04-27(月) は基準日。次の火曜は 2026-04-28。
-    // その週を第0週とする。
-    const baseTuesday = new Date(2026, 3, 28);
-    const diffDays = Math.floor((target.getTime() - baseTuesday.getTime()) / DAY_MS);
-
-    // 火曜始まりの週番号を計算
-    return Math.floor(diffDays / 7);
-  }
-
-  function getBiweeklyCycle(diffWeeks) {
-    return ((diffWeeks % 2) + 2) % 2 === 0 ? 'A' : 'B';
-  }
-
-  function getPositionMatchCycle(targetDate) {
-    const diffWeeks = getDiffWeeks(targetDate);
-    return ((diffWeeks % 3) + 3) % 3 + 1;
-  }
-
-  function getCurrentWeekNum(date) {
-    return getCycleInfo(date).threeWeekNum;
-  }
-
-  function getWeeklyGroup(date) {
-    return getCycleInfo(date).weekGroup;
-  }
-
-  function getMonthEndInfo(date) {
-    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    const windowStart = new Date(monthEnd);
-    windowStart.setDate(monthEnd.getDate() - 6);
-    const startMs = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate()).getTime();
-    const endMs = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate()).getTime();
-    return {
-      isInWindow: target.getTime() >= startMs && target.getTime() <= endMs,
-      windowStart,
-      monthEnd
-    };
-  }
-
-  function getMonthEndWindowStart(date) {
-    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-    const windowStart = new Date(monthEnd);
-    windowStart.setDate(monthEnd.getDate() - 6);
-    return windowStart;
-  }
-
-  function getHolidayDateSet() {
-    const set = new Set();
-    const holidayRows = []
-      .concat(Array.isArray(APP_DATA.japaneseHolidays) ? APP_DATA.japaneseHolidays : [])
-      .concat(Array.isArray(APP_DATA.holidays) ? APP_DATA.holidays : []);
-
-    holidayRows.forEach(row => {
-      const value = row && typeof row === 'object'
-        ? getValueByKeys(row, ['date', 'holiday_date', 'target_date', '日付', '祝日'])
-        : row;
-      const date = normalizeDateString(value);
-      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) set.add(date);
-    });
-    return set;
-  }
-
-  function jumpToCurrentWeek() {
-    const startInput = document.getElementById('startInput');
-    startInput.value = formatDateForInput(getTuesdayWeekStart(new Date()));
-    loadData();
-  }
-
-  function getTuesdayWeekStart(date) {
-    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-    const diffToTuesday = (target.getDay() + 5) % 7;
-    target.setDate(target.getDate() - diffToTuesday);
-    return target;
-  }
-
-  function setCalendarStartDate(value) {
-    if (!value) return;
-    document.getElementById('startInput').value = value;
-    loadData();
-  }
-
-  function buildDates(start, count) {
-    const dates = [];
-    for (let i = 0; i < count; i++) {
-      const date = new Date(start);
-      date.setDate(start.getDate() + i);
-      dates.push(date);
-    }
-    return dates;
-  }
-
-  function formatDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  function formatDateForInput(date) {
-    return formatDate(date);
-  }
-
-  function isDateTimeHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    return [
-      'timestamp',
-      'updated_at',
-      'confirmed_at'
-    ].includes(key) || key.includes('日時');
-  }
-
-  function isHiddenMasterInputHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    return isDeprecatedScheduleHeader(header) ||
-      key === 'is_fixed' ||
-      key === '確定済';
-  }
-
-  function isDeprecatedScheduleHeader(header) {
-    return DEPRECATED_SCHEDULE_HEADERS.includes(String(header == null ? '' : header).trim());
-  }
-
-  function isWeekdayHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'weekday' || key === '曜日';
-  }
-
-  function isFormatHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'format' || key === '形式';
-  }
-
-  function isAssigneeHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'assignee' || key === '設定者';
-  }
-
-  function isReviewerHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'reviewer' || key === '確認者';
-  }
-
-  function isDateHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    if (!key || isDateTimeHeader(key)) return false;
-    return key === 'date' ||
-      key.endsWith('_date') ||
-      key.includes('date') ||
-      key.includes('日付') ||
-      key.includes('開始') ||
-      key.includes('終了') ||
-      key.includes('期限') ||
-      key.includes('掲載日') ||
-      key.includes('配信日');
-  }
-
-  function isTimeHeader(header) {
-    const key = String(header == null ? '' : header).trim().toLowerCase();
-    return key === 'hour' || key === 'time' || key.includes('時間') || key.includes('時刻');
-  }
-
-  function normalizeDateString(value) {
-    const text = String(value == null ? '' : value).trim();
-    if (!text) return '';
-    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
-    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(text)) {
-      const parts = text.split('/');
-      return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
-    }
-    if (/^\d+(\.\d+)?$/.test(text)) {
-      const serial = Number(text);
-      if (!Number.isNaN(serial) && serial > 20000) {
-        const utc = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
-        return formatDate(utc);
+    const byId = new Map();
+    records.forEach(record => {
+      const prId = normalizeIdKey(record && record.pr_id);
+      if (!prId) return;
+      const existing = byId.get(prId);
+      if (!existing) {
+        byId.set(prId, Object.assign({}, record, { pr_id: prId }));
+        return;
       }
-    }
-    const parsed = new Date(text);
-    if (Number.isNaN(parsed.getTime())) return text;
-    return formatDate(parsed);
-  }
-
-  function normalizeDateTimeLocalString(value) {
-    const text = String(value == null ? '' : value).trim();
-    if (!text) return '';
-    const normalized = text.replace(/\//g, '-').replace(' ', 'T');
-    const match = normalized.match(/^(\d{4}-\d{1,2}-\d{1,2})T(\d{1,2}):(\d{2})/);
-    if (match) {
-      const date = normalizeDateString(match[1]);
-      return `${date}T${String(match[2]).padStart(2, '0')}:${match[3]}`;
-    }
-    const parsed = new Date(text);
-    if (Number.isNaN(parsed.getTime())) return '';
-    const hours = String(parsed.getHours()).padStart(2, '0');
-    const minutes = String(parsed.getMinutes()).padStart(2, '0');
-    return `${formatDate(parsed)}T${hours}:${minutes}`;
-  }
-
-  function normalizeTimeString(value) {
-    const text = String(value == null ? '' : value).trim();
-    if (!text) return '';
-    const match = text.match(/^(\d{1,2})(?::(\d{2}))?/);
-    if (!match) return text;
-    return `${String(match[1]).padStart(2, '0')}:${match[2] || '00'}`;
-  }
-
-  function dateStringToMs(value) {
-    const dateString = normalizeDateString(value);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return null;
-    const parts = dateString.split('-').map(Number);
-    return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
-  }
-
-  function normalizeWeekdayLabel(value) {
-    const text = String(value == null ? '' : value).trim();
-    if (!text) return '';
-    const lower = text.toLowerCase();
-    const map = {
-      sun: '日',
-      sunday: '日',
-      '日': '日',
-      mon: '月',
-      monday: '月',
-      '月': '月',
-      tue: '火',
-      tues: '火',
-      tuesday: '火',
-      '火': '火',
-      wed: '水',
-      wednesday: '水',
-      '水': '水',
-      thu: '木',
-      thur: '木',
-      thurs: '木',
-      thursday: '木',
-      '木': '木',
-      fri: '金',
-      friday: '金',
-      '金': '金',
-      sat: '土',
-      saturday: '土',
-      '土': '土'
-    };
-    return map[lower] || map[text] || text;
-  }
-
-  function normalizeCycleLabel(value) {
-    const text = String(value == null ? '' : value).trim();
-    if (!text || text === '毎週') return '';
-    if (text.includes('隔週A') || text === 'A') return 'A';
-    if (text.includes('隔週B') || text === 'B') return 'B';
-    const match = text.match(/(\d+)/);
-    return match ? String(Number(match[1])) : text;
-  }
-
-  function extractCycleNumber(value) {
-    const text = String(value == null ? '' : value).trim();
-    const match = text.match(/(\d+)/);
-    return match ? Number(match[1]) : null;
-  }
-
-  function isInactive(row) {
-    const value = String(row && row.is_inactive != null ? row.is_inactive : '').trim().toLowerCase();
-    return ['true', 'yes', '1', '停止', '配信停止'].includes(value);
-  }
-
-  function isFixed(row, targetDate) {
-    const sourceRow = row && row.source_row;
-    const date = targetDate || (row && row.target_date);
-    const fixedOccurrences = APP_DATA.fixedOccurrences || {};
-    return !!fixedOccurrences[`${sourceRow}|${date}`];
-  }
-
-  function isStopped(row, targetDate) {
-    const scheduleId = row && row.schedule_id;
-    const date = targetDate || (row && row.target_date);
-    const stoppedOccurrences = APP_DATA.stoppedOccurrences || {};
-    return !!stoppedOccurrences[getStoppedKey(scheduleId, date)];
-  }
-
-  function setStoppedOccurrence(scheduleId, targetDate, stopped) {
-    if (!APP_DATA.stoppedOccurrences) APP_DATA.stoppedOccurrences = {};
-    const key = getStoppedKey(scheduleId, targetDate);
-    if (stopped) {
-      APP_DATA.stoppedOccurrences[key] = true;
-    } else {
-      delete APP_DATA.stoppedOccurrences[key];
-    }
-  }
-
-  function getStoppedKey(scheduleId, targetDate) {
-    return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
-  }
-
-  function getMoveOverrideForDate(row, targetDate) {
-    const scheduleId = String(row && row.schedule_id || '').trim();
-    if (!scheduleId || !targetDate) return null;
-    return Object.values(APP_DATA.checkStatuses || {}).find(status => {
-      return status &&
-        typeof status === 'object' &&
-        status.field === 'move_override' &&
-        status.is_active === true &&
-        String(status.schedule_id || '').trim() === scheduleId &&
-        normalizeDateString(status.delivery_date) === targetDate;
-    }) || null;
-  }
-
-  function isMovedOriginalOccurrence(row, targetDate) {
-    const scheduleId = String(row && row.schedule_id || '').trim();
-    if (!scheduleId || !targetDate) return false;
-    return Object.values(APP_DATA.checkStatuses || {}).some(status => {
-      return status &&
-        typeof status === 'object' &&
-        status.field === 'move_override' &&
-        status.is_active === true &&
-        String(status.schedule_id || '').trim() === scheduleId &&
-        normalizeDateString(status.original_date) === targetDate;
+      byId.set(prId, {
+        pr_id: prId,
+        pr_title: existing.pr_title || record.pr_title || '',
+        pr_text: existing.pr_text || record.pr_text || '',
+        start_date: existing.start_date || record.start_date || '',
+        end_date: existing.end_date || record.end_date || ''
+      });
     });
+    return Array.from(byId.values());
   }
 
-  function getOccurrenceOverrideForItemId(itemId) {
-    const key = getCheckStatusKey(itemId, 'occurrence_override');
-    const status = (APP_DATA.checkStatuses || {})[key];
-    if (!status || typeof status !== 'object') return null;
-    if (status.field !== 'occurrence_override' || status.is_active !== true) return null;
-    return status;
+  function getPrTitle_(row) {
+    return getValueByKeys(row, ['pr_title', 'name', 'タイトル', '名称', 'PRタイトル']);
   }
 
-  function applyOccurrenceOverrideToEntry(entry) {
-    const itemId = getCheckItemId(entry);
-    const override = getOccurrenceOverrideForItemId(itemId);
-    if (!override) return entry;
-
-    const next = Object.assign({}, entry);
-    const fields = Array.isArray(override.override_fields) ? override.override_fields : [];
-    fields.forEach(key => {
-      if (Object.prototype.hasOwnProperty.call(override, key)) {
-        next[key] = override[key];
-      }
-    });
-    return next;
+  function getPrText_(row) {
+    return getValueByKeys(row, ['pr_text', 'PR本文', '本文', 'PR文面', 'content']);
   }
 
   function setEditState(fixed, stopped) {
@@ -2932,12 +1397,27 @@
       stopButton.classList.toggle('is-critical', !!jobAlert && jobAlert.level === 'critical');
     }
 
+    const statusPill = document.getElementById('delivery-status-pill');
+    if (statusPill) {
+      statusPill.classList.toggle('is-stopped', !!stopped && !fixed);
+      statusPill.classList.toggle('is-active', !stopped && !fixed);
+      statusPill.textContent = fixed
+        ? ''
+        : stopped
+          ? '配信停止中'
+          : '配信予定';
+      statusPill.style.display = fixed ? 'none' : '';
+    }
+
     let notice = document.getElementById('fixedNotice');
     if (!notice) {
       notice = document.createElement('div');
       notice.id = 'fixedNotice';
       notice.className = 'fixed-notice';
-      document.querySelector('#editModal .modal-card').insertBefore(notice, document.querySelector('#editModal .modal-actions'));
+      const modalActions = document.querySelector('#editModal .modal-actions');
+      if (modalActions && modalActions.parentNode) {
+        modalActions.parentNode.insertBefore(notice, modalActions);
+      }
     }
     notice.textContent = fixed
       ? 'この配信は確定済みのため編集できません。コメントの追加は可能です。'
@@ -3163,14 +1643,14 @@
           ids.push(id);
        }
     });
-    
+
     if (ids.length === 0) {
       alert('停止可能な配信予定がありません。');
       return;
     }
-    
+
     if (!confirm(`${dateStr} の全${ids.length}件を一括で配信停止にしますか？\n（確定済みのものは除外されます）`)) return;
-    
+
     showBusy('一括停止処理中...');
     document.getElementById('tableContainer').innerHTML = '<div class="empty-state">一括停止処理中...</div>';
     google.script.run
@@ -3188,7 +1668,7 @@
 
   function resumeAllForDay(dateStr) {
     if (!confirm(`${dateStr} の停止設定をすべて解除し、再開しますか？\n（確定済みのものは除外されます）`)) return;
-    
+
     showBusy('一括再開処理中...');
     document.getElementById('tableContainer').innerHTML = '<div class="empty-state">一括再開処理中...</div>';
     google.script.run

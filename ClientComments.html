@@ -1,0 +1,81 @@
+<script>
+  function loadCommentsForCurrentEntry() {
+    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id) {
+      renderComments([]);
+      return;
+    }
+
+    document.getElementById('comment-thread').innerHTML = '<div class="empty-state">コメントを読み込み中...</div>';
+    google.script.run
+      .withSuccessHandler(comments => {
+        renderComments(Array.isArray(comments) ? comments : []);
+      })
+      .withFailureHandler(err => {
+        document.getElementById('comment-thread').innerHTML =
+          '<div class="empty-state">コメントの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
+      })
+      .getCommentsByScheduleId(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
+  }
+
+  function postComment() {
+    if (!CURRENT_ENTRY || !CURRENT_ENTRY.schedule_id) return;
+
+    const input = document.getElementById('new-comment');
+    const commentText = input.value.trim();
+    if (!commentText) return;
+
+    google.script.run
+      .withSuccessHandler(() => {
+        input.value = '';
+        incrementCommentCount(CURRENT_ENTRY.schedule_id, CURRENT_ENTRY.target_date);
+        renderScheduleGrid();
+        loadCommentsForCurrentEntry();
+      })
+      .withFailureHandler(err => {
+        alert('コメントの送信に失敗しました: ' + (err.message || err));
+      })
+      .saveComment(CURRENT_ENTRY.schedule_id, commentText, CURRENT_ENTRY.target_date);
+  }
+
+  function renderComments(comments) {
+    const thread = document.getElementById('comment-thread');
+    const countLabel = document.getElementById('comment-count-label');
+    countLabel.textContent = `${comments.length}件`;
+
+    if (!comments.length) {
+      thread.innerHTML = '<div class="empty-state">コメントはまだありません。</div>';
+      return;
+    }
+
+    thread.innerHTML = comments.map(comment => `
+      <div class="comment-item">
+        <div class="comment-meta">${escapeHtml(comment.timestamp)} - ${escapeHtml(comment.user || 'ユーザー')}</div>
+        <div class="comment-text">${escapeHtml(comment.comment_text).replace(/\n/g, '<br>')}</div>
+      </div>
+    `).join('');
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  function renderCommentBadge(row) {
+    const count = getCommentCount(row);
+    return count ? `<span class="comment-badge" title="コメント ${count}件">${count}</span>` : '';
+  }
+
+  function getCommentCount(row) {
+    const scheduleId = row && row.schedule_id;
+    const targetDate = row && row.target_date;
+    const counts = APP_DATA.commentCounts || {};
+    return Number(counts[getCommentKey(scheduleId, targetDate)] || 0);
+  }
+
+  function incrementCommentCount(scheduleId, targetDate) {
+    if (!APP_DATA.commentCounts) APP_DATA.commentCounts = {};
+    const key = getCommentKey(scheduleId, targetDate);
+    APP_DATA.commentCounts[key] = Number(APP_DATA.commentCounts[key] || 0) + 1;
+  }
+
+  function getCommentKey(scheduleId, targetDate) {
+    return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
+  }
+
+</script>

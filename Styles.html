@@ -936,6 +936,41 @@
     margin: 0;
     font-size: 16px;
   }
+  #masterModal[data-mode="master"] .modal-card,
+  #masterModal[data-mode="edit"] .modal-card {
+    border-top: 4px solid var(--primary);
+  }
+  #masterModal[data-mode="master"] .modal-header,
+  #masterModal[data-mode="edit"] .modal-header {
+    margin: -16px -16px 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #bfdbfe;
+    background: #eff6ff;
+  }
+  #masterModal[data-mode="master"] .modal-header h2,
+  #masterModal[data-mode="edit"] .modal-header h2 {
+    color: #1d4ed8;
+  }
+  #masterModal[data-mode="master"] .form-group,
+  #masterModal[data-mode="edit"] .form-group {
+    border-left: 3px solid #bfdbfe;
+    padding-left: 8px;
+  }
+  #editModal .form-group.is-overridden {
+    border-left: 4px solid #dc2626;
+    padding-left: 8px;
+    background: #fef2f2;
+  }
+  #editModal .form-group.is-overridden label {
+    color: #991b1b;
+  }
+  #editModal .form-group.is-overridden input,
+  #editModal .form-group.is-overridden select,
+  #editModal .form-group.is-overridden textarea {
+    border-color: #f87171;
+    background: #fff7f7;
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.08);
+  }
   .modal-actions {
     display: flex;
     gap: 8px;
@@ -951,6 +986,12 @@
   }
   .pr-info-item {
     padding: 8px 0;
+  }
+  .pr-info-body {
+    margin-top: 4px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
   }
   .pr-info-item.active-pr {
     border-left: 4px solid var(--primary);
@@ -1059,6 +1100,30 @@
     border: 1px solid #9ca3af;
     background: #f9fafb;
     color: #4b5563;
+  }
+  .delivery-status-pill {
+    display: none;
+    width: fit-content;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    border: 1px solid #9ca3af;
+    border-radius: 6px;
+    background: #f9fafb;
+    color: #4b5563;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .delivery-status-pill.is-stopped {
+    display: inline-flex;
+    border-color: #6b7280;
+    background: #f3f4f6;
+    color: #374151;
+  }
+  .delivery-status-pill.is-active {
+    display: inline-flex;
+    border-color: #16a34a;
+    background: #f0fdf4;
+    color: #166534;
   }
   .modal-card.is-stopped-edit .form-group:not(.comment-input-field) {
     opacity: 0.55;

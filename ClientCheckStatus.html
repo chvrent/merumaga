@@ -1,0 +1,322 @@
+<script>
+  function getCheckItemId(row) {
+    return [
+      row && row.schedule_id,
+      row && row.target_date,
+    ].map(value => String(value || '').trim().replace(/\s+/g, ' ')).join('|');
+  }
+
+  function isPastDateString(dateStr) {
+    return normalizeDateString(dateStr) < formatDate(new Date());
+  }
+
+  function getArchivedOccurrenceForRow(row, dateStr) {
+    const sourceRow = row && row.source_row;
+    if (!sourceRow || !dateStr) return null;
+    return (APP_DATA.archivedOccurrences || {})[`${sourceRow}|${dateStr}`] || null;
+  }
+
+  function getArchivedOccurrencesForSlot(dateStr, hour, keyword) {
+    if (!isPastDateString(dateStr)) return [];
+    const targetHour = String(hour || '').split(':')[0].trim();
+    return Object.values(APP_DATA.archivedOccurrences || {}).filter(row => {
+      if (normalizeDateString(row && row.target_date) !== dateStr) return false;
+      if (String(row.hour || '').split(':')[0].trim() !== targetHour) return false;
+      if (!keyword) return true;
+      return [
+        row.mail_name,
+        row.weekday,
+        row.hour,
+        row.mail_type || row.category,
+        row.cycle,
+        row.format,
+        row.assignee,
+        row.reviewer,
+        row.source_sheet
+      ]
+        .map(value => String(value || '').toLowerCase())
+        .join(' ')
+        .includes(keyword);
+    });
+  }
+
+  function isArchivedDate(dateStr) {
+    const d = new Date(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const diff = (today.getTime() - d.getTime()) / DAY_MS;
+    return diff >= 14;
+  }
+
+  function renderCheckStatusCell(itemId, field, value, className, row) {
+    const active = isCheckStatusActive(itemId, field);
+    const archived = isArchivedDate(row.target_date);
+    const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
+    const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
+
+    const actionAttr = archived ? '' : 'data-action="toggle-check-status"';
+    const cursor = archived ? 'default' : 'pointer';
+
+    return `
+      <div
+        class="${className} check-status-cell ${active ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''}"
+        data-item-id="${escapeAttribute(itemId)}"
+        data-check-field="${escapeAttribute(field)}"
+        data-log-payload="${escapeAttribute(logPayload)}"
+        data-encoded-item-id="${escapeAttribute(encodedItemId)}"
+        ${actionAttr}
+        style="cursor: ${cursor}"
+        title="${archived ? '過去14日以上前のデータは編集できません' : 'クリックで赤塗りを切り替え'}"
+      >${escapeHtml(value)}</div>
+    `;
+  }
+
+  function toggleCheckStatus(event, encodedItemId, field) {
+    event.stopPropagation();
+    const itemId = decodeURIComponent(encodedItemId);
+    const nextActive = !isCheckStatusActive(itemId, field);
+    const cell = event.currentTarget;
+    const payload = parseCheckLogPayload(cell.dataset.logPayload);
+    setPendingCheckStatus(itemId, field, nextActive, payload);
+    schedulePendingCheckPersist();
+    cell.classList.toggle('is-active-red', nextActive);
+    cell.classList.toggle('is-pending-check', hasPendingCheckStatus(itemId, field));
+    updatePendingCheckSaveButton();
+  }
+
+  function buildCheckLogPayload(itemId, field, row) {
+    return {
+      item_id: itemId,
+      field,
+      schedule_id: row && row.schedule_id,
+      source_row: row && row.source_row,
+      delivery_date: row && row.target_date,
+      hour: row && row.hour,
+      mail_name: row && row.mail_name,
+      assignee: row && row.assignee,
+      reviewer: row && row.reviewer,
+      job_url: row && row.job_url,
+      current_job_count: row && row.current_job_count
+    };
+  }
+
+  function applyArchiveResult_(archive) {
+    if (!archive || !archive.source_row || !archive.target_date) return;
+    if (!APP_DATA.fixedOccurrences) APP_DATA.fixedOccurrences = {};
+    const key = `${archive.source_row}|${archive.target_date}`;
+    if (archive.archived) {
+      APP_DATA.fixedOccurrences[key] = true;
+    } else if (archive.deleted) {
+      delete APP_DATA.fixedOccurrences[key];
+    }
+  }
+
+  function parseCheckLogPayload(encodedPayload) {
+    if (!encodedPayload) return {};
+    try {
+      return JSON.parse(decodeURIComponent(encodedPayload));
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function isCheckStatusActive(itemId, field) {
+    const pending = LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
+    if (pending) return !!pending.active;
+    const archivedActive = getArchivedCheckStatusActive(itemId, field);
+    if (archivedActive != null) return archivedActive;
+    if (field === 'setter' || field === 'checker') return false;
+    const statuses = APP_DATA.checkStatuses || {};
+    return !!statuses[getCheckStatusKey(itemId, field)];
+  }
+
+  function isSavedCheckStatusActive(itemId, field) {
+    const archivedActive = getArchivedCheckStatusActive(itemId, field);
+    if (archivedActive != null) return archivedActive;
+    if (field === 'setter' || field === 'checker') return false;
+    const statuses = APP_DATA.checkStatuses || {};
+    return !!statuses[getCheckStatusKey(itemId, field)];
+  }
+
+  function setLocalCheckStatus(itemId, field, active) {
+    if (!APP_DATA.checkStatuses) APP_DATA.checkStatuses = {};
+    const key = getCheckStatusKey(itemId, field);
+    if (active) {
+      APP_DATA.checkStatuses[key] = true;
+    } else {
+      delete APP_DATA.checkStatuses[key];
+    }
+    setArchivedCheckStatus(itemId, field, active);
+  }
+
+  function getArchivedCheckStatusActive(itemId, field) {
+    const row = Object.values(APP_DATA.archivedOccurrences || {}).find(item => getCheckItemId(item) === itemId);
+    if (!row) return null;
+    const key = field === 'setter' ? 'check_setter_active' : field === 'checker' ? 'check_checker_active' : '';
+    if (!key || !Object.prototype.hasOwnProperty.call(row, key)) return null;
+    return isTruthyValue(row[key]);
+  }
+
+  function setArchivedCheckStatus(itemId, field, active) {
+    const row = Object.values(APP_DATA.archivedOccurrences || {}).find(item => getCheckItemId(item) === itemId);
+    if (!row) return;
+    const key = field === 'setter' ? 'check_setter_active' : field === 'checker' ? 'check_checker_active' : '';
+    if (key) row[key] = !!active;
+  }
+
+  function isTruthyValue(value) {
+    const text = String(value == null ? '' : value).trim().toLowerCase();
+    return value === true || text === 'true' || text === '1' || text === 'yes' || text === 'y' || text === '済';
+  }
+
+  function setPendingCheckStatus(itemId, field, active, payload) {
+    const key = getCheckStatusKey(itemId, field);
+    const savedActive = isSavedCheckStatusActive(itemId, field);
+    if (savedActive === !!active) {
+      delete LOCAL_CHECK_CHANGES[key];
+      return;
+    }
+    LOCAL_CHECK_CHANGES[key] = {
+      itemId,
+      field,
+      active: !!active,
+      payload: payload || {},
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function hasPendingCheckStatus(itemId, field) {
+    return !!LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
+  }
+
+  function getPendingCheckStatusUpdates() {
+    return Object.values(LOCAL_CHECK_CHANGES)
+      .filter(change => {
+        const assignee = String(change && change.payload && change.payload.assignee || '').trim();
+        if (assignee === 'R') return change.field === 'setter';
+        return change.field === 'checker';
+      })
+      .map(change => ({
+        itemId: change.itemId,
+        field: change.field,
+        active: !!change.active,
+        payload: change.payload || {}
+      }));
+  }
+
+  function loadPendingCheckStatuses() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(CHECK_STATUS_STORAGE_KEY) || '{}');
+      LOCAL_CHECK_CHANGES = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+      LOCAL_CHECK_CHANGES = {};
+    }
+  }
+
+  function persistPendingCheckStatuses() {
+    try {
+      localStorage.setItem(CHECK_STATUS_STORAGE_KEY, JSON.stringify(LOCAL_CHECK_CHANGES));
+    } catch (error) {
+      // localStorageが使えない場合も画面上の一時状態は維持する
+    }
+  }
+
+  function schedulePendingCheckPersist() {
+    if (PENDING_CHECK_SAVE_TIMER) clearTimeout(PENDING_CHECK_SAVE_TIMER);
+    PENDING_CHECK_SAVE_TIMER = setTimeout(() => {
+      PENDING_CHECK_SAVE_TIMER = null;
+      persistPendingCheckStatuses();
+    }, 120);
+  }
+
+  function flushPendingCheckPersist() {
+    if (PENDING_CHECK_SAVE_TIMER) {
+      clearTimeout(PENDING_CHECK_SAVE_TIMER);
+      PENDING_CHECK_SAVE_TIMER = null;
+    }
+    persistPendingCheckStatuses();
+  }
+
+  function clearPendingCheckStatuses() {
+    LOCAL_CHECK_CHANGES = {};
+    if (PENDING_CHECK_SAVE_TIMER) {
+      clearTimeout(PENDING_CHECK_SAVE_TIMER);
+      PENDING_CHECK_SAVE_TIMER = null;
+    }
+    try {
+      localStorage.removeItem(CHECK_STATUS_STORAGE_KEY);
+    } catch (error) {
+      // ignore storage errors
+    }
+    updatePendingCheckSaveButton();
+  }
+
+  function updatePendingCheckSaveButton() {
+    const button = document.getElementById('saveDailyChecksButton');
+    if (!button) return;
+    const count = getPendingCheckStatusUpdates().length;
+    button.textContent = `本日の状態を一括保存（${count}）`;
+    button.disabled = count === 0;
+  }
+
+  function savePendingCheckStatuses() {
+    flushPendingCheckPersist();
+    const updates = getPendingCheckStatusUpdates();
+    if (!updates.length) {
+      updatePendingCheckSaveButton();
+      return;
+    }
+
+    showBusy('本日の状態を一括保存中...');
+    google.script.run
+      .withSuccessHandler(results => {
+        (Array.isArray(results) ? results : []).forEach(result => {
+          if (!result || !result.success) return;
+          setLocalCheckStatus(result.item_id, result.field, !!result.active);
+          applyArchiveResult_(result.archive);
+        });
+        clearPendingCheckStatuses();
+        renderScheduleGrid();
+        hideBusy();
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        persistPendingCheckStatuses();
+        updatePendingCheckSaveButton();
+        alert('一括保存に失敗しました。画面上の未保存状態は保持しています: ' + (err.message || String(err)));
+      })
+      .saveDailyCheckStatuses(updates);
+  }
+
+  function flushPendingCheckStatusesBefore(next, onFailure) {
+    flushPendingCheckPersist();
+    const updates = getPendingCheckStatusUpdates();
+    if (!updates.length) {
+      next();
+      return;
+    }
+
+    google.script.run
+      .withSuccessHandler(results => {
+        (Array.isArray(results) ? results : []).forEach(result => {
+          if (!result || !result.success) return;
+          setLocalCheckStatus(result.item_id, result.field, !!result.active);
+          applyArchiveResult_(result.archive);
+        });
+        clearPendingCheckStatuses();
+        renderScheduleGrid();
+        next();
+      })
+      .withFailureHandler(err => {
+        persistPendingCheckStatuses();
+        updatePendingCheckSaveButton();
+        if (typeof onFailure === 'function') onFailure(err);
+      })
+      .saveDailyCheckStatuses(updates);
+  }
+
+  function getCheckStatusKey(itemId, field) {
+    return `${String(itemId || '').trim()}|${String(field || '').trim()}`;
+  }
+
+</script>

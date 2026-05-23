@@ -112,7 +112,7 @@
         <!-- 3. ［最下部：独自機能エリア］ -->
         <div class="modal-footer-unique">
           <div id="edit-pr-details" class="pr-info-container"></div>
-          
+
           <section class="comment-panel" aria-label="コメントスレッド">
             <div class="comment-panel-header">
               <h3>コメント</h3>
@@ -130,13 +130,14 @@
               <button type="button" class="primary-button" data-action="post-comment">送信</button>
             </div>
           </section>
-          
+
           <section class="exception-panel" aria-label="配信停止・再開">
+            <div id="delivery-status-pill" class="delivery-status-pill" aria-live="polite"></div>
             <div id="job-alert-guidance" class="job-alert-guidance" style="display:none;"></div>
             <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
             <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
           </section>
-          
+
           <div class="modal-actions">
             <button type="button" class="primary-button" data-action="save-edit">保存</button>
             <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>
@@ -169,6 +170,10 @@
     </div>
 
 
+    <?!= include('ClientUtils'); ?>
+    <?!= include('ClientComments'); ?>
+    <?!= include('ClientCheckStatus'); ?>
+    <?!= include('ClientModals'); ?>
     <?!= include('Client'); ?>
   </body>
 </html>

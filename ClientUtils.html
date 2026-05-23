@@ -1,0 +1,430 @@
+<script>
+  function getValueByKeys(obj, keys) {
+    for (const key of keys) {
+      if (obj && obj[key] != null && String(obj[key]).trim() !== '') return obj[key];
+    }
+    return '';
+  }
+
+  function normalizeText(value) {
+    return String(value == null ? '' : value).trim();
+  }
+
+  function normalizeIdKey(value) {
+    const text = normalizeText(value);
+    const numericTextMatch = text.match(/^(\d+)\.0+$/);
+    return numericTextMatch ? numericTextMatch[1] : text;
+  }
+
+  function getDisplayName(key) {
+    const text = String(key == null ? '' : key).trim();
+    return DISPLAY_NAMES[text] || DISPLAY_NAMES[text.toLowerCase()] || text;
+  }
+
+  function getVisibleMasterHeaders(headers) {
+    const systemHeaders = ['source_sheet', 'source_row', '元シート', '元行', 'is_inactive', '配信停止', 'schedule_action'];
+    const visible = headers.filter(header => {
+      const h = String(header).trim();
+      return !isMasterIdHeader(header) && (!systemHeaders.includes(h) || h === 'target_ids');
+    });
+    // PR管理画面では紐づいたメルマガを一覧の最後に別列表示する
+    if (MASTER_DATA.sheetName === 'app_pr' && !visible.includes('target_mails')) {
+      visible.push('target_mails');
+    }
+    return visible;
+  }
+
+  function isMasterIdHeader(header) {
+    const idHeaders = MASTER_ID_HEADERS[MASTER_DATA.sheetName] || [];
+    return idHeaders.includes(String(header || '').trim());
+  }
+
+  function getCycleInfo(date) {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const base = new Date(CYCLE_BASE_DATE.getFullYear(), CYCLE_BASE_DATE.getMonth(), CYCLE_BASE_DATE.getDate());
+    const elapsedDays = Math.floor((target.getTime() - base.getTime()) / DAY_MS);
+    const diffWeeks = Math.floor(elapsedDays / 7);
+    const weekGroup = getBiweeklyCycle(diffWeeks);
+    const positionMatchCycle = getPositionMatchCycle(target);
+    return {
+      weekGroup,
+      threeWeekNum: positionMatchCycle,
+      positionMatchCycle,
+      weekLabel: `隔週${weekGroup}`,
+      threeWeekLabel: `特殊${positionMatchCycle}週目${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`
+    };
+  }
+
+  function getCycleForRow(row, targetDate) {
+    const diffWeeks = getDiffWeeks(targetDate);
+    if (isPositionMatch(row)) {
+      return ((diffWeeks % 3) + 3) % 3 + 1;
+    }
+    return getBiweeklyCycle(diffWeeks);
+  }
+
+  function cycleContains(cycleValue, targetCycle) {
+    return String(cycleValue == null ? '' : cycleValue).indexOf(String(targetCycle)) !== -1;
+  }
+
+  function parseScheduleDate_(value) {
+    if (!value) return new Date();
+    if (value instanceof Date) return value;
+    const parts = String(value).split('/');
+    if (parts.length === 3) {
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+    return new Date(value);
+  }
+
+  function getDiffWeeks(targetDate) {
+    // 基準日(2026-04-27月曜)を基準にすると、火曜始まり週の計算が複雑になるため、
+    // 「直近の火曜日」を基準にした週番号計算に変更する
+    const target = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+
+    // 火曜日を起点(0)とするためのオフセット計算
+    // 2026-04-27(月) は基準日。次の火曜は 2026-04-28。
+    // その週を第0週とする。
+    const baseTuesday = new Date(2026, 3, 28);
+    const diffDays = Math.floor((target.getTime() - baseTuesday.getTime()) / DAY_MS);
+
+    // 火曜始まりの週番号を計算
+    return Math.floor(diffDays / 7);
+  }
+
+  function getBiweeklyCycle(diffWeeks) {
+    return ((diffWeeks % 2) + 2) % 2 === 0 ? 'A' : 'B';
+  }
+
+  function getPositionMatchCycle(targetDate) {
+    const diffWeeks = getDiffWeeks(targetDate);
+    return ((diffWeeks % 3) + 3) % 3 + 1;
+  }
+
+  function getCurrentWeekNum(date) {
+    return getCycleInfo(date).threeWeekNum;
+  }
+
+  function getWeeklyGroup(date) {
+    return getCycleInfo(date).weekGroup;
+  }
+
+  function getMonthEndInfo(date) {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const windowStart = new Date(monthEnd);
+    windowStart.setDate(monthEnd.getDate() - 6);
+    const startMs = new Date(windowStart.getFullYear(), windowStart.getMonth(), windowStart.getDate()).getTime();
+    const endMs = new Date(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate()).getTime();
+    return {
+      isInWindow: target.getTime() >= startMs && target.getTime() <= endMs,
+      windowStart,
+      monthEnd
+    };
+  }
+
+  function getMonthEndWindowStart(date) {
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const windowStart = new Date(monthEnd);
+    windowStart.setDate(monthEnd.getDate() - 6);
+    return windowStart;
+  }
+
+  function getHolidayDateSet() {
+    const set = new Set();
+    const holidayRows = []
+      .concat(Array.isArray(APP_DATA.japaneseHolidays) ? APP_DATA.japaneseHolidays : [])
+      .concat(Array.isArray(APP_DATA.holidays) ? APP_DATA.holidays : []);
+
+    holidayRows.forEach(row => {
+      const value = row && typeof row === 'object'
+        ? getValueByKeys(row, ['date', 'holiday_date', 'target_date', '日付', '祝日'])
+        : row;
+      const date = normalizeDateString(value);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) set.add(date);
+    });
+    return set;
+  }
+
+  function jumpToCurrentWeek() {
+    const startInput = document.getElementById('startInput');
+    startInput.value = formatDateForInput(getTuesdayWeekStart(new Date()));
+    loadData();
+  }
+
+  function getTuesdayWeekStart(date) {
+    const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffToTuesday = (target.getDay() + 5) % 7;
+    target.setDate(target.getDate() - diffToTuesday);
+    return target;
+  }
+
+  function setCalendarStartDate(value) {
+    if (!value) return;
+    document.getElementById('startInput').value = value;
+    loadData();
+  }
+
+  function buildDates(start, count) {
+    const dates = [];
+    for (let i = 0; i < count; i++) {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+      dates.push(date);
+    }
+    return dates;
+  }
+
+  function formatDate(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDateForInput(date) {
+    return formatDate(date);
+  }
+
+  function isDateTimeHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return [
+      'timestamp',
+      'updated_at',
+      'confirmed_at'
+    ].includes(key) || key.includes('日時');
+  }
+
+  function isHiddenMasterInputHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return isDeprecatedScheduleHeader(header) ||
+      key === 'is_fixed' ||
+      key === '確定済';
+  }
+
+  function isDeprecatedScheduleHeader(header) {
+    return DEPRECATED_SCHEDULE_HEADERS.includes(String(header == null ? '' : header).trim());
+  }
+
+  function isWeekdayHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'weekday' || key === '曜日';
+  }
+
+  function isFormatHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'format' || key === '形式';
+  }
+
+  function isAssigneeHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'assignee' || key === '設定者';
+  }
+
+  function isReviewerHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'reviewer' || key === '確認者';
+  }
+
+  function isDateHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    if (!key || isDateTimeHeader(key)) return false;
+    return key === 'date' ||
+      key.endsWith('_date') ||
+      key.includes('date') ||
+      key.includes('日付') ||
+      key.includes('開始') ||
+      key.includes('終了') ||
+      key.includes('期限') ||
+      key.includes('掲載日') ||
+      key.includes('配信日');
+  }
+
+  function isTimeHeader(header) {
+    const key = String(header == null ? '' : header).trim().toLowerCase();
+    return key === 'hour' || key === 'time' || key.includes('時間') || key.includes('時刻');
+  }
+
+  function normalizeDateString(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(text)) return text;
+    if (/^\d{4}\/\d{1,2}\/\d{1,2}$/.test(text)) {
+      const parts = text.split('/');
+      return `${parts[0]}-${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')}`;
+    }
+    if (/^\d+(\.\d+)?$/.test(text)) {
+      const serial = Number(text);
+      if (!Number.isNaN(serial) && serial > 20000) {
+        const utc = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+        return formatDate(utc);
+      }
+    }
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return text;
+    return formatDate(parsed);
+  }
+
+  function normalizeDateTimeLocalString(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const normalized = text.replace(/\//g, '-').replace(' ', 'T');
+    const match = normalized.match(/^(\d{4}-\d{1,2}-\d{1,2})T(\d{1,2}):(\d{2})/);
+    if (match) {
+      const date = normalizeDateString(match[1]);
+      return `${date}T${String(match[2]).padStart(2, '0')}:${match[3]}`;
+    }
+    const parsed = new Date(text);
+    if (Number.isNaN(parsed.getTime())) return '';
+    const hours = String(parsed.getHours()).padStart(2, '0');
+    const minutes = String(parsed.getMinutes()).padStart(2, '0');
+    return `${formatDate(parsed)}T${hours}:${minutes}`;
+  }
+
+  function normalizeTimeString(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const match = text.match(/^(\d{1,2})(?::(\d{2}))?/);
+    if (!match) return text;
+    return `${String(match[1]).padStart(2, '0')}:${match[2] || '00'}`;
+  }
+
+  function dateStringToMs(value) {
+    const dateString = normalizeDateString(value);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return null;
+    const parts = dateString.split('-').map(Number);
+    return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
+  }
+
+  function normalizeWeekdayLabel(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    const lower = text.toLowerCase();
+    const map = {
+      sun: '日',
+      sunday: '日',
+      '日': '日',
+      mon: '月',
+      monday: '月',
+      '月': '月',
+      tue: '火',
+      tues: '火',
+      tuesday: '火',
+      '火': '火',
+      wed: '水',
+      wednesday: '水',
+      '水': '水',
+      thu: '木',
+      thur: '木',
+      thurs: '木',
+      thursday: '木',
+      '木': '木',
+      fri: '金',
+      friday: '金',
+      '金': '金',
+      sat: '土',
+      saturday: '土',
+      '土': '土'
+    };
+    return map[lower] || map[text] || text;
+  }
+
+  function normalizeCycleLabel(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text || text === '毎週') return '';
+    if (text === '単発' || text === '毎日' || text === '毎月' || text === '月末') return text;
+    if (text.includes('隔週A') || text === 'A') return 'A';
+    if (text.includes('隔週B') || text === 'B') return 'B';
+    const match = text.match(/(\d+)/);
+    return match ? String(Number(match[1])) : text;
+  }
+
+  function extractCycleNumber(value) {
+    const text = String(value == null ? '' : value).trim();
+    const match = text.match(/(\d+)/);
+    return match ? Number(match[1]) : null;
+  }
+
+  function isInactive(row) {
+    const value = String(row && row.is_inactive != null ? row.is_inactive : '').trim().toLowerCase();
+    return ['true', 'yes', '1', '停止', '配信停止'].includes(value);
+  }
+
+  function isFixed(row, targetDate) {
+    const sourceRow = row && row.source_row;
+    const date = targetDate || (row && row.target_date);
+    const fixedOccurrences = APP_DATA.fixedOccurrences || {};
+    return !!fixedOccurrences[`${sourceRow}|${date}`];
+  }
+
+  function isStopped(row, targetDate) {
+    const scheduleId = row && row.schedule_id;
+    const date = targetDate || (row && row.target_date);
+    const stoppedOccurrences = APP_DATA.stoppedOccurrences || {};
+    return !!stoppedOccurrences[getStoppedKey(scheduleId, date)];
+  }
+
+  function setStoppedOccurrence(scheduleId, targetDate, stopped) {
+    if (!APP_DATA.stoppedOccurrences) APP_DATA.stoppedOccurrences = {};
+    const key = getStoppedKey(scheduleId, targetDate);
+    if (stopped) {
+      APP_DATA.stoppedOccurrences[key] = true;
+    } else {
+      delete APP_DATA.stoppedOccurrences[key];
+    }
+  }
+
+  function getStoppedKey(scheduleId, targetDate) {
+    return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
+  }
+
+  function getMoveOverrideForDate(row, targetDate) {
+    const scheduleId = String(row && row.schedule_id || '').trim();
+    if (!scheduleId || !targetDate) return null;
+    return Object.values(APP_DATA.checkStatuses || {}).find(status => {
+      return status &&
+        typeof status === 'object' &&
+        status.field === 'move_override' &&
+        status.is_active === true &&
+        String(status.schedule_id || '').trim() === scheduleId &&
+        normalizeDateString(status.delivery_date) === targetDate;
+    }) || null;
+  }
+
+  function isMovedOriginalOccurrence(row, targetDate) {
+    const scheduleId = String(row && row.schedule_id || '').trim();
+    if (!scheduleId || !targetDate) return false;
+    return Object.values(APP_DATA.checkStatuses || {}).some(status => {
+      return status &&
+        typeof status === 'object' &&
+        status.field === 'move_override' &&
+        status.is_active === true &&
+        String(status.schedule_id || '').trim() === scheduleId &&
+        normalizeDateString(status.original_date) === targetDate;
+    });
+  }
+
+  function getOccurrenceOverrideForItemId(itemId) {
+    const key = getCheckStatusKey(itemId, 'occurrence_override');
+    const status = (APP_DATA.checkStatuses || {})[key];
+    if (!status || typeof status !== 'object') return null;
+    if (status.field !== 'occurrence_override' || status.is_active !== true) return null;
+    return status;
+  }
+
+  function applyOccurrenceOverrideToEntry(entry) {
+    const itemId = getCheckItemId(entry);
+    const override = getOccurrenceOverrideForItemId(itemId);
+    if (!override) return entry;
+
+    const next = Object.assign({}, entry);
+    const fields = Array.isArray(override.override_fields) ? override.override_fields : [];
+    fields.forEach(key => {
+      if (Object.prototype.hasOwnProperty.call(override, key)) {
+        next[key] = override[key];
+      }
+    });
+    return next;
+  }
+
+</script>

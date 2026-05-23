@@ -1,7 +1,8 @@
 /**
  * DataService.gs
  */
-const SOURCE_SPREADSHEET_ID = '1hr-bf6g0Lhe9tuTiGHjhM9uyfKOmiQ9ZCpgD5kVdnrs';
+const DEFAULT_SOURCE_SPREADSHEET_ID = '1hr-bf6g0Lhe9tuTiGHjhM9uyfKOmiQ9ZCpgD5kVdnrs';
+const SOURCE_SPREADSHEET_ID_PROPERTY = 'SOURCE_SPREADSHEET_ID';
 const SCHEDULE_SHEET_NAME = 'app_schedule';
 const SCHEDULE_ARCHIVE_SHEET_NAME = 'app_schedule_archives';
 const COMMENTS_SHEET_NAME = 'app_comments';
@@ -15,13 +16,13 @@ const ARCHIVE_DIFF_HEADERS = ['check_setter_active', 'check_checker_active'];
 const EDITABLE_MASTER_SHEETS = ['app_schedule', 'app_pr', 'app_pr_targets'];
 const CYCLE_BASE_DATE = new Date(2026, 3, 28); // 火曜日
 const MASTER_ID_CONFIG = {
-  app_schedule: { aliases: ['schedule_id', 'id'], prefix: 'SCH' },
-  app_pr: { aliases: ['pr_id', 'PR', 'id'], prefix: 'PR' },
-  app_pr_targets: { aliases: ['pr_target_id', 'id'], prefix: 'PRT' }
+  app_schedule: { aliases: ['schedule_id', 'ID', 'id'], prefix: 'SCH' },
+  app_pr: { aliases: ['pr_id', 'PR ID', 'PR', 'ID', 'id'], prefix: '' },
+  app_pr_targets: { aliases: ['pr_target_id', '紐付けID', 'ID', 'id'], prefix: 'PRT' }
 };
 
 const PR_FIELD_ALIASES = {
-  pr_id: ['pr_id', 'PR', 'id'],
+  pr_id: ['pr_id', 'PR ID', 'PR', 'ID', 'id'],
   name: ['name', '名称', 'タイトル', '見出し', 'PRタイトル'],
   pr_text: ['pr_text', 'PR本文', '本文'],
   start_date: ['start_date', '開始日', '開始'],
@@ -29,33 +30,87 @@ const PR_FIELD_ALIASES = {
   target_ids: ['target_ids', '紐付けID', '対象ID', 'PRが入るメルマガ', '紐付けメルマガ']
 };
 
+const PR_TARGET_FIELD_ALIASES = {
+  pr_target_id: ['pr_target_id', '紐付けID', 'ID', 'id'],
+  pr_id: ['pr_id', 'PR ID', 'PR', 'ID', 'id'],
+  schedule_id: ['schedule_id', 'スケジュールID', '配信ID'],
+  mail_name: ['mail_name', 'メルマガ名', '対象メルマガ'],
+  source_row: ['source_row', '元行', '元の行'],
+  target_index: ['target_index', '表示順', '対象順']
+};
+
 const SCHEDULE_FIELD_ALIASES = {
-  schedule_id: ['schedule_id', 'id'],
+  schedule_id: ['schedule_id', 'ID', 'id'],
   mail_name: ['mail_name', 'メルマガ名'],
   mail_content: ['mail_content', 'メルマガ内容', 'メルマガ詳細内容'],
   weekday: ['weekday', '曜日'],
   hour: ['hour', '時間'],
   mail_type: ['mail_type', 'category', '種別'],
-  sub_category: ['sub_category', 'サブカテゴリ'],
+  sub_category: ['sub_category', 'サブカテゴリ', '担当部署'],
   format: ['format', '形式'],
   delivery_count: ['delivery_count', '通数'],
   assignee: ['assignee', '設定者'],
   reviewer: ['reviewer', '確認者'],
-  start_date: ['start_date', '開始'],
-  end_date: ['end_date', '終了'],
+  start_date: ['start_date', '開始日', '開始'],
+  end_date: ['end_date', '終了日', '終了'],
   pr: ['pr', 'PR'],
   notes: ['notes', '備考'],
-  job_url: ['job_url', '自動求人特集URL', '求人URL', 'URL'],
-  auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID'],
-  target_age: ['target_age', '対象年齢'],
-  target_address: ['target_address', '対象現住所'],
+  job_url: ['job_url', '自動求人特集URL', '自動求人特集_URL', '求人URL', 'URL'],
+  auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID', '自動求人特集_ID'],
+  target_age: ['target_age', '対象年齢', 'USER_年齢'],
+  target_address: ['target_address', '対象現住所', 'USER_現住所'],
+  user_desired_location: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'],
+  user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種'],
+  user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種'],
+  job_location: ['job_location', 'JOB_勤務地'],
+  job_type: ['job_type', 'JOB_職種'],
+  job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード'],
   is_new: ['is_new', 'new_flag', '新規'],
-  current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数'],
+  current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数'],
   cycle: ['cycle', 'サイクル'],
   current_week_cycle: ['current_week_cycle', '今週サイクル(内部)'],
   current_week_inactive: ['current_week_inactive', '今週非配信(内部)'],
-  is_inactive: ['is_inactive', '配信停止'],
+  is_inactive: ['is_inactive', '配信停止', '配信終了'],
   is_fixed: ['is_fixed', '確定済']
+};
+
+const CHECK_STATUS_FIELD_ALIASES = {
+  item_id: ['item_id'],
+  field: ['field'],
+  is_active: ['is_active'],
+  updated_at: ['updated_at'],
+  schedule_id: ['ID', 'schedule_id', 'id'],
+  original_date: ['original_date'],
+  delivery_date: ['delivery_date'],
+  hour: ['hour', '時間'],
+  weekday: ['weekday', '曜日'],
+  start_date: ['開始日', 'start_date', '開始'],
+  end_date: ['終了日', 'end_date', '終了'],
+  cycle: ['cycle', 'サイクル'],
+  mail_name: ['mail_name', 'メルマガ名'],
+  job_url: ['job_url', '自動求人特集URL', '自動求人特集_URL', '求人URL', 'URL'],
+  auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID', '自動求人特集_ID'],
+  target_age: ['target_age', '対象年齢', 'USER_年齢'],
+  target_address: ['target_address', '対象現住所', 'USER_現住所'],
+  user_desired_location: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'],
+  user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種'],
+  user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種'],
+  job_location: ['job_location', 'JOB_勤務地'],
+  job_type: ['job_type', 'JOB_職種'],
+  job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード'],
+  is_new: ['is_new', '新規', 'new_flag'],
+  current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数'],
+  override_fields: ['override_fields'],
+  delivery_count: ['delivery_count', '通数'],
+  assignee: ['assignee', '設定者'],
+  reviewer: ['reviewer', '確認者'],
+  notes: ['notes', '備考'],
+  category: ['category', 'mail_type', '種別'],
+  sub_category: ['sub_category', 'サブカテゴリ', '担当部署'],
+  format: ['format', '形式'],
+  pr: ['pr', 'PR', 'PR ID', 'pr_id'],
+  confirmed_by: ['confirmed_by'],
+  confirmed_at: ['confirmed_at']
 };
 const DEPRECATED_SCHEDULE_HEADERS = ['job_count_updated_at', '求人数最終取得日時'];
 
@@ -143,6 +198,7 @@ function getMasterData(sheetName) {
         if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
         obj[header || `column_${columnIndex + 1}`] = normalizeCell_(row[columnIndex]);
       });
+      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
       return obj;
     })
     .filter(row => Object.keys(row).some(key => key !== '__rowNumber' && row[key] !== ''));
@@ -160,8 +216,8 @@ function getPRData() {
   
   const targetMap = {};
   prTargets.rows.forEach(row => {
-    const prId = String(row.pr_id || '').trim();
-    const mailName = String(row.mail_name || '').trim();
+    const prId = normalizeIdKey_(getObjectFieldByAliases_(row, PR_TARGET_FIELD_ALIASES.pr_id));
+    const mailName = getObjectFieldByAliases_(row, PR_TARGET_FIELD_ALIASES.mail_name);
     if (prId && mailName) {
       if (!targetMap[prId]) targetMap[prId] = [];
       targetMap[prId].push(mailName);
@@ -169,8 +225,8 @@ function getPRData() {
   });
 
   prMaster.rows.forEach(row => {
-    const prId = String(row.pr_id || '').trim();
-    const mailNames = targetMap[prId] || [];
+    const prId = normalizeIdKey_(getObjectFieldByAliases_(row, PR_FIELD_ALIASES.pr_id));
+    const mailNames = Array.from(new Set((targetMap[prId] || []).filter(Boolean)));
     row.target_mails = mailNames.length > 0 ? mailNames.join(', ') : '(未設定)';
   });
 
@@ -225,8 +281,11 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     : headers.map(() => '');
 
   headers.forEach((header, index) => {
+    const canonicalKey = getCanonicalKeyForHeader_(safeSheetName, header);
     if (Object.prototype.hasOwnProperty.call(normalizedPayload, header)) {
       row[index] = normalizeCell_(normalizedPayload[header]);
+    } else if (canonicalKey && Object.prototype.hasOwnProperty.call(normalizedPayload, canonicalKey)) {
+      row[index] = normalizeCell_(normalizedPayload[canonicalKey]);
     }
   });
 
@@ -339,367 +398,25 @@ function migrateLegacyIdsToEnglish(dryRun) {
     pr: {}
   };
 
-  result.schedule = migrateSheetIds_(ss, 'app_schedule', ['schedule_id', 'id'], 'SCH', result.dryRun);
-  result.pr = migrateSheetIds_(ss, 'app_pr', ['pr_id', 'PR', 'id'], 'PR', result.dryRun);
+  result.schedule = migrateSheetIds_(ss, 'app_schedule', SCHEDULE_FIELD_ALIASES.schedule_id, 'SCH', result.dryRun);
+  result.pr = { skipped: true, reason: 'PR ID is an operational numeric ID and is not migrated' };
 
   if (!result.dryRun) {
-    updateReferenceIds_(ss, COMMENTS_SHEET_NAME, ['schedule_id'], result.schedule.idMap);
-    updateReferenceIds_(ss, 'app_pr_targets', ['pr_id', 'PR', 'pr', 'id'], result.pr.idMap);
+    updateReferenceIds_(ss, COMMENTS_SHEET_NAME, ['schedule_id', 'ID', 'id'], result.schedule.idMap);
+    updateReferenceIds_(ss, EXCEPTIONS_SHEET_NAME, ['schedule_id', 'ID', 'id'], result.schedule.idMap);
+    updateReferenceIds_(ss, CHECK_STATUS_SHEET_NAME, CHECK_STATUS_FIELD_ALIASES.schedule_id, result.schedule.idMap);
+    updateItemIdReferences_(ss, CHECK_STATUS_SHEET_NAME, ['item_id'], result.schedule.idMap);
+    updateReferenceIds_(ss, SCHEDULE_ARCHIVE_SHEET_NAME, SCHEDULE_FIELD_ALIASES.schedule_id, result.schedule.idMap);
   }
 
   return result;
 }
 
-function saveComment(scheduleId, commentText, targetDate, user) {
-  return withScriptLock_(() => saveCommentUnlocked_(scheduleId, commentText, targetDate, user));
-}
 
-function saveCommentUnlocked_(scheduleId, commentText, targetDate, user) {
-  const safeScheduleId = normalizeCell_(scheduleId);
-  const safeCommentText = normalizeCell_(commentText);
-  const safeTargetDate = normalizeCommentTargetDate_(targetDate);
-  if (!safeScheduleId) throw new Error('schedule_id is required');
-  if (!safeTargetDate) throw new Error('target_date is required');
-  if (!safeCommentText) throw new Error('comment_text is required');
 
-  const sheet = getCommentsSheet_();
-  const headers = getCommentHeaders_(sheet);
-  const timestamp = new Date();
-  const commenter = normalizeCell_(user) || getCurrentUserLabel_();
-  const row = headers.map(header => {
-    switch (header) {
-      case 'schedule_id':
-        return safeScheduleId;
-      case 'timestamp':
-        return timestamp;
-      case 'user':
-        return commenter;
-      case 'comment_text':
-        return safeCommentText;
-      case 'target_date':
-        return safeTargetDate;
-      default:
-        return '';
-    }
-  });
-  sheet.appendRow(row);
-  invalidateCommentCaches_(safeScheduleId, safeTargetDate);
 
-  return {
-    success: true,
-    schedule_id: safeScheduleId,
-    target_date: safeTargetDate,
-    timestamp: Utilities.formatDate(timestamp, Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm'),
-    user: commenter,
-    comment_text: safeCommentText
-  };
-}
 
-function getCommentsByScheduleId(scheduleId, targetDate) {
-  const safeScheduleId = normalizeCell_(scheduleId);
-  const safeTargetDate = normalizeCommentTargetDate_(targetDate);
-  if (!safeScheduleId) return [];
 
-  const cache = CacheService.getScriptCache();
-  const cacheKey = buildCommentsCacheKey_(safeScheduleId, safeTargetDate);
-  const cached = cache.get(cacheKey);
-  if (cached) {
-    try {
-      const parsed = JSON.parse(cached);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (error) {
-      // ignore cache parse errors
-    }
-  }
-
-  const sheet = getCommentsSheet_();
-  const values = sheet.getDataRange().getDisplayValues();
-  if (values.length < 2) return [];
-
-  const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = headers.indexOf('schedule_id');
-  const dateIndex = headers.indexOf('target_date');
-  const timestampIndex = headers.indexOf('timestamp');
-  const userIndex = headers.indexOf('user');
-  const textIndex = headers.indexOf('comment_text');
-  if (scheduleIndex < 0 || dateIndex < 0) return [];
-
-  const results = [];
-  values.slice(1).forEach(row => {
-    if (normalizeCell_(row[scheduleIndex]) !== safeScheduleId) return;
-    const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
-    if (safeTargetDate && rowDate !== safeTargetDate) return;
-    results.push({
-      schedule_id: safeScheduleId,
-      target_date: rowDate,
-      timestamp: timestampIndex >= 0 ? normalizeCell_(row[timestampIndex]) : '',
-      user: userIndex >= 0 ? normalizeCell_(row[userIndex]) : '',
-      comment_text: textIndex >= 0 ? normalizeCell_(row[textIndex]) : ''
-    });
-  });
-  results.sort((a, b) => getCommentTime_(a.timestamp) - getCommentTime_(b.timestamp));
-
-  // 1件あたりが小さい想定なので短めにキャッシュ（最新投稿はUI側でも即時反映する）
-  try {
-    cache.put(cacheKey, JSON.stringify(results), 300);
-  } catch (error) {
-    // ignore cache errors (size limits etc.)
-  }
-  return results;
-}
-
-function isStopped(scheduleId, targetDate) {
-  const key = buildStoppedOccurrenceKey_(scheduleId, targetDate);
-  if (!key) return false;
-  return !!getStoppedOccurrences_()[key];
-}
-
-function stopDelivery(scheduleId, targetDate) {
-  return withScriptLock_(() => stopDeliveryUnlocked_(scheduleId, targetDate));
-}
-
-function stopDeliveryUnlocked_(scheduleId, targetDate) {
-  const safeScheduleId = normalizeCell_(scheduleId);
-  const safeTargetDate = normalizeCommentTargetDate_(targetDate);
-  if (!safeScheduleId) throw new Error('schedule_id is required');
-  if (!safeTargetDate) throw new Error('target_date is required');
-  if (isScheduleOccurrenceFixedById_(safeScheduleId, safeTargetDate)) {
-    throw new Error('確定済みの配信日は停止できません');
-  }
-  
-  const existing = getStoppedOccurrences_();
-  if (existing[buildStoppedOccurrenceKey_(safeScheduleId, safeTargetDate)]) {
-    return { success: true, action: 'already_stopped' };
-  }
-
-  const sheet = getExceptionsSheet_();
-  const headers = getExceptionHeaders_(sheet);
-  const row = headers.map(header => {
-    switch (header) {
-      case 'schedule_id': return safeScheduleId;
-      case 'target_date': return safeTargetDate;
-      case 'status': return 'stopped';
-      default: return '';
-    }
-  });
-  sheet.appendRow(row);
-  return { success: true, action: 'stopped' };
-}
-
-function resumeDelivery(scheduleId, targetDate) {
-  return withScriptLock_(() => resumeDeliveryUnlocked_(scheduleId, targetDate));
-}
-
-function stopAllDeliveriesForDay(dateStr, scheduleIds) {
-  return withScriptLock_(() => {
-    const safeDateStr = normalizeCommentTargetDate_(dateStr);
-    if (!safeDateStr) throw new Error('日付が指定されていません');
-    if (!Array.isArray(scheduleIds) || scheduleIds.length === 0) return { success: true, count: 0 };
-
-    const sheet = getExceptionsSheet_();
-    const headers = getExceptionHeaders_(sheet);
-
-    // 既存の停止レコード（当日分）を一度だけ読み、重複書き込みを避ける
-    const existingStoppedForDay = new Set();
-    const existingValues = sheet.getDataRange().getValues();
-    if (existingValues.length >= 2) {
-      const sheetHeaders = existingValues[0].map(header => String(header || '').trim());
-      const scheduleIndex = sheetHeaders.indexOf('schedule_id');
-      const dateIndex = sheetHeaders.indexOf('target_date');
-      const statusIndex = sheetHeaders.indexOf('status');
-      if (scheduleIndex >= 0 && dateIndex >= 0) {
-        existingValues.slice(1).forEach(row => {
-          const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
-          if (rowDate !== safeDateStr) return;
-          const rowStatus = statusIndex >= 0 ? normalizeCell_(row[statusIndex]) : 'stopped';
-          if (rowStatus && rowStatus !== 'stopped') return;
-          const scheduleId = normalizeCell_(row[scheduleIndex]);
-          if (scheduleId) existingStoppedForDay.add(scheduleId);
-        });
-      }
-    }
-
-    // 確定済み（固定）判定を一括化して、IDごとのスプレッドシート走査を避ける
-    const fixedScheduleIdsForDay = buildFixedScheduleIdsForDate_(safeDateStr, scheduleIds);
-
-    const uniqueScheduleIds = Array.from(new Set(scheduleIds.map(id => normalizeCell_(id)).filter(Boolean)));
-    const rowsToAppend = [];
-    const results = [];
-    uniqueScheduleIds.forEach(scheduleId => {
-      if (existingStoppedForDay.has(scheduleId)) return;
-      if (fixedScheduleIdsForDay.has(scheduleId)) return;
-
-      const row = headers.map(header => {
-        switch (header) {
-          case 'schedule_id': return scheduleId;
-          case 'target_date': return safeDateStr;
-          case 'status': return 'stopped';
-          default: return '';
-        }
-      });
-      rowsToAppend.push(row);
-      results.push(scheduleId);
-    });
-
-    if (rowsToAppend.length) {
-      const startRow = sheet.getLastRow() + 1;
-      sheet.getRange(startRow, 1, rowsToAppend.length, headers.length).setValues(rowsToAppend);
-    }
-
-    return { success: true, stoppedIds: results, count: results.length };
-  });
-}
-
-function resumeAllDeliveriesForDay(dateStr) {
-  return withScriptLock_(() => {
-    const safeDateStr = normalizeCommentTargetDate_(dateStr);
-    if (!safeDateStr) throw new Error('日付が指定されていません');
-
-    const sheet = getExceptionsSheet_();
-    const values = sheet.getDataRange().getValues();
-    if (values.length < 2) return { success: true, deleted: 0 };
-
-    const headers = values[0].map(header => String(header || '').trim());
-    const dateIndex = headers.indexOf('target_date');
-    const statusIndex = headers.indexOf('status');
-    const scheduleIndex = headers.indexOf('schedule_id');
-
-    if (dateIndex < 0) return { success: true, deleted: 0 };
-
-    // 対象日の停止レコードだけ抽出し、確定済みは残す（固定判定も一括化）
-    const candidateScheduleIds = [];
-    for (let index = 1; index < values.length; index++) {
-      const row = values[index];
-      const rowStatus = statusIndex >= 0 ? normalizeCell_(row[statusIndex]) : 'stopped';
-      const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
-      if (rowDate !== safeDateStr) continue;
-      if (rowStatus && rowStatus !== 'stopped') continue;
-      const safeScheduleId = scheduleIndex >= 0 ? normalizeCell_(row[scheduleIndex]) : '';
-      if (safeScheduleId) candidateScheduleIds.push(safeScheduleId);
-    }
-    const fixedScheduleIdsForDay = buildFixedScheduleIdsForDate_(safeDateStr, candidateScheduleIds);
-
-    const newValues = [values[0]];
-    let deleted = 0;
-    for (let index = 1; index < values.length; index++) {
-      const row = values[index];
-      const rowStatus = statusIndex >= 0 ? normalizeCell_(row[statusIndex]) : 'stopped';
-      const rowDate = normalizeCommentTargetDate_(row[dateIndex]);
-      const safeScheduleId = scheduleIndex >= 0 ? normalizeCell_(row[scheduleIndex]) : '';
-      const isTarget = rowDate === safeDateStr && (!rowStatus || rowStatus === 'stopped');
-
-      if (isTarget && safeScheduleId && !fixedScheduleIdsForDay.has(safeScheduleId)) {
-        deleted++;
-        continue;
-      }
-      newValues.push(row);
-    }
-
-    // 書き戻し（deleteRowループを避ける）
-    sheet.clearContents();
-    sheet.getRange(1, 1, newValues.length, headers.length).setValues(newValues);
-    return { success: true, deleted };
-  });
-}
-
-function buildFixedScheduleIdsForDate_(targetDateStr, scheduleIds) {
-  const fixed = new Set();
-  const safeDateStr = normalizeCommentTargetDate_(targetDateStr);
-  if (!safeDateStr) return fixed;
-
-  const uniqueScheduleIds = Array.from(new Set((scheduleIds || []).map(id => normalizeCell_(id)).filter(Boolean)));
-  if (!uniqueScheduleIds.length) return fixed;
-
-  const targetDate = parseScheduleDate_(safeDateStr);
-  if (!targetDate) return fixed;
-  const day = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-  const dateRange = { start: day, end: day };
-
-  const fixedOccurrences = getFixedOccurrences_(dateRange);
-  if (!fixedOccurrences || Object.keys(fixedOccurrences).length === 0) return fixed;
-
-  const scheduleIdToSourceRow = buildSourceRowMapForScheduleIds_(uniqueScheduleIds);
-  uniqueScheduleIds.forEach(scheduleId => {
-    const sourceRow = scheduleIdToSourceRow[scheduleId];
-    if (!sourceRow) return;
-    if (fixedOccurrences[buildFixedOccurrenceKey_(sourceRow, safeDateStr)]) {
-      fixed.add(scheduleId);
-    }
-  });
-  return fixed;
-}
-
-function buildSourceRowMapForScheduleIds_(scheduleIds) {
-  const map = {};
-  const uniqueScheduleIds = Array.from(new Set((scheduleIds || []).map(id => normalizeCell_(id)).filter(Boolean)));
-  if (!uniqueScheduleIds.length) return map;
-
-  // "app_schedule:123" の形式は即決
-  uniqueScheduleIds.forEach(scheduleId => {
-    const match = scheduleId.match(/^app_schedule:(\\d+)$/);
-    if (match) map[scheduleId] = match[1];
-  });
-
-  const unresolved = uniqueScheduleIds.filter(id => !map[id]);
-  if (!unresolved.length) return map;
-
-  const ss = getSourceSpreadsheet_();
-  const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
-  if (!sheet) return map;
-
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return map;
-
-  const headers = values[0].map(header => String(header || '').trim());
-  const idIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.schedule_id);
-  if (idIndex == null) return map;
-
-  const unresolvedSet = new Set(unresolved);
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    const scheduleId = normalizeCell_(values[rowIndex][idIndex]);
-    if (!scheduleId || !unresolvedSet.has(scheduleId)) continue;
-    map[scheduleId] = String(rowIndex + 1);
-    unresolvedSet.delete(scheduleId);
-    if (unresolvedSet.size === 0) break;
-  }
-  return map;
-}
-
-function resumeDeliveryUnlocked_(scheduleId, targetDate) {
-  const safeScheduleId = normalizeCell_(scheduleId);
-  const safeTargetDate = normalizeCommentTargetDate_(targetDate);
-  if (!safeScheduleId) throw new Error('schedule_id is required');
-  if (!safeTargetDate) throw new Error('target_date is required');
-  if (isScheduleOccurrenceFixedById_(safeScheduleId, safeTargetDate)) {
-    throw new Error('確定済みの配信日は再開できません');
-  }
-
-  const sheet = getExceptionsSheet_();
-  const values = sheet.getDataRange().getValues();
-  if (values.length < 2) return { success: true, action: 'resumed', deleted: 0 };
-
-  const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = headers.indexOf('schedule_id');
-  const dateIndex = headers.indexOf('target_date');
-  const statusIndex = headers.indexOf('status');
-  if (scheduleIndex < 0 || dateIndex < 0) return { success: true, action: 'resumed', deleted: 0 };
-
-  let deleted = 0;
-  for (let index = values.length - 1; index >= 1; index--) {
-    const row = values[index];
-    const rowStatus = statusIndex >= 0 ? normalizeCell_(row[statusIndex]) : 'stopped';
-    if (
-      normalizeCell_(row[scheduleIndex]) === safeScheduleId &&
-      normalizeCommentTargetDate_(row[dateIndex]) === safeTargetDate &&
-      (!rowStatus || rowStatus === 'stopped')
-    ) {
-      sheet.deleteRow(index + 1);
-      deleted++;
-    }
-  }
-
-  return { success: true, action: 'resumed', deleted };
-}
 
 /**
  * ドラッグ＆ドロップによる配信日時更新（個別発生分のみの移動）
@@ -763,7 +480,7 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   
   // 1. app_pr マスタの保存
   const savedPr = saveMasterDataUnlocked_('app_pr', prPayload);
-  const prId = normalizeCell_(prPayload.pr_id) || normalizeCell_(savedPr.id);
+  const prId = normalizeIdKey_(getObjectFieldByAliases_(prPayload, PR_FIELD_ALIASES.pr_id) || normalizeCell_(savedPr.id));
   if (!prId) throw new Error('pr_id is required');
   
   // 2. app_pr_targets の一括更新
@@ -773,23 +490,24 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   const range = targetsSheet.getDataRange();
   const values = range.getValues();
   const headers = values[0].map(h => String(h).trim());
-  const prIdIndex = headers.indexOf('pr_id');
-  const mailNameIndex = headers.indexOf('mail_name');
-  const sourceRowIndex = headers.indexOf('source_row');
-  const targetIndexIndex = headers.indexOf('target_index');
-  if (prIdIndex < 0 || mailNameIndex < 0) {
-    throw new Error('app_pr_targets must have pr_id and mail_name headers');
+  const targetHeaderMap = buildHeaderMap_(headers);
+  const prIdIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.pr_id);
+  const mailNameIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.mail_name);
+  const sourceRowIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.source_row);
+  const targetIndexIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.target_index);
+  if (prIdIndex == null || mailNameIndex == null) {
+    throw new Error('app_pr_targets must have PR ID/pr_id and メルマガ名/mail_name headers');
   }
   
   // 該当する pr_id 以外を残す形でフィルタリングし、一括でセットする
-  const remainingRows = values.slice(1).filter(row => String(row[prIdIndex]).trim() !== String(prId));
+  const remainingRows = values.slice(1).filter(row => normalizeIdKey_(row[prIdIndex]) !== prId);
   
   const newRows = (targetNewsletters || []).map((nl, index) => {
     const row = new Array(headers.length).fill('');
     row[prIdIndex] = prId;
     row[mailNameIndex] = nl.mail_name;
-    if (sourceRowIndex >= 0) row[sourceRowIndex] = nl.source_row;
-    if (targetIndexIndex >= 0) row[targetIndexIndex] = index + 1;
+    if (sourceRowIndex != null) row[sourceRowIndex] = nl.source_row;
+    if (targetIndexIndex != null) row[targetIndexIndex] = index + 1;
     return row;
   });
   
@@ -1025,7 +743,8 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
   const confirmedAt = isCheckerConfirmation ? timestamp : '';
 
   return headers.map(header => {
-    switch (header) {
+    const key = getCheckStatusCanonicalKey_(header);
+    switch (key) {
       case 'item_id':
         return itemId;
       case 'field':
@@ -1060,6 +779,18 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.target_age);
       case 'target_address':
         return normalizeCell_(safePayload.target_address);
+      case 'user_desired_location':
+        return normalizeCell_(safePayload.user_desired_location);
+      case 'user_experience_job':
+        return normalizeCell_(safePayload.user_experience_job);
+      case 'user_desired_job':
+        return normalizeCell_(safePayload.user_desired_job);
+      case 'job_location':
+        return normalizeCell_(safePayload.job_location);
+      case 'job_type':
+        return normalizeCell_(safePayload.job_type);
+      case 'job_keyword':
+        return normalizeCell_(safePayload.job_keyword);
       case 'is_new':
         return normalizeCell_(safePayload.is_new);
       case 'current_job_count':
@@ -1074,8 +805,6 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.reviewer);
       case 'notes':
         return normalizeCell_(safePayload.notes);
-      case 'mail_type':
-        return normalizeCell_(safePayload.mail_type || safePayload.category);
       case 'category':
         return normalizeCell_(safePayload.mail_type || safePayload.category);
       case 'sub_category':
@@ -1089,14 +818,17 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
       case 'confirmed_at':
         return confirmedAt;
       default:
-        return '';
+        return Object.prototype.hasOwnProperty.call(safePayload, header)
+          ? normalizeCell_(safePayload[header])
+          : '';
     }
   });
 }
 
 function mergeCheckStatusRow_(headers, existingRow, nextRow) {
   return headers.map((header, index) => {
-    if ((header === 'confirmed_by' || header === 'confirmed_at') && !nextRow[index]) {
+    const key = getCheckStatusCanonicalKey_(header);
+    if ((key === 'confirmed_by' || key === 'confirmed_at') && !nextRow[index]) {
       return existingRow[index] || '';
     }
     return nextRow[index];
@@ -1367,66 +1099,12 @@ function isDateInOperationalRange_(value, dateRange) {
   return target >= dateRange.start && target <= dateRange.end;
 }
 
-function getCommentCounts_(dateRange) {
-  const cache = CacheService.getScriptCache();
-  const cacheKey = buildCommentCountsCacheKey_(dateRange);
-  if (cacheKey) {
-    const cached = cache.get(cacheKey);
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        return parsed && typeof parsed === 'object' ? parsed : {};
-      } catch (error) {
-        // ignore cache parse errors
-      }
-    }
-  }
 
-  const counts = {};
-  const sheet = getCommentsSheet_();
-  const values = sheet.getDataRange().getDisplayValues();
-  if (values.length < 2) return counts;
-
-  const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = headers.indexOf('schedule_id');
-  const dateIndex = headers.indexOf('target_date');
-  if (scheduleIndex < 0 || dateIndex < 0) return counts;
-
-  values.slice(1).forEach(row => {
-    const scheduleId = normalizeCell_(row[scheduleIndex]);
-    const targetDate = normalizeCommentTargetDate_(row[dateIndex]);
-    if (!isDateInOperationalRange_(targetDate, dateRange)) return;
-    if (!scheduleId || !targetDate) return;
-    const key = buildCommentKey_(scheduleId, targetDate);
-    counts[key] = (counts[key] || 0) + 1;
-  });
-
-  if (cacheKey) {
-    try {
-      cache.put(cacheKey, JSON.stringify(counts), 300);
-    } catch (error) {
-      // ignore cache errors
-    }
-  }
-  return counts;
-}
-
-function getStoppedOccurrences_(dateRange) {
-  const stopped = {};
-  getSheetObjects_(EXCEPTIONS_SHEET_NAME, true).forEach(exception => {
-    const scheduleId = normalizeCell_(exception.schedule_id);
-    const targetDate = normalizeCommentTargetDate_(exception.target_date);
-    if (!isDateInOperationalRange_(targetDate, dateRange)) return;
-    const status = normalizeCell_(exception.status) || 'stopped';
-    if (!scheduleId || !targetDate || status !== 'stopped') return;
-    stopped[buildStoppedOccurrenceKey_(scheduleId, targetDate)] = true;
-  });
-  return stopped;
-}
 
 function getCheckStatuses_(dateRange) {
   const statuses = {};
   getSheetObjects_(CHECK_STATUS_SHEET_NAME, true).forEach(status => {
+    addCanonicalObjectFields_(CHECK_STATUS_FIELD_ALIASES, status);
     const itemId = normalizeCell_(status.item_id);
     const field = normalizeCell_(status.field);
     if (!itemId || !field) return;
@@ -1478,69 +1156,11 @@ function getCheckStatuses_(dateRange) {
   return statuses;
 }
 
-function getCommentsSheet_() {
-  const ss = getSourceSpreadsheet_();
-  const sheet = ss.getSheetByName(COMMENTS_SHEET_NAME);
-  if (!sheet) throw new Error(`Sheet not found: ${COMMENTS_SHEET_NAME}`);
-  getCommentHeaders_(sheet);
-  return sheet;
-}
 
-function getCommentHeaders_(sheet) {
-  const requiredHeaders = ['schedule_id', 'timestamp', 'user', 'comment_text', 'target_date'];
-  const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
-  let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(header => String(header || '').trim());
 
-  if (!headers.some(Boolean)) {
-    sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
-    return requiredHeaders;
-  }
 
-  requiredHeaders.forEach(header => {
-    if (headers.indexOf(header) !== -1) return;
-    headers.push(header);
-    sheet.getRange(1, headers.length).setValue(header);
-  });
 
-  return headers;
-}
 
-function buildCommentKey_(scheduleId, targetDate) {
-  return `${normalizeCell_(scheduleId)}|${normalizeCommentTargetDate_(targetDate)}`;
-}
-
-function getExceptionsSheet_() {
-  const ss = getSourceSpreadsheet_();
-  let sheet = ss.getSheetByName(EXCEPTIONS_SHEET_NAME);
-  if (!sheet) sheet = ss.insertSheet(EXCEPTIONS_SHEET_NAME);
-  getExceptionHeaders_(sheet);
-  return sheet;
-}
-
-function getExceptionHeaders_(sheet) {
-  const requiredHeaders = ['schedule_id', 'target_date', 'status'];
-  const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
-  let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(header => String(header || '').trim());
-
-  if (!headers.some(Boolean)) {
-    sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
-    return requiredHeaders;
-  }
-
-  requiredHeaders.forEach(header => {
-    if (headers.indexOf(header) !== -1) return;
-    headers.push(header);
-    sheet.getRange(1, headers.length).setValue(header);
-  });
-
-  return headers;
-}
-
-function buildStoppedOccurrenceKey_(scheduleId, targetDate) {
-  const safeScheduleId = normalizeCell_(scheduleId);
-  const safeTargetDate = normalizeCommentTargetDate_(targetDate);
-  return safeScheduleId && safeTargetDate ? `${safeScheduleId}|${safeTargetDate}` : '';
-}
 
 function getCheckStatusSheet_() {
   const ss = getSourceSpreadsheet_();
@@ -1550,24 +1170,30 @@ function getCheckStatusSheet_() {
 }
 
 function getCheckStatusHeaders_(sheet) {
-  const requiredHeaders = [
+  const baseRequiredHeaders = [
     'item_id',
     'field',
     'is_active',
     'updated_at',
-    'schedule_id',
+    'ID',
     'original_date',
     'delivery_date',
     'hour',
     'weekday',
-    'start_date',
-    'end_date',
+    '開始日',
+    '終了日',
     'cycle',
     'mail_name',
     'job_url',
     'auto_job_feature_id',
     'target_age',
     'target_address',
+    'user_desired_location',
+    'user_experience_job',
+    'user_desired_job',
+    'job_location',
+    'job_type',
+    'job_keyword',
     'is_new',
     'current_job_count',
     'override_fields',
@@ -1577,11 +1203,20 @@ function getCheckStatusHeaders_(sheet) {
     'notes',
     'category',
     'sub_category',
+    '担当部署',
     'format',
     'pr',
     'confirmed_by',
     'confirmed_at'
   ];
+  const scheduleHeaders = getSheetHeaders_(getSourceSpreadsheet_(), SCHEDULE_SHEET_NAME)
+    .filter(header => {
+      const key = getCanonicalKeyFromAliases_(SCHEDULE_FIELD_ALIASES, header) || String(header || '').trim();
+      return key &&
+        ['schedule_id', 'id', 'source_sheet', 'source_row', 'is_fixed'].indexOf(key) === -1 &&
+        !isDeprecatedScheduleHeader(header);
+    });
+  const requiredHeaders = baseRequiredHeaders.concat(scheduleHeaders);
   const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
   let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(header => String(header || '').trim());
 
@@ -1591,7 +1226,9 @@ function getCheckStatusHeaders_(sheet) {
   }
 
   requiredHeaders.forEach(header => {
-    if (headers.indexOf(header) !== -1) return;
+    const canonicalKey = getCheckStatusCanonicalKey_(header);
+    const alreadyExists = headers.some(current => getCheckStatusCanonicalKey_(current) === canonicalKey);
+    if (alreadyExists) return;
     headers.push(header);
     sheet.getRange(1, headers.length).setValue(header);
   });
@@ -1603,15 +1240,9 @@ function buildCheckStatusKey_(itemId, field) {
   return `${normalizeCell_(itemId)}|${normalizeCell_(field)}`;
 }
 
-function normalizeCommentTargetDate_(value) {
-  const date = parseScheduleDate_(value);
-  return date ? formatDate_(date) : normalizeCell_(value);
-}
 
-function getCommentTime_(value) {
-  const time = new Date(value).getTime();
-  return Number.isNaN(time) ? 0 : time;
-}
+
+
 
 function getCurrentUserLabel_() {
   const email = Session.getActiveUser().getEmail();
@@ -1690,6 +1321,35 @@ function updateReferenceIds_(ss, sheetName, idAliases, idMap) {
     const currentId = normalizeCell_(values[rowIndex][idIndex]);
     if (Object.prototype.hasOwnProperty.call(idMap, currentId)) {
       values[rowIndex][idIndex] = idMap[currentId];
+      changed = true;
+    }
+  }
+
+  if (changed) range.setValues(values);
+}
+
+function updateItemIdReferences_(ss, sheetName, itemIdAliases, idMap) {
+  if (!idMap || !Object.keys(idMap).length) return;
+
+  const sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return;
+
+  const range = sheet.getDataRange();
+  const values = range.getValues();
+  if (!values.length) return;
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const itemIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), itemIdAliases);
+  if (itemIdIndex == null) return;
+
+  let changed = false;
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    const currentValue = normalizeCell_(values[rowIndex][itemIdIndex]);
+    const parts = currentValue.split('|');
+    const currentId = parts[0];
+    if (Object.prototype.hasOwnProperty.call(idMap, currentId)) {
+      parts[0] = idMap[currentId];
+      values[rowIndex][itemIdIndex] = parts.join('|');
       changed = true;
     }
   }
@@ -1919,19 +1579,27 @@ function ensureHeaderAtMinColumn_(sheet, headers, headerName, preferredIndex) {
 
 function isScheduleCycleActiveOnDate_(headers, row, date) {
   const category = normalizeCell_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.category));
-  if (category.indexOf('毎月') !== -1 && !getMonthEndInfo_(date).isInWindow) return false;
+  const cycleValue = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle);
+  const rowCycle = normalizeCycleLabelForBackup_(cycleValue);
+  const startDate = normalizeCommentTargetDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.start_date));
 
-  const rowCycle = normalizeCycleLabelForBackup_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle));
-  const rowCycleNum = extractCycleNumberForBackup_(rowCycle);
-
+  if (rowCycle === '単発') return !!startDate && startDate === formatDate_(date);
+  if (rowCycle === '毎日') return true;
+  if (rowCycle === '毎月') return isMonthlyCycleDateForBackup_(startDate, date);
+  if (rowCycle === '月末') return getMonthEndInfo_(date).isInWindow;
   if (rowCycle === 'A' || rowCycle === 'B') {
     return rowCycle === getCycleForScheduleRow_(headers, row, date);
   }
+  const rowCycleNum = extractCycleNumberForBackup_(rowCycle);
   if (rowCycleNum != null) {
     const expectedCycle = getCycleForScheduleRow_(headers, row, date);
     if (typeof expectedCycle !== 'number') return false;
-    return cycleContainsForBackup_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle), expectedCycle);
+    return cycleContainsForBackup_(cycleValue, expectedCycle);
   }
+
+  // 旧データ互換: 種別で運用していた周期情報を読み取る。
+  if (category.indexOf('月末') !== -1) return getMonthEndInfo_(date).isInWindow;
+  if (category.indexOf('毎月') !== -1 && !getMonthEndInfo_(date).isInWindow) return false;
   return !rowCycle || rowCycle === '毎週';
 }
 
@@ -1947,10 +1615,17 @@ function isPositionMatchForBackup_(headers, row) {
 function normalizeCycleLabelForBackup_(value) {
   const text = normalizeCell_(value);
   if (!text || text === '毎週') return '';
+  if (text === '単発' || text === '毎日' || text === '毎月' || text === '月末') return text;
   if (text.indexOf('隔週A') !== -1 || text === 'A') return 'A';
   if (text.indexOf('隔週B') !== -1 || text === 'B') return 'B';
   const match = text.match(/(\d+)/);
   return match ? String(Number(match[1])) : text;
+}
+
+function isMonthlyCycleDateForBackup_(startDate, date) {
+  if (!startDate) return false;
+  const day = Number(String(startDate).slice(8, 10));
+  return Number.isFinite(day) && day > 0 && date.getDate() === day;
 }
 
 function extractCycleNumberForBackup_(value) {
@@ -2104,7 +1779,7 @@ function generateNextMasterId_(sheetName, values, idIndex) {
 
   let maxNumber = 0;
   const prefixPattern = sheetName === 'app_pr'
-    ? /^PR\[(\d+)\]$/i
+    ? /^(\d+)(?:\.0+)?$/
     : new RegExp(`^${config.prefix}_(\\d+)$`);
   values.slice(1).forEach(row => {
     const value = normalizeCell_(row[idIndex]);
@@ -2113,7 +1788,7 @@ function generateNextMasterId_(sheetName, values, idIndex) {
   });
 
   return sheetName === 'app_pr'
-    ? `PR[${maxNumber + 1}]`
+    ? String(maxNumber + 1)
     : `${config.prefix}_${String(maxNumber + 1).padStart(3, '0')}`;
 }
 
@@ -2159,6 +1834,12 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     auto_job_feature_id: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.auto_job_feature_id),
     target_age: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_age),
     target_address: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_address),
+    user_desired_location: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_desired_location),
+    user_experience_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_experience_job),
+    user_desired_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_desired_job),
+    job_location: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_location),
+    job_type: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_type),
+    job_keyword: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_keyword),
     is_new: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_new),
     current_job_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_job_count),
     current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),
@@ -2235,6 +1916,7 @@ function getSheetObjects_(sheetName, allowMissing = false) {
         if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
         obj[header] = normalizeCell_(row[index]);
       });
+      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
       return obj;
     });
 }
@@ -2374,6 +2056,65 @@ function buildHeaderMap_(headers) {
   return new Map(headers.map((header, index) => [String(header).trim(), index]));
 }
 
+function getMasterFieldAliases_(sheetName) {
+  switch (String(sheetName || '').trim()) {
+    case SCHEDULE_SHEET_NAME:
+      return SCHEDULE_FIELD_ALIASES;
+    case 'app_pr':
+      return PR_FIELD_ALIASES;
+    case 'app_pr_targets':
+      return PR_TARGET_FIELD_ALIASES;
+    default:
+      return null;
+  }
+}
+
+function getCanonicalKeyForHeader_(sheetName, header) {
+  const aliasesByKey = getMasterFieldAliases_(sheetName);
+  const safeHeader = String(header || '').trim();
+  if (!aliasesByKey || !safeHeader) return '';
+  for (const key in aliasesByKey) {
+    if (aliasesByKey[key].indexOf(safeHeader) !== -1) return key;
+  }
+  return '';
+}
+
+function getCanonicalKeyFromAliases_(aliasesByKey, header) {
+  const safeHeader = String(header || '').trim();
+  if (!aliasesByKey || !safeHeader) return '';
+  for (const key in aliasesByKey) {
+    if (aliasesByKey[key].indexOf(safeHeader) !== -1) return key;
+  }
+  return '';
+}
+
+function getCheckStatusCanonicalKey_(header) {
+  return getCanonicalKeyFromAliases_(CHECK_STATUS_FIELD_ALIASES, header) || String(header || '').trim();
+}
+
+function addCanonicalMasterFields_(sheetName, headers, row, obj) {
+  const aliasesByKey = getMasterFieldAliases_(sheetName);
+  if (!aliasesByKey || !obj) return obj;
+  Object.keys(aliasesByKey).forEach(key => {
+    const value = getFieldByAliases_(headers, row, aliasesByKey[key]);
+    if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
+      obj[key] = value;
+    }
+  });
+  return obj;
+}
+
+function addCanonicalObjectFields_(aliasesByKey, obj) {
+  if (!aliasesByKey || !obj) return obj;
+  Object.keys(aliasesByKey).forEach(key => {
+    const value = getObjectFieldByAliases_(obj, aliasesByKey[key]);
+    if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
+      obj[key] = value;
+    }
+  });
+  return obj;
+}
+
 function firstExistingHeaderIndex_(headerMap, aliases) {
   for (const alias of aliases) {
     const index = headerMap.get(alias);
@@ -2393,43 +2134,34 @@ function getFieldByAliases_(headers, row, aliases) {
   return '';
 }
 
+function getObjectFieldByAliases_(obj, aliases) {
+  if (!obj) return '';
+  for (const alias of aliases) {
+    if (Object.prototype.hasOwnProperty.call(obj, alias)) {
+      const value = normalizeCell_(obj[alias]);
+      if (value !== '') return value;
+    }
+  }
+  return '';
+}
+
+function normalizeIdKey_(value) {
+  const text = normalizeCell_(value);
+  const numericTextMatch = text.match(/^(\d+)\.0+$/);
+  return numericTextMatch ? numericTextMatch[1] : text;
+}
+
 function normalizeCell_(value) {
   if (value == null) return '';
   const text = String(value).trim();
   return text === '#REF!' || text === '#VALUE!' ? '' : text;
 }
 
-function buildCommentsCacheKey_(scheduleId, targetDate) {
-  const safeScheduleId = normalizeCell_(scheduleId);
-  const safeTargetDate = normalizeCommentTargetDate_(targetDate) || '';
-  if (!safeScheduleId) return '';
-  return `comments:${safeScheduleId}:${safeTargetDate || '*'}`;
-}
 
-function buildCommentCountsCacheKey_(dateRange) {
-  if (!dateRange || !dateRange.start || !dateRange.end) return '';
-  const start = formatDate_(dateRange.start);
-  const end = formatDate_(dateRange.end);
-  if (!start || !end) return '';
-  return `commentCounts:${start}:${end}`;
-}
 
-function invalidateCommentCaches_(scheduleId, targetDate) {
-  try {
-    const cache = CacheService.getScriptCache();
-    const keys = [];
-    const safeScheduleId = normalizeCell_(scheduleId);
-    const safeTargetDate = normalizeCommentTargetDate_(targetDate);
-    if (safeScheduleId) {
-      keys.push(buildCommentsCacheKey_(safeScheduleId, safeTargetDate));
-      keys.push(buildCommentsCacheKey_(safeScheduleId, '')); // schedule_idのみの一覧も想定
-    }
-    if (keys.length) cache.removeAll(keys);
-    // commentCounts は範囲キーなので特定できない。短TTL(5分)で自然更新させる。
-  } catch (error) {
-    // ignore cache errors
-  }
-}
+
+
+
 
 function getJsonCache_(key) {
   try {
@@ -2480,5 +2212,44 @@ function withScriptLock_(callback) {
 }
 
 function getSourceSpreadsheet_() {
-  return SpreadsheetApp.openById(SOURCE_SPREADSHEET_ID);
+  return SpreadsheetApp.openById(getSourceSpreadsheetId_());
+}
+
+function getSourceSpreadsheetId_() {
+  return PropertiesService.getScriptProperties().getProperty(SOURCE_SPREADSHEET_ID_PROPERTY)
+    || DEFAULT_SOURCE_SPREADSHEET_ID;
+}
+
+function setSourceSpreadsheetIdForEnvironment(spreadsheetId) {
+  if (!spreadsheetId || typeof spreadsheetId !== 'string') {
+    throw new Error('spreadsheetId is required.');
+  }
+
+  PropertiesService.getScriptProperties().setProperty(
+    SOURCE_SPREADSHEET_ID_PROPERTY,
+    spreadsheetId.trim()
+  );
+
+  return {
+    sourceSpreadsheetId: getSourceSpreadsheetId_()
+  };
+}
+
+function copySourceSpreadsheetForStaging(copyName) {
+  const name = copyName || `mail-magazine-maker staging ${Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyyMMdd-HHmm')}`;
+  const copiedSpreadsheet = getSourceSpreadsheet_().copy(name);
+
+  return {
+    id: copiedSpreadsheet.getId(),
+    name: copiedSpreadsheet.getName(),
+    url: copiedSpreadsheet.getUrl()
+  };
+}
+
+function getDeploymentEnvironmentInfo() {
+  return {
+    sourceSpreadsheetId: getSourceSpreadsheetId_(),
+    defaultSourceSpreadsheetId: DEFAULT_SOURCE_SPREADSHEET_ID,
+    sourceSpreadsheetIdProperty: SOURCE_SPREADSHEET_ID_PROPERTY
+  };
 }
