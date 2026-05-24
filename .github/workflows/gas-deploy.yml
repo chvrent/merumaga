@@ -21,7 +21,12 @@ jobs:
 
       - name: Deploy to Google Apps Script
         run: |
-          echo "$CLASPRC_JSON" > ~/.clasprc.json
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo "::error::CLASPRC_JSON secret is empty. Set the GitHub Actions secret to the full contents of ~/.clasprc.json."
+            exit 1
+          fi
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+          node -e "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.clasprc.json', 'utf8')); console.log('clasprc JSON OK')"
           npm install -g @google/clasp
           npx clasp push -f
           npx clasp deploy -i AKfycbzfuyTAe_ZUsCutzU5H1UkQZVoq2zOrmn1WoP4j9tiEYBo5BDNzPW6kofDGXkTiDAJ0Qw -d "Auto-deploy via GitHub Actions"
