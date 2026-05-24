@@ -80,6 +80,7 @@
     otherCheck: '#E0FFFF'
   });
   const SCHEDULE_CYCLE_OPTIONS = Object.freeze([
+    '単発',
     '毎週配信',
     '毎日配信',
     '毎月配信',
@@ -173,6 +174,7 @@
     current_job_count: '自動求人特集_求人数',
     auto_job_other_condition: '自動求人特集_その他条件',
     is_inactive: '配信終了',
+    is_draft: '下書き',
     is_fixed: '確定済',
     target_ids: 'PRが入るメルマガ',
     target_mails: '紐づいたメルマガ',
@@ -559,6 +561,7 @@
           const scheduleCycleType = getScheduleCycleType(row);
           const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
 
+          if (isDraft(rowForDate)) return false;
           if (isInactive(rowForDate)) return false;
           if (!isWithinScheduleRange) return false;
 
@@ -956,19 +959,13 @@
     `;
 
     // PR管理画面では紐づいたメルマガを最後に1列だけ表示する。
-    const targetHeader = MASTER_DATA.sheetName === 'app_pr' ? 'target_mails' : '';
-    const tableHeaders = visibleHeaders.filter(h => {
-      if (!targetHeader) return true;
-      return h !== 'target_mails' && h !== 'mail_name';
-    });
+    const tableHeaders = visibleHeaders;
     tableHeaders.forEach(header => {
       html += `<th title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</th>`;
     });
-    if (targetHeader) html += `<th>紐づいたメルマガ</th>`;
     html += '</tr></thead><tbody>';
 
     visibleRows.forEach(row => {
-      const linkedNames = row.target_mails || row.mail_name || '（未設定）';
       const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
       const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
       const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
@@ -997,7 +994,6 @@
         html += `<td class="${isExpandable ? 'expandable-cell' : ''}" ${isExpandable ? 'data-action="toggle-cell-expand"' : ''} title="${escapeAttribute(cellValue)}">${escapeHtml(cellValue)}</td>`;
       });
 
-      if (targetHeader) html += `<td>${escapeHtml(linkedNames)}</td>`;
       html += '</tr>';
     });
 
@@ -1415,7 +1411,7 @@
 
     const scheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
     const mailName = normalizeText(getValueByKeys(row, ['mail_name', 'メルマガ名']));
-    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr.filter(prRow => !isInactive(prRow)) : [];
+    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr.filter(prRow => !isInactive(prRow) && !isDraft(prRow)) : [];
 
     // 1. target_ids (schedule_id) での紐付け (新方式)
     const matchedPrs = prRows.filter(prRow => {
@@ -1438,7 +1434,7 @@
     })).filter(record => record.pr_id);
 
     // 2. app_pr_targets からの紐付け (旧方式・互換性)
-    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets.filter(target => !isInactive(target)) : [];
+    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets.filter(target => !isInactive(target) && !isDraft(target)) : [];
     const prById = new Map(prRows.map(prRow => [normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])), prRow]));
 
     const targetRecords = mailName ? prTargets
@@ -1764,6 +1760,11 @@
 
     if (action === 'save-master-edit') {
       saveMasterEdit();
+      return;
+    }
+
+    if (action === 'save-master-draft') {
+      saveMasterEdit({ draft: true });
       return;
     }
 

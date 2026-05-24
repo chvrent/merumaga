@@ -85,6 +85,7 @@
     populateModalFields(form, row, getModalFieldAliases_('masterModal'));
     refreshAdminSelects_();
     bindFormatSelects_(modal);
+    bindSingleDeliveryDateSync_(modal);
 
     if (modal) {
       const prIdField = modal.querySelector('[name="pr_id"]');
@@ -103,12 +104,14 @@
     const stopButton = document.getElementById('stop-master-button');
     const resumeButton = document.getElementById('resume-master-button');
     const deleteButton = document.getElementById('delete-master-button');
+    const draftButton = document.getElementById('draft-master-button');
     const hasExistingRow = !!(row && row.__rowNumber);
     const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
     const inactive = row ? isInactive(row) : false;
     if (stopButton) stopButton.style.display = hasExistingRow && !isPrMaster && !inactive ? '' : 'none';
     if (resumeButton) resumeButton.style.display = hasExistingRow && !isPrMaster && inactive ? '' : 'none';
     if (deleteButton) deleteButton.style.display = hasExistingRow ? '' : 'none';
+    if (draftButton) draftButton.style.display = hasExistingRow ? 'none' : '';
   }
 
   function isHiddenPrMasterInputKey_(key, header) {
@@ -122,6 +125,7 @@
       'source_row',
       'target_index',
       'is_inactive',
+      'is_draft',
       'schedule_id',
       'delivery_count',
       'assignee',
@@ -594,11 +598,44 @@
     field.addEventListener('change', handler);
   }
 
-  function saveMasterEdit() {
-    const modal = document.getElementById('masterModal');
-    if (!validateRequiredFields_(modal)) return;
+  function isSingleCycleValue_(value) {
+    return normalizeCycleLabel(value) === '単発';
+  }
 
-    const btn = modal ? modal.querySelector('[data-action="save-master-edit"]') : null;
+  function syncSingleDeliveryEndDate_(modal) {
+    if (!modal) return;
+    const cycleInput = modal.querySelector('[name="cycle"]');
+    const startInput = modal.querySelector('[name="start_date"]');
+    const endInput = modal.querySelector('[name="end_date"]');
+    if (!cycleInput || !startInput || !endInput) return;
+    if (isSingleCycleValue_(cycleInput.value) && startInput.value) {
+      endInput.value = startInput.value;
+    }
+  }
+
+  function bindSingleDeliveryDateSync_(modal) {
+    if (!modal) return;
+    ['cycle', 'start_date'].forEach(name => {
+      const field = modal.querySelector(`[name="${name}"]`);
+      if (!field || field.dataset.singleSyncBound === 'true') return;
+      field.dataset.singleSyncBound = 'true';
+      field.addEventListener('change', () => syncSingleDeliveryEndDate_(modal));
+    });
+    syncSingleDeliveryEndDate_(modal);
+  }
+
+  function applySingleDeliveryPayloadRule_(payload) {
+    if (!payload || !isSingleCycleValue_(payload.cycle)) return;
+    const startDate = normalizeDateString(payload.start_date);
+    if (startDate) payload.end_date = startDate;
+  }
+
+  function saveMasterEdit(options = {}) {
+    const asDraft = !!(options && options.draft);
+    const modal = document.getElementById('masterModal');
+    if (!asDraft && !validateRequiredFields_(modal)) return;
+
+    const btn = modal ? modal.querySelector(asDraft ? '[data-action="save-master-draft"]' : '[data-action="save-master-edit"]') : null;
     if (btn) btn.disabled = true;
     if (btn) btn.textContent = '保存中...';
     showBusy('マスタを保存中...');
@@ -616,6 +653,8 @@
       )
     );
     payload.format = document.getElementById('masterModal').dataset.format || 'フリー';
+    payload.is_draft = asDraft ? 'TRUE' : 'FALSE';
+    applySingleDeliveryPayloadRule_(payload);
 
     // PR管理の場合のみ、target_ids (PRが入るメルマガ) を取得して savePRData を呼ぶ
     if (MASTER_DATA.sheetName === 'app_pr') {
@@ -803,6 +842,7 @@
     updateEditChangeHighlights_(modal);
     loadCommentsForCurrentEntry();
     setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
+    bindSingleDeliveryDateSync_(modal);
 
     setModalVisible_(modal, true);
   }
@@ -1098,10 +1138,13 @@
       }
     });
     payload.override_fields = overrideFields.join(',');
+    applySingleDeliveryPayloadRule_(payload);
+    const saveScope = chooseScheduleEditScope_(overrideFields);
+    if (!saveScope) return;
 
     showBusy('配信内容を保存中...');
     flushPendingCheckStatusesBefore(() => {
-      google.script.run
+      const runner = google.script.run
         .withSuccessHandler(() => {
           hideBusy();
           closeModal();
@@ -1111,11 +1154,22 @@
           hideBusy();
           alert('保存に失敗しました: ' + (err.message || err));
         })
-        .saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
+      if (saveScope === 'future') {
+        runner.saveScheduleFromDate(CURRENT_ENTRY.schedule_id, payload.delivery_date || occurrenceDate, payload);
+      } else {
+        runner.saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
+      }
     }, err => {
       hideBusy();
       alert('未保存の設定・確認状態を一括保存できなかったため、配信内容の保存を中止しました: ' + (err.message || String(err)));
     });
+  }
+
+  function chooseScheduleEditScope_(overrideFields) {
+    if (!overrideFields || !overrideFields.length) return 'single';
+    const input = window.prompt('変更範囲を選択してください。\n1: この日だけ変更\n2: この日以降を変更', '1');
+    if (input == null) return '';
+    return String(input).trim() === '2' ? 'future' : 'single';
   }
 
   function stopCurrentDelivery() {

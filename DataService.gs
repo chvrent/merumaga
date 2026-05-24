@@ -77,6 +77,7 @@ const SCHEDULE_FIELD_ALIASES = {
   current_week_cycle: ['current_week_cycle', '今週サイクル(内部)'],
   current_week_inactive: ['current_week_inactive', '今週非配信(内部)'],
   is_inactive: ['is_inactive', '配信停止', '配信終了'],
+  is_draft: ['is_draft', '下書き'],
   is_fixed: ['is_fixed', '確定済']
 };
 
@@ -286,6 +287,10 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     normalizedPayload.is_new = isTruthy_(normalizedPayload.is_new) ? 'TRUE' : 'FALSE';
     delete normalizedPayload.new_flag;
   }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_draft')) {
+    normalizedPayload.is_draft = isTruthy_(normalizedPayload.is_draft) ? 'TRUE' : 'FALSE';
+  }
+  applySingleDeliveryPayloadRule_(normalizedPayload);
 
   const ss = getSourceSpreadsheet_();
   const sheet = ss.getSheetByName(safeSheetName);
@@ -295,6 +300,7 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (!values.length) throw new Error(`${safeSheetName} is empty`);
 
   const headers = values[0].map(header => String(header || '').trim());
+  ensureOptionalMasterPayloadHeaders_(sheet, headers, safeSheetName, normalizedPayload);
   const rowNumber = Number(payload.__rowNumber || 0);
   const idIndex = getMasterIdIndex_(safeSheetName, headers);
   const row = rowNumber >= 2 && rowNumber <= sheet.getLastRow()
@@ -329,6 +335,25 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (safeSheetName === SCHEDULE_SHEET_NAME) updateJobCountForRowUnlocked_(sheet, insertedRowNumber, true);
   invalidateInitialDataCaches_([safeSheetName]);
   return { success: true, action: 'insert', rowNumber: insertedRowNumber, id: idIndex != null ? normalizeCell_(row[idIndex]) : '' };
+}
+
+function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload) {
+  if (!payload || typeof payload !== 'object') return;
+  const optionalHeaders = [];
+  if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) optionalHeaders.push('is_draft');
+  optionalHeaders.forEach(header => {
+    if (headers.indexOf(header) >= 0) return;
+    headers.push(header);
+    sheet.getRange(1, headers.length).setValue(header);
+  });
+}
+
+function applySingleDeliveryPayloadRule_(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  const cycle = normalizeCycleLabelForBackup_(payload.cycle);
+  if (cycle !== '単発') return;
+  const startDate = normalizeCommentTargetDate_(payload.start_date);
+  if (startDate) payload.end_date = startDate;
 }
 
 function deleteMasterData(sheetName, rowNumber) {
@@ -565,6 +590,38 @@ function migrateLegacyIdsToEnglish(dryRun) {
  */
 function updateItemDate(scheduleId, oldDate, newDateStr, newHour) {
   return withScriptLock_(() => updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour));
+}
+
+function saveScheduleFromDate(scheduleId, effectiveDate, payload) {
+  return withScriptLock_(() => saveScheduleFromDateUnlocked_(scheduleId, effectiveDate, payload));
+}
+
+function saveScheduleFromDateUnlocked_(scheduleId, effectiveDate, payload) {
+  const safeScheduleId = normalizeScheduleIdForMove_(scheduleId);
+  const safeDate = normalizeCommentTargetDate_(effectiveDate);
+  if (!safeScheduleId || !safeDate) throw new Error('scheduleId and effectiveDate are required');
+
+  const sourceRow = getSourceRowByScheduleId_(safeScheduleId);
+  if (!sourceRow) throw new Error(`Schedule row not found for ID: ${safeScheduleId}`);
+
+  const updatePayload = Object.assign({}, payload || {}, {
+    __rowNumber: sourceRow,
+    schedule_id: safeScheduleId,
+    start_date: safeDate
+  });
+  delete updatePayload.item_id;
+  delete updatePayload.original_date;
+  delete updatePayload.delivery_date;
+  delete updatePayload.override_fields;
+  applySingleDeliveryPayloadRule_(updatePayload);
+  const result = saveMasterDataUnlocked_(SCHEDULE_SHEET_NAME, updatePayload);
+  const originalDate = normalizeCommentTargetDate_(payload && payload.original_date) || safeDate;
+  saveCheckStatusUnlocked_(`${safeScheduleId}|${originalDate}`, 'occurrence_override', false, {
+    schedule_id: safeScheduleId,
+    original_date: originalDate,
+    delivery_date: safeDate
+  });
+  return result;
 }
 
 function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
@@ -1726,8 +1783,9 @@ function archivePastOccurrencesForScheduleRow_(ss, headers, row, sourceRow) {
 
 function isScheduleRowActiveOnDate_(headers, row, date) {
   const inactive = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_inactive);
+  const draft = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_draft);
   const currentWeekInactive = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_inactive);
-  if (isTruthy_(inactive) || isTruthy_(currentWeekInactive)) return false;
+  if (isTruthy_(inactive) || isTruthy_(draft) || isTruthy_(currentWeekInactive)) return false;
 
   const weekday = normalizeWeekdayForBackup_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.weekday) || row[3]);
   if (!weekday) return false;
@@ -2068,6 +2126,7 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),
     current_week_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_inactive),
     is_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_inactive),
+    is_draft: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_draft),
     is_fixed: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_fixed)
   };
   headers.forEach((header, index) => {

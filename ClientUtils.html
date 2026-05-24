@@ -17,6 +17,11 @@
     return numericTextMatch ? numericTextMatch[1] : text;
   }
 
+  function isTruthyValue(value) {
+    const text = String(value == null ? '' : value).trim().toLowerCase();
+    return value === true || ['true', 'yes', '1', 'on', 'checked', '停止', '配信停止', '下書き', 'draft'].includes(text);
+  }
+
   function getDisplayName(key) {
     const text = String(key == null ? '' : key).trim();
     return DISPLAY_NAMES[text] || DISPLAY_NAMES[text.toLowerCase()] || text;
@@ -26,7 +31,7 @@
     const systemHeaders = ['source_sheet', 'source_row', '元シート', '元行', 'is_inactive', '配信停止', 'schedule_action'];
     const visible = headers.filter(header => {
       const h = String(header).trim();
-      return !isMasterIdHeader(header) && (!systemHeaders.includes(h) || h === 'target_ids');
+      return !['source_sheet', 'source_row', 'schedule_action'].includes(h);
     });
     // PR管理画面では紐づいたメルマガを一覧の最後に別列表示する
     if (MASTER_DATA.sheetName === 'app_pr' && !visible.includes('target_mails')) {
@@ -212,6 +217,8 @@
     const key = String(header == null ? '' : header).trim().toLowerCase();
     return isDeprecatedScheduleHeader(header) ||
       key === 'is_fixed' ||
+      key === 'is_draft' ||
+      key === '下書き' ||
       key === '確定済';
   }
 
@@ -364,6 +371,11 @@
   function isInactive(row) {
     const value = String(getValueByKeys(row || {}, ['is_inactive', '配信停止', '配信終了', '停止', '無効'])).trim().toLowerCase();
     return ['true', 'yes', '1', '停止', '配信停止'].includes(value);
+  }
+
+  function isDraft(row) {
+    const value = String(getValueByKeys(row || {}, ['is_draft', '下書き'])).trim().toLowerCase();
+    return ['true', 'yes', '1', '下書き', 'draft'].includes(value);
   }
 
   function isFixed(row, targetDate) {
