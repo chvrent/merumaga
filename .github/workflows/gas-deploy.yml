@@ -8,6 +8,8 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,9 +28,21 @@ jobs:
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
 
+      - name: Check Slack webhook
+        id: slack_webhook
+        run: |
+          if [ -n "$SLACK_WEBHOOK_URL" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "SLACK_WEBHOOK_URL is not set. Skipping Slack notification."
+          fi
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
       - name: Slack Notification
         uses: slackapi/slack-github-action@v1.26.0
-        if: always()
+        if: always() && steps.slack_webhook.outputs.enabled == 'true'
         with:
           payload: |
             {
