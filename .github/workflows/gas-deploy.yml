@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+      CLASP_USER: chvrent18
+      CLASP_PROJECT_FILE: .clasp.staging.json
+      CLASP_DEPLOYMENT_ID: AKfycbwBER-C0zjRd1piXcqvC-LHNFYP-b9zBitXxAsoaCfeJgWFjf7uxktzjdzpun3PIzdz
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -26,10 +29,11 @@ jobs:
             exit 1
           fi
           printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
-          node -e "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.clasprc.json', 'utf8')); console.log('clasprc JSON OK')"
+          node -e "const fs=require('fs'); const rc=JSON.parse(fs.readFileSync(process.env.HOME + '/.clasprc.json', 'utf8')); const user=process.env.CLASP_USER; const token=(rc.tokens&&rc.tokens[user])||rc.token; if(!token||!token.refresh_token){ console.error('::error::CLASPRC_JSON has no refresh_token for '+user+'. Run clasp login --user '+user+' and copy the full ~/.clasprc.json into the secret.'); process.exit(1); } console.log('clasprc JSON OK for '+user)"
           npm install -g @google/clasp
-          npx clasp push -f
-          npx clasp deploy -i AKfycbzfuyTAe_ZUsCutzU5H1UkQZVoq2zOrmn1WoP4j9tiEYBo5BDNzPW6kofDGXkTiDAJ0Qw -d "Auto-deploy via GitHub Actions"
+          npx clasp --user "$CLASP_USER" -P "$CLASP_PROJECT_FILE" -I .claspignore status
+          npx clasp --user "$CLASP_USER" -P "$CLASP_PROJECT_FILE" -I .claspignore push -f
+          npx clasp --user "$CLASP_USER" -P "$CLASP_PROJECT_FILE" -I .claspignore deploy -i "$CLASP_DEPLOYMENT_ID" -d "Auto-deploy via GitHub Actions"
         env:
           CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
 
