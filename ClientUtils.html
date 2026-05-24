@@ -1,6 +1,7 @@
 <script>
   function getValueByKeys(obj, keys) {
-    for (const key of keys) {
+    const keyList = Array.isArray(keys) ? keys : (keys == null || keys === '' ? [] : [String(keys)]);
+    for (const key of keyList) {
       if (obj && obj[key] != null && String(obj[key]).trim() !== '') return obj[key];
     }
     return '';
@@ -396,14 +397,17 @@
   function getMoveOverrideForDate(row, targetDate) {
     const scheduleId = String(row && row.schedule_id || '').trim();
     if (!scheduleId || !targetDate) return null;
-    return Object.values(APP_DATA.checkStatuses || {}).find(status => {
+    const matches = Object.values(APP_DATA.checkStatuses || {}).filter(status => {
       return status &&
         typeof status === 'object' &&
         status.field === 'move_override' &&
         status.is_active === true &&
         String(status.schedule_id || '').trim() === scheduleId &&
         normalizeDateString(status.delivery_date) === targetDate;
-    }) || null;
+    });
+    if (!matches.length) return null;
+    matches.sort((left, right) => String(right.updated_at || '').localeCompare(String(left.updated_at || '')));
+    return matches[0];
   }
 
   function isMovedOriginalOccurrence(row, targetDate) {

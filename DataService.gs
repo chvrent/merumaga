@@ -2224,7 +2224,7 @@ function getCanonicalKeyForHeader_(sheetName, header) {
   const safeHeader = String(header || '').trim();
   if (!aliasesByKey || !safeHeader) return '';
   for (const key in aliasesByKey) {
-    if (aliasesByKey[key].indexOf(safeHeader) !== -1) return key;
+    if (toAliasList_(aliasesByKey[key]).indexOf(safeHeader) !== -1) return key;
   }
   return '';
 }
@@ -2233,7 +2233,7 @@ function getCanonicalKeyFromAliases_(aliasesByKey, header) {
   const safeHeader = String(header || '').trim();
   if (!aliasesByKey || !safeHeader) return '';
   for (const key in aliasesByKey) {
-    if (aliasesByKey[key].indexOf(safeHeader) !== -1) return key;
+    if (toAliasList_(aliasesByKey[key]).indexOf(safeHeader) !== -1) return key;
   }
   return '';
 }
@@ -2272,7 +2272,7 @@ function addCanonicalObjectFields_(aliasesByKey, obj) {
 }
 
 function firstExistingHeaderIndex_(headerMap, aliases) {
-  for (const alias of aliases) {
+  for (const alias of toAliasList_(aliases)) {
     const index = headerMap.get(alias);
     if (index != null) return index;
   }
@@ -2280,7 +2280,7 @@ function firstExistingHeaderIndex_(headerMap, aliases) {
 }
 
 function getFieldByAliases_(headers, row, aliases) {
-  for (const alias of aliases) {
+  for (const alias of toAliasList_(aliases)) {
     const index = headers.indexOf(alias);
     if (index >= 0) {
       const value = normalizeCell_(row[index]);
@@ -2292,13 +2292,19 @@ function getFieldByAliases_(headers, row, aliases) {
 
 function getObjectFieldByAliases_(obj, aliases) {
   if (!obj) return '';
-  for (const alias of aliases) {
+  for (const alias of toAliasList_(aliases)) {
     if (Object.prototype.hasOwnProperty.call(obj, alias)) {
       const value = normalizeCell_(obj[alias]);
       if (value !== '') return value;
     }
   }
   return '';
+}
+
+function toAliasList_(aliases) {
+  if (Array.isArray(aliases)) return aliases;
+  if (aliases == null || aliases === '') return [];
+  return [String(aliases)];
 }
 
 function normalizeIdKey_(value) {

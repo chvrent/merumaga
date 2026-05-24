@@ -564,14 +564,14 @@
     const modal = document.getElementById('masterModal');
     if (!validateRequiredFields_(modal)) return;
 
-    const btn = event.target;
-    btn.disabled = true;
-    btn.textContent = '保存中...';
+    const btn = modal ? modal.querySelector('[data-action="save-master-edit"]') : null;
+    if (btn) btn.disabled = true;
+    if (btn) btn.textContent = '保存中...';
     showBusy('マスタを保存中...');
     const handlePreSaveFailure = err => {
       alert('未保存の設定・確認状態を一括保存できなかったため、マスタ保存を中止しました: ' + (err.message || String(err)));
-      btn.disabled = false;
-      btn.textContent = '保存';
+      if (btn) btn.disabled = false;
+      if (btn) btn.textContent = '保存';
       hideBusy();
     };
 
@@ -603,14 +603,14 @@
             closeMasterModal();
             loadActiveMaster();
             loadData({ force: true, includeStatic: true });
-            btn.disabled = false;
-            btn.textContent = '保存';
+            if (btn) btn.disabled = false;
+            if (btn) btn.textContent = '保存';
             hideBusy();
           })
           .withFailureHandler(err => {
             alert('保存に失敗しました: ' + (err.message || err));
-            btn.disabled = false;
-            btn.textContent = '保存';
+            if (btn) btn.disabled = false;
+            if (btn) btn.textContent = '保存';
             hideBusy();
           })
           .savePRData(payload, selectedNewsletters);
@@ -622,14 +622,14 @@
             closeMasterModal();
             loadActiveMaster();
             loadData({ force: true, includeStatic: true });
-            btn.disabled = false;
-            btn.textContent = '保存';
+            if (btn) btn.disabled = false;
+            if (btn) btn.textContent = '保存';
             hideBusy();
           })
           .withFailureHandler(err => {
             alert('保存に失敗しました: ' + (err.message || err));
-            btn.disabled = false;
-            btn.textContent = '保存';
+            if (btn) btn.disabled = false;
+            if (btn) btn.textContent = '保存';
             hideBusy();
           })
           .saveMasterData(MASTER_DATA.sheetName, payload);

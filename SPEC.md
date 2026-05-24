@@ -227,6 +227,11 @@ PR管理画面の新規追加・編集における専用の制御ルール。
 ## 5. 運用・保守・デプロイルール
 
 ### 5.1 開発・デプロイフロー (clasp)
+- **merumagaルール**:
+    - 正しい作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` のみ。
+    - `merumaga` フォルダは廃止済み。作業・Git・デプロイに絶対に使用しない。
+    - 作業前に必ず `pwd`, `git status --short`, `git remote -v` を確認すること。
+    - 仕様変更時は `SPEC.md`, `SPEC_SUMMARY.md`, `START_HERE.md`, `運用台帳.md` を更新すること。
 - **バージョン管理**: `clasp push` 実行後、必ず新バージョンを作成し、既存のWebアプリデプロイIDに対してそのバージョンを紐付ける（`clasp deploy --versionNumber <N>`）。
 - **反映漏れ防止**: 新しい `.gs` や `.html` ファイルを追加した際は、`.claspignore` の許可リスト（`!` 付きの行）へ必ず追記すること。
 - **検証手順**: デプロイ後は必ずシークレットブラウザ等でWebアプリへアクセスし、最新の修正（`運用台帳.md` の `@番号` と一致すること）が反映されているか目視確認する。

@@ -2,13 +2,14 @@
 
 このリポジトリを触る前に、必ずこのファイルを読むこと。
 
-## 作業ディレクトリ
+## merumagaルール（最優先）
 
-- 正しい作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` だけ。
-- `merumaga` フォルダは廃止。存在していても編集・Git操作・デプロイに使わない。
-- 親フォルダ直下の `.git` が正。壊れた旧 `.git` やバックアップ名の `.git_BROKEN_DO_NOT_USE_*` は使わない。
+- **作業場所**: 正しい作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` だけ。
+- **廃止ディレクトリ**: `merumaga` フォルダは廃止済み。存在していても編集・Git操作・デプロイに絶対に使わない。
+- **環境確認**: 作業前に必ず `pwd`, `git status --short`, `git remote -v` を確認すること。
+- **仕様変更**: 仕様・運用を変えたら `SPEC.md`, `SPEC_SUMMARY.md`, `START_HERE.md`, `運用台帳.md` を更新すること。
 
-作業前チェック:
+## 作業前チェック
 
 ```powershell
 pwd

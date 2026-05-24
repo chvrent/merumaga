@@ -2,12 +2,13 @@
 
 詳細仕様の正本は `SPEC.md`。このファイルは、作業前に最低限確認する要点です。
 
-## 作業・Git
+## 作業・Git (merumagaルール)
 
 - 正しい作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker`。
-- `merumaga` は廃止。作業・Git・デプロイ禁止。
+- `merumaga` フォルダは廃止済み。作業・Git・デプロイ禁止。
 - 検証GitHubは `origin`、本番GitHubは `prod`。
-- 作業前に `pwd`、`git status --short`、`git remote -v` を確認する。
+- 作業前に必ず `pwd`、`git status --short`、`git remote -v` を確認する。
+- 仕様変更時は `SPEC.md`、`SPEC_SUMMARY.md`、`START_HERE.md`、`運用台帳.md` を同時更新する。
 
 ## デプロイ
 
