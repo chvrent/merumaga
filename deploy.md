@@ -1,5 +1,12 @@
 # Deployment Scripts
 
+## Deployment Workflow Rules
+- **Environment Management**: 
+  - **Spreadsheet ID**: No longer hardcoded. Set the `SOURCE_SPREADSHEET_ID` property in the GAS project dashboard (Project Settings > Script Properties) for each environment.
+  - **Configuration**: Use `.clasp.staging.json` for Staging and standard `.clasp.json` for Production.
+- **Automation**: Always use the scripts documented in `deploy.md`. Never modify `DataService.gs` to change spreadsheet IDs.
+- **Safety**: Always run `clasp status` before `push`. Never attempt to manually resolve Git merge conflicts in `Code.js` or `DataService.gs`; if conflicts occur, synchronize from a master source of truth.
+
 ## Staging (Verification) Deployment
 Use this script to safely deploy to the Staging environment from the Desktop directory.
 ```powershell
