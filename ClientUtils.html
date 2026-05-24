@@ -367,10 +367,16 @@
   }
 
   function isFixed(row, targetDate) {
-    const sourceRow = row && row.source_row;
     const date = targetDate || (row && row.target_date);
     const fixedOccurrences = APP_DATA.fixedOccurrences || {};
-    return !!fixedOccurrences[`${sourceRow}|${date}`];
+    const key = getOccurrenceStorageKey(row, date);
+    return !!fixedOccurrences[key] || !!fixedOccurrences[`${row && row.source_row}|${date}`];
+  }
+
+  function getOccurrenceStorageKey(row, targetDate) {
+    const id = String(row && (row.schedule_id || row.source_row) || '').trim();
+    const date = String(targetDate || '').trim();
+    return id && date ? `${id}|${date}` : '';
   }
 
   function isStopped(row, targetDate) {
@@ -410,6 +416,22 @@
     return matches[0];
   }
 
+  function getOccurrenceOverrideForDate(row, targetDate) {
+    const scheduleId = String(row && row.schedule_id || '').trim();
+    if (!scheduleId || !targetDate) return null;
+    const matches = Object.values(APP_DATA.checkStatuses || {}).filter(status => {
+      return status &&
+        typeof status === 'object' &&
+        status.field === 'occurrence_override' &&
+        status.is_active === true &&
+        String(status.schedule_id || '').trim() === scheduleId &&
+        normalizeDateString(status.delivery_date || status.original_date) === targetDate;
+    });
+    if (!matches.length) return null;
+    matches.sort((left, right) => String(right.updated_at || '').localeCompare(String(left.updated_at || '')));
+    return matches[0];
+  }
+
   function isMovedOriginalOccurrence(row, targetDate) {
     const scheduleId = String(row && row.schedule_id || '').trim();
     if (!scheduleId || !targetDate) return false;
@@ -420,6 +442,20 @@
         status.is_active === true &&
         String(status.schedule_id || '').trim() === scheduleId &&
         normalizeDateString(status.original_date) === targetDate;
+    });
+  }
+
+  function isOccurrenceOverrideOriginal(row, targetDate) {
+    const scheduleId = String(row && row.schedule_id || '').trim();
+    if (!scheduleId || !targetDate) return false;
+    return Object.values(APP_DATA.checkStatuses || {}).some(status => {
+      return status &&
+        typeof status === 'object' &&
+        status.field === 'occurrence_override' &&
+        status.is_active === true &&
+        String(status.schedule_id || '').trim() === scheduleId &&
+        normalizeDateString(status.original_date) === targetDate &&
+        normalizeDateString(status.delivery_date || status.original_date) !== targetDate;
     });
   }
 
@@ -434,6 +470,10 @@
   function applyOccurrenceOverrideToEntry(entry) {
     const itemId = getCheckItemId(entry);
     const override = getOccurrenceOverrideForItemId(itemId);
+    return applyOccurrenceOverrideObjectToEntry(entry, override);
+  }
+
+  function applyOccurrenceOverrideObjectToEntry(entry, override) {
     if (!override) return entry;
 
     const next = Object.assign({}, entry);
@@ -446,8 +486,43 @@
     return next;
   }
 
+  function applyMoveOverrideToEntry(entry) {
+    const move = getMoveOverrideForDate(entry, entry && entry.target_date);
+    if (!move) return entry;
+    const next = Object.assign({}, entry);
+    if (move.hour) next.hour = move.hour;
+    if (move.weekday) next.weekday = move.weekday;
+    if (move.original_date) next.original_date = move.original_date;
+    return next;
+  }
+
+  function getWeekdayLabelForDateString(dateStr) {
+    const normalized = normalizeDateString(dateStr);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return '';
+    const parts = normalized.split('-').map(Number);
+    const date = new Date(parts[0], parts[1] - 1, parts[2]);
+    return ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
+  }
+
+  function getDateForWeekdayInCalendarWeek(baseDateStr, weekdayLabel) {
+    const normalized = normalizeDateString(baseDateStr);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return normalized;
+    const parts = normalized.split('-').map(Number);
+    const baseDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const weekStart = getTuesdayWeekStart(baseDate);
+    const labels = ['火', '水', '木', '金', '土', '日', '月'];
+    const targetIndex = labels.indexOf(normalizeWeekdayLabel(weekdayLabel));
+    if (targetIndex < 0) return normalized;
+    const target = new Date(weekStart);
+    target.setDate(weekStart.getDate() + targetIndex);
+    return formatDate(target);
+  }
+
   function getOccurrenceOverrideFieldsForEntry(entry) {
-    const override = getOccurrenceOverrideForItemId(getCheckItemId(entry));
+    const move = getMoveOverrideForDate(entry, entry && entry.target_date);
+    if (move) return ['weekday', 'hour'];
+    const override = getOccurrenceOverrideForItemId(getCheckItemId(entry)) ||
+      getOccurrenceOverrideForDate(entry, entry && entry.target_date);
     if (!override || !Array.isArray(override.override_fields)) return [];
     return override.override_fields.map(key => String(key || '').trim()).filter(Boolean);
   }

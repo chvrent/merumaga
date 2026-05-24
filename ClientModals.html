@@ -103,7 +103,7 @@
     const stopButton = document.getElementById('stop-master-button');
     const deleteButton = document.getElementById('delete-master-button');
     const display = hasExistingRow ? '' : 'none';
-    if (stopButton) stopButton.style.display = display;
+    if (stopButton) stopButton.style.display = MASTER_DATA.sheetName === 'app_pr' ? 'none' : display;
     if (deleteButton) deleteButton.style.display = display;
   }
 
@@ -705,7 +705,11 @@
     }
 
     CURRENT_ENTRY_BASE = baseEntry;
-    CURRENT_ENTRY = applyOccurrenceOverrideToEntry(baseEntry);
+    const movedEntry = applyMoveOverrideToEntry(Object.assign({}, baseEntry));
+    CURRENT_ENTRY = applyOccurrenceOverrideObjectToEntry(
+      applyOccurrenceOverrideToEntry(movedEntry),
+      getOccurrenceOverrideForDate(movedEntry, movedEntry.target_date)
+    );
 
     const modal = document.getElementById('editModal');
     if (!modal) return;
@@ -994,7 +998,11 @@
     if (!validateRequiredFields_(modal)) return;
 
     const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
-    const itemId = getCheckItemId(CURRENT_ENTRY);
+    const occurrenceDate = CURRENT_ENTRY.original_date || CURRENT_ENTRY.target_date;
+    const itemId = [
+      CURRENT_ENTRY.schedule_id,
+      occurrenceDate
+    ].map(value => String(value || '').trim().replace(/\s+/g, ' ')).join('|');
 
     const nextValues = normalizeMasterSubmissionPayload_(
       collectNamedFormValues(modal, { exclude: ['schedule_id', 'current_job_count'] })
@@ -1005,12 +1013,23 @@
     }
 
     const overrideFields = [];
+    const nextWeekday = Object.prototype.hasOwnProperty.call(nextValues, 'weekday')
+      ? nextValues.weekday
+      : CURRENT_ENTRY.weekday;
+    const nextDeliveryDate = nextWeekday
+      ? getDateForWeekdayInCalendarWeek(occurrenceDate, nextWeekday)
+      : CURRENT_ENTRY.target_date;
+    const nextHour = Object.prototype.hasOwnProperty.call(nextValues, 'hour')
+      ? nextValues.hour
+      : CURRENT_ENTRY.hour;
+
     const payload = {
       item_id: itemId,
       schedule_id: CURRENT_ENTRY.schedule_id,
-      original_date: CURRENT_ENTRY.target_date,
-      delivery_date: CURRENT_ENTRY.target_date,
-      hour: CURRENT_ENTRY.hour,
+      original_date: occurrenceDate,
+      delivery_date: nextDeliveryDate || CURRENT_ENTRY.target_date,
+      hour: nextHour,
+      weekday: nextWeekday || getWeekdayLabelForDateString(nextDeliveryDate),
       mail_name: CURRENT_ENTRY.mail_name
     };
 

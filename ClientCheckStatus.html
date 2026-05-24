@@ -11,9 +11,10 @@
   }
 
   function getArchivedOccurrenceForRow(row, dateStr) {
-    const sourceRow = row && row.source_row;
-    if (!sourceRow || !dateStr) return null;
-    return (APP_DATA.archivedOccurrences || {})[`${sourceRow}|${dateStr}`] || null;
+    const key = getOccurrenceStorageKey(row, dateStr);
+    if (!key) return null;
+    const archived = APP_DATA.archivedOccurrences || {};
+    return archived[key] || archived[`${row && row.source_row}|${dateStr}`] || null;
   }
 
   function getArchivedOccurrencesForSlot(dateStr, hour, keyword) {
@@ -96,7 +97,7 @@
     if (!archive || !archive.source_row || !archive.target_date) return;
     if (!APP_DATA.fixedOccurrences) APP_DATA.fixedOccurrences = {};
     if (!APP_DATA.archivedOccurrences) APP_DATA.archivedOccurrences = {};
-    const key = `${archive.source_row}|${archive.target_date}`;
+    const key = `${archive.schedule_id || archive.source_row}|${archive.target_date}`;
     if (archive.archived) {
       APP_DATA.fixedOccurrences[key] = true;
     } else if (archive.deleted || Object.prototype.hasOwnProperty.call(archive, 'archived')) {

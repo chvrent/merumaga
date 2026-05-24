@@ -175,7 +175,8 @@ function buildFixedScheduleIdsForDate_(targetDateStr, scheduleIds) {
   uniqueScheduleIds.forEach(scheduleId => {
     const sourceRow = scheduleIdToSourceRow[scheduleId];
     if (!sourceRow) return;
-    if (fixedOccurrences[buildFixedOccurrenceKey_(sourceRow, safeDateStr)]) {
+    if (fixedOccurrences[buildFixedOccurrenceKey_(scheduleId, safeDateStr)] ||
+        fixedOccurrences[buildFixedOccurrenceKey_(sourceRow, safeDateStr)]) {
       fixed.add(scheduleId);
     }
   });

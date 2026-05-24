@@ -546,7 +546,11 @@
         const monthEndInfo = getMonthEndInfo(date);
         const entries = filtered.filter(row => {
           if (getArchivedOccurrenceForRow(row, dateStr)) return false;
-          const rowForDate = applyOccurrenceOverrideToEntry(Object.assign({}, row, { target_date: dateStr }));
+          const occurrenceOverride = getOccurrenceOverrideForDate(row, dateStr);
+          const rowForDate = applyOccurrenceOverrideObjectToEntry(
+            applyMoveOverrideToEntry(Object.assign({}, row, { target_date: dateStr })),
+            occurrenceOverride
+          );
           const rowHour = String(normalizeMasterHourValue(rowForDate.hour) || rowForDate.hour || '').split(':')[0].trim();
           const startDate = normalizeDateString(row.start_date);
           const endDate = normalizeDateString(row.end_date);
@@ -564,10 +568,13 @@
           if (moveOverride) {
             const effectiveHour = String(moveOverride.hour || '').split(':')[0].trim();
             isMatch = effectiveHour === String(hour);
+          } else if (occurrenceOverride) {
+            const effectiveHour = String(occurrenceOverride.hour || rowForDate.hour || '').split(':')[0].trim();
+            isMatch = effectiveHour === String(hour);
           } else {
             // 移動先ではない場合、元のスケジュール通りか確認
             // ただし、もし他の日時に移動されている場合はこの枠には出さない
-            if (isMovedOriginalOccurrence(row, dateStr)) return false;
+            if (isMovedOriginalOccurrence(row, dateStr) || isOccurrenceOverrideOriginal(row, dateStr)) return false;
 
             isMatch = (isWithinScheduleRange || prStates.length > 0) && rowHour === String(hour);
 
@@ -602,10 +609,18 @@
             const moveOverride = getMoveOverrideForDate(entry, dateStr);
             if (moveOverride) {
               if (moveOverride.hour) entryForDate.hour = moveOverride.hour;
+              if (moveOverride.weekday) entryForDate.weekday = moveOverride.weekday;
               if (moveOverride.original_date) entryForDate.original_date = moveOverride.original_date;
             }
+            const occurrenceOverride = getOccurrenceOverrideForDate(entry, dateStr);
+            if (occurrenceOverride && occurrenceOverride.original_date) {
+              entryForDate.original_date = occurrenceOverride.original_date;
+            }
 
-            const effectiveEntry = applyOccurrenceOverrideToEntry(entryForDate);
+            const effectiveEntry = applyOccurrenceOverrideObjectToEntry(
+              applyOccurrenceOverrideToEntry(entryForDate),
+              occurrenceOverride
+            );
             const payload = escapeAttribute(encodeURIComponent(JSON.stringify(effectiveEntry)));
             const scheduleId = effectiveEntry.schedule_id || 'unknown';
             const checkItemId = getCheckItemId(entryForDate);
@@ -945,7 +960,7 @@
       const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
       const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
       const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < formatDate(new Date()));
-      const stopButton = rowEnded
+      const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
         ? ''
         : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;
       const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>`;

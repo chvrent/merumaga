@@ -73,3 +73,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env 
 - `Config.gs.js` や `*.js` は `clasp pull` で生成される一時ファイルの場合がある。Apps Scriptの正ファイルは原則 `.gs` / `.html`。
 - 配信停止と削除は別概念。カレンダーや一覧から消したいだけなら停止、シート行を物理削除する場合だけ削除。
 - 配信編集モーダルの日付別変更は `app_check_status.occurrence_override` を使う。マスタの週次定義を不用意に上書きしない。
+
+## 2026-05-24 Fix Note
+
+- Archive/fixed occurrence matching now prefers `schedule_id`; master deletion snapshots past schedule occurrences before physical row deletion.
+- Master-edit archive snapshots without confirmation values are not treated as fixed.
+- Calendar DnD and modal weekday/time edits now share occurrence-level `delivery_date` / `weekday` / `hour` placement.
+- PR management stop controls are hidden.

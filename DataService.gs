@@ -349,6 +349,12 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
   if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
   if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
 
+  if (safeSheetName === SCHEDULE_SHEET_NAME) {
+    const values = sheet.getDataRange().getValues();
+    const headers = values[0].map(header => String(header || '').trim());
+    archivePastOccurrencesForScheduleRow_(ss, headers, values[targetRow - 1], targetRow);
+  }
+
   let deletedPrId = '';
   if (safeSheetName === 'app_pr') {
     const lastCol = sheet.getLastColumn();
@@ -551,6 +557,7 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
     schedule_id: safeScheduleId,
     delivery_date: safeDate,
     hour: safeHour,
+    weekday: getWeekdayLabelForDate_(safeDate),
     original_date: safeOldDate,
     mail_name: '(移動による自動更新)',
     confirmed_by: 'System (DnD)',
@@ -707,7 +714,9 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
     const sourceRow = normalizeCell_(row[sourceRowIndex]);
     const start = normalizeCommentTargetDate_(row[startIndex]);
     const end = normalizeCommentTargetDate_(row[endIndex]);
-    if (sourceRow && start && start === end) archiveRowByKey[`${sourceRow}|${start}`] = rowIndex;
+    const scheduleId = getArchiveScheduleId_(archiveHeaders, row);
+    const archiveKey = buildFixedOccurrenceKey_(scheduleId || sourceRow, start);
+    if ((scheduleId || sourceRow) && start && start === end) archiveRowByKey[archiveKey] = rowIndex;
   }
 
   const timestamp = new Date();
@@ -723,7 +732,7 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
     const sourceRowNumber = Number(sourceRow);
     if (sourceRowNumber < 2 || sourceRowNumber > scheduleValues.length) return;
 
-    const archiveKey = `${sourceRow}|${change.targetDate}`;
+    const archiveKey = buildFixedOccurrenceKey_(change.scheduleId || sourceRow, change.targetDate);
     const existingIndex = archiveRowByKey[archiveKey];
     const nextRow = existingIndex != null
       ? archiveValues[existingIndex].slice(0, archiveHeaders.length)
@@ -760,7 +769,7 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
           field,
           active: change.fields[field],
           updated_at: timestampText,
-          archive: { archived: 0, source_row: sourceRow, target_date: change.targetDate, skipped: 'not_confirmed' }
+          archive: { archived: 0, schedule_id: change.scheduleId, source_row: sourceRow, target_date: change.targetDate, skipped: 'not_confirmed' }
         });
       });
       return;
@@ -782,6 +791,7 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
         updated_at: timestampText,
         archive: {
           archived: confirmed ? 1 : 0,
+          schedule_id: change.scheduleId,
           source_row: sourceRow,
           target_date: change.targetDate,
           upserted: true,
@@ -1269,6 +1279,7 @@ function getCheckStatuses_(dateRange) {
         original_date: normalizeCommentTargetDate_(status.original_date),
         delivery_date: normalizeCommentTargetDate_(status.delivery_date),
         hour: normalizeCell_(status.hour),
+        weekday: normalizeCell_(status.weekday),
         is_active: true
       };
     } else if (field === 'occurrence_override' && isTruthy_(status.is_active)) {
@@ -1284,6 +1295,7 @@ function getCheckStatuses_(dateRange) {
         original_date: normalizeCommentTargetDate_(status.original_date),
         delivery_date: normalizeCommentTargetDate_(status.delivery_date),
         hour: normalizeCell_(status.hour),
+        weekday: normalizeCell_(status.weekday),
         mail_name: normalizeCell_(status.mail_name),
         is_active: true,
         override_fields: overrideFields
@@ -1536,7 +1548,8 @@ function getExistingArchiveKeys_(archiveSheet) {
   if (weekStartIndex < 0 || sourceRowIndex < 0) return keys;
 
   values.slice(1).forEach(row => {
-    keys.add(`${row[sourceRowIndex]}|${row[weekStartIndex]}`);
+    const scheduleId = getArchiveScheduleId_(headers, row);
+    keys.add(buildFixedOccurrenceKey_(scheduleId || row[sourceRowIndex], row[weekStartIndex]));
   });
   return keys;
 }
@@ -1564,7 +1577,8 @@ function getFixedOccurrences_(dateRange) {
 
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
       if (!isDateInOperationalRange_(formatDate_(date), dateRange)) continue;
-      fixedOccurrences[buildFixedOccurrenceKey_(sourceRow, formatDate_(date))] = true;
+      const scheduleId = getArchiveScheduleId_(headers, row);
+      fixedOccurrences[buildFixedOccurrenceKey_(scheduleId || sourceRow, formatDate_(date))] = true;
     }
   });
 
@@ -1577,7 +1591,8 @@ function isArchiveDiffConfirmed_(headers, row) {
   const hasCheckColumns = setterIndex >= 0 || checkerIndex >= 0;
   const hasCheckValues = (setterIndex >= 0 && normalizeCell_(row[setterIndex]) !== '') ||
     (checkerIndex >= 0 && normalizeCell_(row[checkerIndex]) !== '');
-  if (!hasCheckColumns || !hasCheckValues) return true;
+  if (!hasCheckColumns) return true;
+  if (!hasCheckValues) return false;
 
   const assigneeIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.assignee);
   const assignee = assigneeIndex == null ? '' : normalizeCell_(row[assigneeIndex]);
@@ -1605,7 +1620,6 @@ function getArchivedOccurrenceRows_(dateRange) {
     const end = parseScheduleDate_(row[weekEndIndex]);
     if (!sourceRow || !start || !end) return;
     if (dateRange && (end < dateRange.start || start > dateRange.end)) return;
-    if (!isArchiveDiffConfirmed_(headers, row)) return;
 
     const scheduleRow = row.slice(4, 4 + scheduleHeaders.length);
     const isSingleDayArchive = formatDate_(start) === formatDate_(end);
@@ -1618,7 +1632,7 @@ function getArchivedOccurrenceRows_(dateRange) {
       record.source_row = sourceRow;
       record.target_date = dateStr;
       record.is_archived_occurrence = true;
-      archived[buildFixedOccurrenceKey_(sourceRow, dateStr)] = record;
+      archived[buildFixedOccurrenceKey_(record.schedule_id || sourceRow, dateStr)] = record;
     }
   });
 
@@ -1641,11 +1655,12 @@ function archivePastOccurrencesForScheduleRow_(ss, headers, row, sourceRow) {
 
   const archiveSheet = getOrCreateArchiveSheet_(ss, headers);
   const existingKeys = getExistingArchiveKeys_(archiveSheet);
+  const scheduleId = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.schedule_id);
   const archiveRows = [];
   for (let date = new Date(scanStart); date <= scanEnd; date.setDate(date.getDate() + 1)) {
     if (!isScheduleRowActiveOnDate_(headers, row, date)) continue;
     const dateStr = formatDate_(date);
-    const archiveKey = buildArchiveKey_(sourceRow, date);
+    const archiveKey = buildFixedOccurrenceKey_(scheduleId || sourceRow, dateStr);
     if (existingKeys.has(archiveKey)) continue;
 
     archiveRows.push([
@@ -1680,18 +1695,24 @@ function isScheduleRowActiveOnDate_(headers, row, date) {
   return isScheduleCycleActiveOnDate_(headers, row, date);
 }
 
-function isArchivedOccurrenceFixed_(sourceRow, targetDate) {
+function isArchivedOccurrenceFixed_(sourceKey, targetDate) {
   const fixedOccurrences = getFixedOccurrences_();
-  return !!fixedOccurrences[buildFixedOccurrenceKey_(sourceRow, normalizeCell_(targetDate))];
+  return !!fixedOccurrences[buildFixedOccurrenceKey_(sourceKey, normalizeCell_(targetDate))];
 }
 
 function isScheduleOccurrenceFixedById_(scheduleId, targetDate) {
   const sourceRow = getSourceRowByScheduleId_(scheduleId);
-  return sourceRow ? isArchivedOccurrenceFixed_(sourceRow, targetDate) : false;
+  return isArchivedOccurrenceFixed_(scheduleId, targetDate) ||
+    (sourceRow ? isArchivedOccurrenceFixed_(sourceRow, targetDate) : false);
 }
 
-function buildFixedOccurrenceKey_(sourceRow, targetDate) {
-  return `${normalizeCell_(sourceRow)}|${normalizeCell_(targetDate)}`;
+function buildFixedOccurrenceKey_(sourceKey, targetDate) {
+  return `${normalizeCell_(sourceKey)}|${normalizeCell_(targetDate)}`;
+}
+
+function getArchiveScheduleId_(headers, row) {
+  const index = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.schedule_id);
+  return index == null ? '' : normalizeCell_(row[index]);
 }
 
 function buildArchiveKey_(sourceRow, weekStart) {
@@ -1895,6 +1916,12 @@ function parseDateTime_(value) {
 
 function formatDate_(date) {
   return Utilities.formatDate(date, Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy-MM-dd');
+}
+
+function getWeekdayLabelForDate_(dateStr) {
+  const date = parseScheduleDate_(dateStr);
+  if (!date) return '';
+  return ['日', '月', '火', '水', '木', '金', '土'][date.getDay()];
 }
 
 function isScheduleRowFixed_(sheet, rowNumber) {
