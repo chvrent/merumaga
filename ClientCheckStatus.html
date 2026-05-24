@@ -21,7 +21,8 @@
     const targetHour = String(hour || '').split(':')[0].trim();
     return Object.values(APP_DATA.archivedOccurrences || {}).filter(row => {
       if (normalizeDateString(row && row.target_date) !== dateStr) return false;
-      if (String(row.hour || '').split(':')[0].trim() !== targetHour) return false;
+      const archivedHour = String(normalizeMasterHourValue(row && row.hour) || (row && row.hour) || '').split(':')[0].trim();
+      if (archivedHour !== targetHour) return false;
       if (!keyword) return true;
       return [
         row.mail_name,
