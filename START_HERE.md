@@ -1,41 +1,74 @@
-# 起動時に読む（運用ルール入口）
+# START HERE
 
-このリポジトリを触る前に、必ずこれを読む。
+このリポジトリを触る前に、必ずこのファイルを読むこと。
 
-## 1. ルールの正本（Single Source of Truth）
-- 仕様の正本は `SPEC.md`。
-- 運用の流れ（人がやる手順）は `ANTIGRAVITY.md`。
+## 作業ディレクトリ
 
-## 2. 変更が入ったら「自動で更新」扱いにする運用
-コードやシートの関数を変えたら、その内容を “必ず” ドキュメントにも反映する。
+- 正しい作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` だけ。
+- `merumaga` フォルダは廃止。存在していても編集・Git操作・デプロイに使わない。
+- 親フォルダ直下の `.git` が正。壊れた旧 `.git` やバックアップ名の `.git_BROKEN_DO_NOT_USE_*` は使わない。
 
-最低限やること:
-1. `SPEC.md` に「追加/変更されたルール」を追記（曖昧さが残らない書き方で）。
-2. `ANTIGRAVITY.md` に「運用上どう操作するか（メニュー/シート名/列名）」を追記。
-3. `SPEC_SUMMARY.md` に保守上の注意事項・固定ルールを追記。
-4. `運用台帳.md` に日付・変更概要・実装内容・担当を追記。
+作業前チェック:
 
-このプロジェクトは “完全一致で不整合をエラーで気づける” 前提なので、列名/シート名/ヘッダー位置などの前提が変わったら必ず明記する。
+```powershell
+pwd
+git status --short
+git remote -v
+```
 
-## 2.1 編集版（Excel→Googleスプレッドシート）反映コマンド
-編集版の式や表示をExcel（`【ウキ】新メルマガスケジュール(作成中).xlsx`）側で直したら、Googleスプレッドシートへ API で貼り付けて反映できる。
+`pwd` が `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` でない場合は作業を止める。
 
-- 反映スクリプト: `scripts/push_edit_sheet_to_gs.js`
-- 内容: ローカルExcelの `26414_編集版`（C:AK）を読み取り、Sheets API の `batchUpdate(pasteData)` でスプシへ反映
-- 認証: `GS_ACCESS_TOKEN`（推奨）または `~/.clasprc.json` の refresh token から取得
+## 他AIへ最初に伝えること
 
-実行:
-- `node scripts/push_edit_sheet_to_gs.js`
+親フォルダを正として統合済み。必ず `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` だけ触って。作業前に `pwd` と `git status --short` を確認して。`merumaga` 配下では編集・Git操作・デプロイ禁止。
 
-## 3. 次回修正で見落としやすい観点（固定チェック）
-- 編集版抽出: 毎週=リスト、新規=新規、特殊=特殊配信マスタ。配信停止でも抽出は残し、見た目だけグレー。
-- 抽出漏れ防止: 編集版更新後は `<編集版名>_検知`（GAS: 編集版の抽出漏れチェック）を必ず確認。
-- PR: PR管理の「PRが入るメルマガ」は完全一致。未登録は `完全一致チェック(リスト未登録)` で検知。曖昧（同名が複数PR等）はエラーで止める。
-- 列追加耐性: 固定列参照を避け、ヘッダー名/MATCH または「チェック列の手前」などで動的に範囲を決める。
-## 2026/05/24 復元後に最初に読むこと
+## 正のドキュメント
 
-- `SPEC.md` の「2026/05/24 復元追記: 最新運用仕様」を優先する。既存本文には古い記述や文字化けが残っている。
-- Apps Script 本体は検証環境から復元済み。検証デプロイ `@34`、GitHub commit `ecef9e9`。
-- 本番 Apps Script デプロイは `clasp login --user ayana.yokoo` 後に実施する。
-- 停止と削除は別操作。PR本文削除時は紐づく `app_pr_targets` も削除する。
-- 読み込み自動更新は5分TTL、復帰/フォーカス時は静かに更新、モーダル中は更新しない。
+- 仕様の正本: `SPEC.md`
+- 開発・運用ルール: `ANTIGRAVITY.md`
+- 要約: `SPEC_SUMMARY.md`
+- 作業履歴: `運用台帳.md`
+
+コード、シート構成、デプロイ手順、運用ルールを変えたら、必ず上記の該当ファイルへ追記する。次のAIが迷わないように、理由・影響範囲・確認方法も残す。
+
+## GitHub push
+
+- 検証 GitHub: `origin` = `https://github.com/chvrent/merumaga.git`
+- 本番 GitHub: `prod` = `https://github.com/cdc-a-yokoo/mail-magazine-maker`
+
+```powershell
+git push origin main
+git push prod main
+```
+
+## Apps Script deploy
+
+デプロイは手順を一本化し、必ず `scripts/deploy-gas.ps1` を使う。
+
+検証:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env staging
+```
+
+- clasp user: `chvrent18`
+- project file: `.clasp.staging.json`
+- deployment id: `AKfycbwBER-C0zjRd1piXcqvC-LHNFYP-b9zBitXxAsoaCfeJgWFjf7uxktzjdzpun3PIzdz`
+
+本番:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env prod
+```
+
+- clasp user: `ayana.yokoo`
+- project file: `.clasp.prod.json`
+- deployment id: `AKfycbzfuyTAe_ZUsCutzU5H1UkQZVoq2zOrmn1WoP4j9tiEYBo5BDNzPW6kofDGXkTiDAJ0Qw`
+- 本番デプロイ前に `clasp login --user ayana.yokoo` が必要。
+
+## 重要な運用注意
+
+- `DataService.gs` にスプレッドシートIDを直書きしない。環境別のScript Propertiesで管理する。
+- `Config.gs.js` や `*.js` は `clasp pull` で生成される一時ファイルの場合がある。Apps Scriptの正ファイルは原則 `.gs` / `.html`。
+- 配信停止と削除は別概念。カレンダーや一覧から消したいだけなら停止、シート行を物理削除する場合だけ削除。
+- 配信編集モーダルの日付別変更は `app_check_status.occurrence_override` を使う。マスタの週次定義を不用意に上書きしない。

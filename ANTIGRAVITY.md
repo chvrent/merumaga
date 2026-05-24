@@ -1,43 +1,51 @@
-# 配信カレンダー開発・保守の絶対ルール (ANTIGRAVITY.md)
+# mail-magazine-maker 開発・運用ルール
 
-本プロジェクトにおけるカレンダー表示・編集機能の保守における絶対的な制約事項を以下に定める。
+このファイルは、他AI・将来の担当者が壊さず作業するための共通ルールです。
 
-## 1. UI・レイアウトの絶対ルール
-- **構造の厳守**: 各配信データを描画する際は、必ず `div.delivery-row` クラス（`display: flex`）を使用し、`col-name`, `col-count`, `col-setter`, `col-checker` の 4 カラム構成を守ること。
-- **重なりの禁止**: `position: absolute` 等の絶対配置は絶対禁止。必ず Flexbox を使用し、項目が縦に積み上がる構造を維持すること。
-- **ヘッダーの重複禁止**: ヘッダー（「内容・通数・設定・確認」）の出力は、必ずデータ行ループ（`entries.forEach`）の「外側」かつ「ヘッダーが未出力の場合のみ」の条件で制御すること。
-- **列の整列**: 各カラムには必ず固定幅または `flex: 1` を設定し、全行で縦ラインが一致するようにすること。
+## 作業場所
 
-## 2. ロジックの絶対ルール
-- **色判定 (getBgColor)**: 「区分」列の値に基づき、以下のカラーコードを強制適用すること。
-    - 毎週：#ffffff (白)
-    - 特殊：#e6e6fa (薄紫)
-    - 毎月：#fff0f5 (薄ピンク)
-    - 隔週A：#e0ffe0 (薄緑)
-    - 隔週B：#ffd1dc (ピンク)
-    - その他：#e0ffff (水色)
-- **フィルタリング**: 「隔週A/B」「3週サイクル」「月末1週間判定」のロジックは厳密に守り、既存の条件を上書きして消さないこと。
+- 正しい作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` のみ。
+- `merumaga` フォルダは廃止。編集・Git操作・デプロイに使わない。
+- 作業前に必ず `pwd`、`git status --short`、`git remote -v` を確認する。
+- Gitが壊れている、または作業場所が違う場合は作業を止める。
 
-## 3. デプロイ・同期の絶対ルール（全AI共通）
-- **URLの固定と更新**: 修正を反映する際は、単に `clasp push` するだけでなく、必ず新しい「バージョン」を作成し、**既存のWebアプリURL（デプロイID）がその最新バージョンを指すように更新（redeploy）すること。**
-- **自動化の徹底**: ユーザーに「最新版にしてください」と言わせず、AI側でデプロイ作業まで完結させること。
-- **デプロイIDの維持**: 特段の理由がない限り、新しいURLを発行せず、既存のURL（例: `AKfycbzfuy...`）を維持したまま中身を最新化すること。
+## ドキュメント更新
 
-## 4. Data Operation Conventions
-- **Header-based Property Mapping**: All future data operations (fetching/saving) MUST use the spreadsheet's 1st row (header) values as the canonical property names in the application code. Avoid relying on hardcoded language aliases or dynamic translation maps where the header itself can be used directly as the object key. This ensures code remains maintainable and consistent with the spreadsheet structure.
-1. **修正前**: `read_file` で現状のコード全体を必ず確認する。
-2. **修正時**: 影響範囲（特に HTML 構造とループ処理）を最小限にする `replace` を優先し、全体の `write_file` は最小限に抑える。
-3. **デプロイ前**: 
-    - ブラウザコンソールでエラーが出ていないか確認。
-    - ヘッダーが重複していないか目視確認。
-    - 色分けが正しく適用されているか確認。
-4. **記録**: デプロイ後は必ず `運用台帳.md` に日時、作業内容、デプロイバージョンを追記する。
+コード、シート列、仕様、デプロイ手順、運用ルールを変えたら必ず追記する。
 
-## 開発・運用ルール
+- `SPEC.md`: 仕様の正本
+- `SPEC_SUMMARY.md`: 重要仕様と注意点の要約
+- `START_HERE.md`: 作業開始時の入口
+- `運用台帳.md`: 日付別の作業履歴
 
-- **構造の厳守**: 配信カレンダーの Flexbox 構造を崩さないこと。
-- **デプロイ記録**: デプロイ後は必ず `運用台帳.md` に日時、作業内容、デプロイバージョンを追記すること。
-- **Git運用**: 重要な機能追加やUIの大幅変更時には、必ず `git push` を実行し、リモートリポジトリに反映すること。
-- **変更の記録**: あらゆる重要な変更履歴は `運用台帳.md` に最新の仕様と整合性を保つよう追記すること。
-- **仕様更新の記録**: コードや運用ルールを変更した場合は、`SPEC.md`、`SPEC_SUMMARY.md`、`運用台帳.md` を同時に更新すること。
-- **ルール確認**: 修正前には必ず本ルールおよび `運用台帳.md` を読み込み、最新の仕様を確認すること。
+追記時は「何を変えたか」「なぜ変えたか」「次のAIが確認すべきこと」を残す。
+
+## デプロイ
+
+- GitHub検証: `git push origin main`
+- GitHub本番: `git push prod main`
+- Apps Script検証: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env staging`
+- Apps Script本番: `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env prod`
+- 本番Apps Scriptは事前に `clasp login --user ayana.yokoo` が必要。
+- Apps ScriptのURLを変えない。既存deployment idを更新する。
+
+## データ操作
+
+- スプレッドシートのヘッダー名を正として読み書きする。列番号固定や古い別名に頼らない。
+- `DataService.gs` にスプレッドシートIDを直書きしない。Script Propertiesで環境ごとに管理する。
+- 保存処理は同時作業を前提に `LockService` や差分保存を維持する。
+- 行削除と配信停止は別概念。停止はシート行を残し、画面上の表示対象から外す。削除はマスタ一覧・PR管理で明示操作した場合だけ使う。
+
+## カレンダー・配信編集
+
+- 日付別の配信編集は、その週・その発生分だけの変更として扱う。
+- 配信編集モーダルで保存する差分は `app_check_status.occurrence_override` を優先する。
+- 変更済み項目は赤く表示し、元の値へ戻した場合は差分なしとして扱う。
+- カレンダーのDnD移動はマスタの定例スケジュールを不用意に書き換えない。
+- 確認済み・仮確定済みの発生分は、マスタ変更による自動上書きから除外する。
+
+## PR・マスタ
+
+- app_scheduleに列を追加したら、配信編集モーダル、メルマガ一覧、PR管理、保存処理、入力制御を同時に確認する。
+- PR管理では `app_pr` と `app_pr_targets` の整合を崩さない。
+- 削除列、配信停止列、入力制御シートの仕様変更は一覧・モーダル・サーバー処理を同時に反映する。

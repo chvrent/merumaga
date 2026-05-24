@@ -1,62 +1,54 @@
-# Deployment Scripts
+# Deploy Procedure
 
-## Deployment Workflow Rules
-- **Environment Management**: 
-  - **Spreadsheet ID**: No longer hardcoded. Set the `SOURCE_SPREADSHEET_ID` property in the GAS project dashboard (Project Settings > Script Properties) for each environment.
-  - **Configuration**: Use `.clasp.staging.json` for Staging and standard `.clasp.json` for Production.
-- **Automation**: Always use the scripts documented in `deploy.md`. Never modify `DataService.gs` to change spreadsheet IDs.
-- **Safety**: Always run `clasp status` before `push`. Never attempt to manually resolve Git merge conflicts in `Code.js` or `DataService.gs`; if conflicts occur, synchronize from a master source of truth.
+作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker` だけ。`merumaga` 配下では実行しない。
 
-## Staging (Verification) Deployment
-Use this script to safely deploy to the Staging environment from the Desktop directory.
-```powershell
-# Save current state
-cp .clasp.json .clasp.temp.json
-# Apply Staging config
-cp .clasp.staging.json .clasp.json
-# Push and Deploy
-clasp push -f
-clasp deploy --deploymentId AKfycbwBER-C0zjRd1piXcqvC-LHNFYP-b9zBitXxAsoaCfeJgWFjf7uxktzjdzpun3PIzdz --description "Deploy via Safety Script"
-# Restore original config
-mv .clasp.temp.json .clasp.json
-```
-
-## Production Deployment
-Use this script to safely deploy to the Production environment from the GitHub directory.
-```powershell
-# Production uses the default .clasp.json
-clasp push -f
-clasp deploy --deploymentId AKfycbzfuyTAe_ZUsCutzU5H1UkQZVoq2zOrmn1WoP4j9tiEYBo5BDNzPW6kofDGXkTiDAJ0Qw --description "Deploy via Safety Script"
-```
-
----
-
-## Troubleshooting Deployment & Push
-If you encounter "Repository not found" (especially for private repositories) or permission errors:
-
-1. **Verify Credentials**: Ensure Git is using the correct account.
-   ```powershell
-   git config user.email "ayana.yokoo@type.jp" # For Production
-   git config user.name "ayana-yokoo"
-   ```
-2. **Refresh Authentication**: If push fails, force re-authentication with GitHub:
-   ```powershell
-   git credential-manager github logout github.com
-   git credential-manager github login
-   ```
-3. **Check Remote URL**: Ensure `origin` (Production) points to `cdc-a-yokoo` and `merumaga` (Staging) points to `chvrent`.
-
-### Emergency Recovery: Orphan/Clean Sync
-If a push is blocked by GitHub Secret Scanning due to sensitive files in history, use the "Orphan Sync" strategy:
+## 事前確認
 
 ```powershell
-# 1. Ensure sensitive files (e.g., Config.gs.js) are deleted or ignored
-rm Config.gs.js
-# 2. Create a clean history branch
-git checkout --orphan temp-sync
-# 3. Add all files (ignoring those in .gitignore)
-git add .
-# 4. Commit and force push
-git commit -m "initial sync: clean state"
-git push -u merumaga temp-sync --force
+pwd
+git status --short
+git remote -v
 ```
+
+`pwd` が正しい作業場所でない場合は止める。
+
+## GitHub
+
+- 検証: `origin` = `https://github.com/chvrent/merumaga.git`
+- 本番: `prod` = `https://github.com/cdc-a-yokoo/mail-magazine-maker`
+
+```powershell
+git push origin main
+git push prod main
+```
+
+## Apps Script
+
+Apps Scriptへのpush/deployは必ず以下のスクリプトを使う。`.clasp.json` の差し替えを手作業でしない。
+
+検証:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env staging
+```
+
+- clasp user: `chvrent18`
+- project file: `.clasp.staging.json`
+- deployment id: `AKfycbwBER-C0zjRd1piXcqvC-LHNFYP-b9zBitXxAsoaCfeJgWFjf7uxktzjdzpun3PIzdz`
+
+本番:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env prod
+```
+
+- clasp user: `ayana.yokoo`
+- project file: `.clasp.prod.json`
+- deployment id: `AKfycbzfuyTAe_ZUsCutzU5H1UkQZVoq2zOrmn1WoP4j9tiEYBo5BDNzPW6kofDGXkTiDAJ0Qw`
+- 本番は事前に `clasp login --user ayana.yokoo` が必要。
+
+## 環境ルール
+
+- スプレッドシートIDはGASのScript Propertiesで環境ごとに管理する。
+- `DataService.gs` へスプレッドシートIDを直書きしない。
+- デプロイ後は `運用台帳.md` に環境、作業内容、Apps Scriptバージョンを追記する。

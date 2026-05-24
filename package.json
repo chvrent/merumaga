@@ -1,4 +1,9 @@
 {
+  "scripts": {
+    "deploy:staging": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env staging",
+    "deploy:prod": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env prod",
+    "check:docs": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check-documentation-update.ps1"
+  },
   "dependencies": {
     "xlsx": "^0.18.5"
   }
