@@ -54,6 +54,10 @@
   let LOCAL_CHECK_CHANGES = {};
   let PENDING_CHECK_SAVE_TIMER = null;
   let SORTABLES = [];
+  let DATA_STATIC_READY = false;
+  let DATA_LOAD_IN_FLIGHT_KEY = '';
+  const WEEK_DATA_CACHE = {};
+  const WEEK_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
   let MASTER_SUBCATEGORY_FILTER = '__all__';
@@ -76,16 +80,15 @@
     otherCheck: '#E0FFFF'
   });
   const SCHEDULE_CYCLE_OPTIONS = Object.freeze([
-    '単発',
-    '毎日',
-    '毎週',
-    '毎月',
-    '月末',
-    'サイクル1',
-    'サイクル2',
-    'サイクル3',
-    '隔週A',
-    '隔週B'
+    '毎週配信',
+    '毎日配信',
+    '毎月配信',
+    '月末増発',
+    '特殊サイクル1',
+    '特殊サイクル2',
+    '特殊サイクル3',
+    '隔週配信A',
+    '隔週配信B'
   ]);
   const SCHEDULE_LINE_COLORS = Object.freeze({
     special: '#800080',
@@ -93,12 +96,12 @@
     others: '#FFA500'
   });
   const SCHEDULE_LEGEND_ITEMS = Object.freeze([
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '単発/サイクル1-3' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '毎月' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '月末' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyA, label: '隔週A' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyB, label: '隔週B' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週配信' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '特殊サイクル1-3' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '毎月配信' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '月末増発' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyA, label: '隔週配信A' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyB, label: '隔週配信B' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.ma, label: 'MA' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.otherCheck, label: 'その他/検証' },
     { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: '担当部署: 特殊' },
@@ -153,6 +156,8 @@
     insert_position: '挿入位置',
     notes: '備考',
     mail_content: 'メルマガ内容',
+    mail_content_extract: 'メルマガ内容(抽出)',
+    mail_content_free: 'メルマガ内容(フリー)',
     job_url: '自動求人特集_URL',
     auto_job_feature_id: '自動求人特集_ID',
     target_age: 'USER_年齢',
@@ -160,11 +165,13 @@
     user_desired_location: 'USER_希望勤務地',
     user_experience_job: 'USER_経験職種',
     user_desired_job: 'USER_希望職種',
+    user_other_condition: 'USER_その他条件',
     job_location: 'JOB_勤務地',
     job_type: 'JOB_職種',
     job_keyword: 'JOB_フリーワード',
     is_new: '新規',
     current_job_count: '自動求人特集_求人数',
+    auto_job_other_condition: '自動求人特集_その他条件',
     is_inactive: '配信終了',
     is_fixed: '確定済',
     target_ids: 'PRが入るメルマガ',
@@ -200,30 +207,95 @@
     }
   };
 
-  function loadData() {
-    showBusy('データを読み込み中...');
+  function getWeekRangeForLoad_() {
     const startInput = document.getElementById('startInput');
     const start = startInput && startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(new Date());
     const rangeStart = formatDate(start);
     const rangeEndDate = new Date(start);
     rangeEndDate.setDate(start.getDate() + 6);
     const rangeEnd = formatDate(rangeEndDate);
+    return { start, rangeStart, rangeEnd, cacheKey: `${rangeStart}|${rangeEnd}` };
+  }
 
-    google.script.run
+  function applyLoadedData_(data, cacheKey, cacheable) {
+    const nextData = data || {};
+    APP_DATA = DATA_STATIC_READY
+      ? Object.assign({}, APP_DATA, nextData)
+      : nextData;
+    DATA_STATIC_READY = true;
+    if (cacheable && cacheKey) {
+      WEEK_DATA_CACHE[cacheKey] = {
+        cachedAt: Date.now(),
+        commentCounts: APP_DATA.commentCounts || {},
+        fixedOccurrences: APP_DATA.fixedOccurrences || {},
+        archivedOccurrences: APP_DATA.archivedOccurrences || {},
+        stoppedOccurrences: APP_DATA.stoppedOccurrences || {},
+        checkStatuses: APP_DATA.checkStatuses || {}
+      };
+    }
+    loadPendingCheckStatuses();
+    renderScheduleGrid();
+    updatePendingCheckSaveButton();
+    if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
+  }
+
+  function getFreshWeekDataCache_(cacheKey) {
+    const cached = WEEK_DATA_CACHE[cacheKey];
+    if (!cached) return null;
+    if (Date.now() - Number(cached.cachedAt || 0) > WEEK_DATA_CACHE_TTL_MS) {
+      delete WEEK_DATA_CACHE[cacheKey];
+      return null;
+    }
+    return cached;
+  }
+
+  function invalidateWeekDataCache(cacheKey) {
+    if (cacheKey) {
+      delete WEEK_DATA_CACHE[cacheKey];
+      return;
+    }
+    Object.keys(WEEK_DATA_CACHE).forEach(key => delete WEEK_DATA_CACHE[key]);
+  }
+
+  function invalidateAllDataCache() {
+    DATA_STATIC_READY = false;
+    invalidateWeekDataCache();
+  }
+
+  function loadData(options = {}) {
+    const loadOptions = (options && typeof options === 'object') ? options : {};
+    const { rangeStart, rangeEnd, cacheKey } = getWeekRangeForLoad_();
+
+    if (loadOptions.includeStatic) invalidateAllDataCache();
+    if (loadOptions.force) invalidateWeekDataCache(cacheKey);
+
+    const cachedWeekData = !loadOptions.force ? getFreshWeekDataCache_(cacheKey) : null;
+    if (DATA_STATIC_READY && cachedWeekData) {
+      applyLoadedData_(cachedWeekData, cacheKey, false);
+      return;
+    }
+
+    if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) return;
+    DATA_LOAD_IN_FLIGHT_KEY = cacheKey;
+    if (!loadOptions.silent) showBusy('データを読み込み中...');
+    const runner = google.script.run
       .withSuccessHandler(data => {
-        APP_DATA = data || {};
-        loadPendingCheckStatuses();
-        renderScheduleGrid();
-        updatePendingCheckSaveButton();
-        if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
-        hideBusy();
+        applyLoadedData_(data, cacheKey, true);
+        if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) DATA_LOAD_IN_FLIGHT_KEY = '';
+        if (!loadOptions.silent) hideBusy();
       })
       .withFailureHandler(err => {
+        if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) DATA_LOAD_IN_FLIGHT_KEY = '';
         document.getElementById('tableContainer').innerHTML =
           '<div class="empty-state">データの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
-        hideBusy();
-      })
-      .getInitialData({ startDate: rangeStart, endDate: rangeEnd });
+        if (!loadOptions.silent) hideBusy();
+      });
+
+    if (DATA_STATIC_READY && !loadOptions.includeStatic) {
+      runner.getOperationalData({ startDate: rangeStart, endDate: rangeEnd });
+    } else {
+      runner.getInitialData({ startDate: rangeStart, endDate: rangeEnd });
+    }
   }
 
   function toggleMoveMode() {
@@ -274,6 +346,14 @@
       overlay.setAttribute('aria-hidden', 'true');
     }
     document.body.classList.remove('is-busy');
+  }
+
+  function isAnyModalOpen_() {
+    return Array.from(document.querySelectorAll('.modal')).some(modal => {
+      if (modal.getAttribute('aria-hidden') === 'false') return true;
+      const style = window.getComputedStyle(modal);
+      return style.display !== 'none' && style.visibility !== 'hidden';
+    });
   }
 
   function fillRForDay(dateStr) {
@@ -343,12 +423,12 @@
             .withSuccessHandler(() => {
               console.log('移動完了');
               hideBusy();
-              loadData();
+              loadData({ force: true });
             })
             .withFailureHandler(err => {
               hideBusy();
               alert('移動に失敗しました: ' + err.message);
-              loadData();
+              loadData({ force: true });
             })
             .updateItemDate(scheduleId, oldDate, newDate, newHour);
         }
@@ -465,16 +545,17 @@
         const dayLabel = weekdays[date.getDay()];
         const monthEndInfo = getMonthEndInfo(date);
         const entries = filtered.filter(row => {
-          if (isPastDateString(dateStr) && getArchivedOccurrenceForRow(row, dateStr)) return false;
-          const rowHour = String(row.hour || '').split(':')[0].trim();
+          if (getArchivedOccurrenceForRow(row, dateStr)) return false;
+          const rowForDate = applyOccurrenceOverrideToEntry(Object.assign({}, row, { target_date: dateStr }));
+          const rowHour = String(normalizeMasterHourValue(rowForDate.hour) || rowForDate.hour || '').split(':')[0].trim();
           const startDate = normalizeDateString(row.start_date);
           const endDate = normalizeDateString(row.end_date);
-          const prStates = getPrStates(row, dateStr);
+          const prStates = getPrStates(rowForDate, dateStr);
           const weekday = normalizeWeekdayLabel(row.weekday);
           const scheduleCycleType = getScheduleCycleType(row);
           const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
 
-          if (isInactive(row)) return false;
+          if (isInactive(rowForDate)) return false;
 
           // この日付/時間における「有効」な状態
           const moveOverride = getMoveOverrideForDate(row, dateStr);
@@ -528,6 +609,36 @@
             const payload = escapeAttribute(encodeURIComponent(JSON.stringify(effectiveEntry)));
             const scheduleId = effectiveEntry.schedule_id || 'unknown';
             const checkItemId = getCheckItemId(entryForDate);
+            const hasOccurrenceOverrides = getOccurrenceOverrideFieldsForEntry(entryForDate).length > 0;
+            const nameChanged = isOccurrenceFieldOverridden(entryForDate, [
+              'mail_name',
+              'mail_content',
+              'mail_content_extract',
+              'mail_content_free',
+              'notes',
+              'format',
+              'cycle',
+              'weekday',
+              'hour',
+              'start_date',
+              'end_date',
+              'job_url',
+              'auto_job_feature_id',
+              'target_age',
+              'target_address',
+              'user_desired_location',
+              'user_experience_job',
+              'user_desired_job',
+              'user_other_condition',
+              'job_location',
+              'job_type',
+              'job_keyword',
+              'is_new',
+              'auto_job_other_condition'
+            ]);
+            const countChanged = isOccurrenceFieldOverridden(entryForDate, ['delivery_count']);
+            const setterChanged = isOccurrenceFieldOverridden(entryForDate, ['assignee']);
+            const checkerChanged = isOccurrenceFieldOverridden(entryForDate, ['reviewer']);
             const subCategoryClass = getSubCategoryClass(effectiveEntry);
             const itemBg = getBgColor(effectiveEntry);
             const fixed = isFixed(entry, dateStr);
@@ -547,8 +658,8 @@
               .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
               .join('');
             html += `
-            <div class="delivery-row slot-item ${subCategoryClass} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
-              <div class="col-name">
+            <div class="delivery-row slot-item ${subCategoryClass} ${hasOccurrenceOverrides ? 'has-occurrence-overrides' : ''} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
+              <div class="col-name ${nameChanged ? 'is-occurrence-overridden' : ''}">
                 <div class="mail-name">
                   ${jobAlertIcon}
                   ${escapeHtml(effectiveEntry.mail_name)}
@@ -557,10 +668,11 @@
                   ${renderCommentBadge(entryForDate)}
                 </div>
                 ${prLabel}
+                ${renderOccurrenceOverrideBadges(entryForDate)}
               </div>
-              <div class="col-count">${escapeHtml(effectiveEntry.delivery_count)}</div>
-              ${renderCheckStatusCell(checkItemId, 'setter', effectiveEntry.assignee, 'col-setter', entryForDate)}
-              ${renderCheckStatusCell(checkItemId, 'checker', effectiveEntry.reviewer, 'col-checker', entryForDate)}
+              <div class="col-count ${countChanged ? 'is-occurrence-overridden' : ''}">${escapeHtml(effectiveEntry.delivery_count)}</div>
+              ${renderCheckStatusCell(checkItemId, 'setter', effectiveEntry.assignee, `col-setter ${setterChanged ? 'is-occurrence-overridden' : ''}`, entryForDate)}
+              ${renderCheckStatusCell(checkItemId, 'checker', effectiveEntry.reviewer, `col-checker ${checkerChanged ? 'is-occurrence-overridden' : ''}`, entryForDate)}
             </div>
           `;
           });
@@ -752,7 +864,8 @@
     const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ', '担当部署'].includes(String(h || '').trim())) || '';
     const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
     const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
-    const endDateHeader = headers.find(h => ['end_date', '終了日', '配信終了'].includes(String(h || '').trim())) || '';
+    const endDateHeader = headers.find(h => ['end_date', '終了日'].includes(String(h || '').trim())) || '';
+    const inactiveHeader = headers.find(h => ['is_inactive', '配信停止', '配信終了'].includes(String(h || '').trim())) || '';
     const isNewHeader = headers.find(h => ['is_new', 'new_flag', '新規'].includes(String(h || '').trim())) || '';
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
@@ -782,10 +895,11 @@
       }
 
       // 状態フィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && endDateHeader) {
+      if (MASTER_DATA.sheetName === 'app_schedule' && (endDateHeader || inactiveHeader)) {
         const endDate = normalizeDateString(row[endDateHeader]);
         const today = formatDate(new Date());
-        const isEnded = !!endDate && endDate < today;
+        const isInactiveRow = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : false;
+        const isEnded = isInactiveRow || (!!endDate && endDate < today);
         if (MASTER_STATUS_FILTER === 'active' && isEnded) return false;
         if (MASTER_STATUS_FILTER === 'ended' && !isEnded) return false;
       }
@@ -828,12 +942,20 @@
     visibleRows.forEach(row => {
       const linkedNames = row.target_mails || row.mail_name || '（未設定）';
       const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
+      const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
+      const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
+      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < formatDate(new Date()));
+      const stopButton = rowEnded
+        ? ''
+        : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;
+      const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>`;
 
       html += `
       <tr>
       <td class="actions-col">
         <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
-        <button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>
+        ${stopButton}
+        ${deleteButton}
       </td>
     `;
 
@@ -899,7 +1021,8 @@
       if (nextSelected && !optionValues.some(option => option.value === nextSelected)) {
         select.insertAdjacentHTML('beforeend', `<option value="${escapeAttribute(nextSelected)}" selected>${escapeHtml(nextSelected)}</option>`);
       }
-      select.required = select.name !== 'checker' || String(select.closest('#editModal') ? select.closest('#editModal').querySelector('[name="setter"]')?.value || '' : '').trim() !== 'R';
+      select.required = false;
+      select.removeAttribute('required');
       select.value = nextSelected;
       delete select.dataset.pendingValue;
     });
@@ -928,7 +1051,7 @@
     const optionHtml = normalizedOptions.map(option => `
       <option value="${escapeAttribute(option.value)}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>
     `).join('');
-    return `<select name="${escapeAttribute(name)}" data-header="${escapeAttribute(header)}" required>${placeholder}${optionHtml}</select>`;
+    return `<select name="${escapeAttribute(name)}" data-header="${escapeAttribute(header)}">${placeholder}${optionHtml}</select>`;
   }
 
   function renderNamedSelectInput(name, currentValue, options) {
@@ -1043,6 +1166,19 @@
   function normalizeMasterHourValue(value) {
     const text = String(value == null ? '' : value).trim();
     if (!text) return '';
+    if (/^\d+(\.\d+)?$/.test(text)) {
+      const numeric = Number(text);
+      if (!Number.isNaN(numeric)) {
+        if (numeric > 0 && numeric < 1) {
+          return `${Math.round(numeric * 24)}:00`;
+        }
+        if (numeric >= 8 && numeric <= 21) {
+          return `${Math.floor(numeric)}:00`;
+        }
+      }
+    }
+    const dateMatch = text.match(/T(\d{1,2}):(\d{2})/);
+    if (dateMatch) return `${Number(dateMatch[1])}:00`;
     const match = text.match(/^(\d{1,2})(?::\d{2})?/);
     if (!match) return text;
     return `${Number(match[1])}:00`;
@@ -1052,11 +1188,15 @@
     const text = String(value == null ? '' : value).trim();
     if (!text) return '';
     const normalized = normalizeCycleLabel(text);
-    if (normalized === 'A') return '隔週A';
-    if (normalized === 'B') return '隔週B';
-    if (['単発', '毎日', '毎月', '月末'].includes(normalized)) return normalized;
+    if (!normalized) return '毎週配信';
+    if (normalized === 'A') return '隔週配信A';
+    if (normalized === 'B') return '隔週配信B';
+    if (normalized === '単発') return text;
+    if (normalized === '毎日') return '毎日配信';
+    if (normalized === '毎月') return '毎月配信';
+    if (normalized === '月末') return '月末増発';
     const cycleNumber = extractCycleNumber(normalized);
-    if (cycleNumber != null) return `サイクル${cycleNumber}`;
+    if (cycleNumber != null) return `特殊サイクル${cycleNumber}`;
     return text;
   }
 
@@ -1210,7 +1350,7 @@
       action = '追加';
     } else if (endMs != null && targetMs > endMs - 7 * DAY_MS && targetMs <= endMs) {
       status = 'remove';
-      action = '削除';
+      action = '除外';
     } else if (startMs != null && endMs != null && targetMs >= startMs && targetMs <= endMs) {
       status = 'active';
       action = '掲出中';
@@ -1243,7 +1383,7 @@
 
     const scheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
     const mailName = normalizeText(getValueByKeys(row, ['mail_name', 'メルマガ名']));
-    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr : [];
+    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr.filter(prRow => !isInactive(prRow)) : [];
 
     // 1. target_ids (schedule_id) での紐付け (新方式)
     const matchedPrs = prRows.filter(prRow => {
@@ -1266,7 +1406,7 @@
     })).filter(record => record.pr_id);
 
     // 2. app_pr_targets からの紐付け (旧方式・互換性)
-    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
+    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets.filter(target => !isInactive(target)) : [];
     const prById = new Map(prRows.map(prRow => [normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])), prRow]));
 
     const targetRecords = mailName ? prTargets
@@ -1497,6 +1637,10 @@
       return;
     }
 
+    if (action === 'stop-master-row') {
+      stopMasterRow(actionElement.dataset.rowNumber || '');
+      return;
+    }
     if (action === 'delete-master-row') {
       deleteMasterRow(actionElement.dataset.rowNumber || '');
       return;
@@ -1529,6 +1673,11 @@
 
     if (action === 'jump-to-current-week') {
       jumpToCurrentWeek();
+      return;
+    }
+
+    if (action === 'jump-week') {
+      jumpWeek(Number(actionElement.dataset.weekOffset || 0));
       return;
     }
 
@@ -1579,6 +1728,17 @@
 
     if (action === 'save-master-edit') {
       saveMasterEdit();
+      return;
+    }
+
+    if (action === 'stop-master-current') {
+      stopCurrentMasterRow();
+      return;
+    }
+
+    if (action === 'delete-master-current') {
+      deleteCurrentMasterRow();
+      return;
     }
   }
 
@@ -1590,18 +1750,20 @@
     const itemId = encodedItemId ? decodeURIComponent(encodedItemId) : String(cell.dataset.itemId || '').trim();
     if (!itemId || !field) return;
 
-    const nextActive = !isCheckStatusActive(itemId, field);
-    const payload = parseCheckLogPayload(cell.dataset.logPayload);
-    setPendingCheckStatus(itemId, field, nextActive, payload);
-    schedulePendingCheckPersist();
-    cell.classList.toggle('is-active-red', nextActive);
-    cell.classList.toggle('is-pending-check', hasPendingCheckStatus(itemId, field));
-    updatePendingCheckSaveButton();
+    saveCheckStatusImmediately(cell, itemId, field);
   }
 
   function wireEvents() {
     renderScheduleLegend();
     document.addEventListener('click', handleActionClick);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && DATA_STATIC_READY && !isAnyModalOpen_()) {
+        loadData({ silent: true });
+      }
+    });
+    window.addEventListener('focus', () => {
+      if (DATA_STATIC_READY && !isAnyModalOpen_()) loadData({ silent: true });
+    });
     document.querySelectorAll('.tab-button').forEach(button => {
       button.addEventListener('click', () => switchTab(button.dataset.tab));
     });
@@ -1656,12 +1818,12 @@
     google.script.run
       .withSuccessHandler(() => {
         hideBusy();
-        loadData();
+        loadData({ force: true });
       })
       .withFailureHandler(err => {
         hideBusy();
         alert('一括停止に失敗しました: ' + err.message);
-        loadData();
+        loadData({ force: true });
       })
       .stopAllDeliveriesForDay(dateStr, ids);
   }
@@ -1674,12 +1836,12 @@
     google.script.run
       .withSuccessHandler(() => {
         hideBusy();
-        loadData();
+        loadData({ force: true });
       })
       .withFailureHandler(err => {
         hideBusy();
         alert('一括再開に失敗しました: ' + err.message);
-        loadData();
+        loadData({ force: true });
       })
       .resumeAllDeliveriesForDay(dateStr);
   }

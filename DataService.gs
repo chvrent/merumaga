@@ -27,7 +27,8 @@ const PR_FIELD_ALIASES = {
   pr_text: ['pr_text', 'PR本文', '本文'],
   start_date: ['start_date', '開始日', '開始'],
   end_date: ['end_date', '終了日', '終了'],
-  target_ids: ['target_ids', '紐付けID', '対象ID', 'PRが入るメルマガ', '紐付けメルマガ']
+  target_ids: ['target_ids', '紐付けID', '対象ID', 'PRが入るメルマガ', '紐付けメルマガ'],
+  is_inactive: ['is_inactive', '配信停止', '配信終了', '停止', '無効']
 };
 
 const PR_TARGET_FIELD_ALIASES = {
@@ -36,13 +37,16 @@ const PR_TARGET_FIELD_ALIASES = {
   schedule_id: ['schedule_id', 'スケジュールID', '配信ID'],
   mail_name: ['mail_name', 'メルマガ名', '対象メルマガ'],
   source_row: ['source_row', '元行', '元の行'],
-  target_index: ['target_index', '表示順', '対象順']
+  target_index: ['target_index', '表示順', '対象順'],
+  is_inactive: ['is_inactive', '配信停止', '配信終了', '停止', '無効']
 };
 
 const SCHEDULE_FIELD_ALIASES = {
   schedule_id: ['schedule_id', 'ID', 'id'],
   mail_name: ['mail_name', 'メルマガ名'],
   mail_content: ['mail_content', 'メルマガ内容', 'メルマガ詳細内容'],
+  mail_content_extract: ['mail_content_extract', 'メルマガ内容(抽出)'],
+  mail_content_free: ['mail_content_free', 'メルマガ内容(フリー)'],
   weekday: ['weekday', '曜日'],
   hour: ['hour', '時間'],
   mail_type: ['mail_type', 'category', '種別'],
@@ -62,11 +66,13 @@ const SCHEDULE_FIELD_ALIASES = {
   user_desired_location: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'],
   user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種'],
   user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種'],
+  user_other_condition: ['user_other_condition', 'USER_その他条件'],
   job_location: ['job_location', 'JOB_勤務地'],
   job_type: ['job_type', 'JOB_職種'],
   job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード'],
   is_new: ['is_new', 'new_flag', '新規'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数'],
+  auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件'],
   cycle: ['cycle', 'サイクル'],
   current_week_cycle: ['current_week_cycle', '今週サイクル(内部)'],
   current_week_inactive: ['current_week_inactive', '今週非配信(内部)'],
@@ -88,6 +94,8 @@ const CHECK_STATUS_FIELD_ALIASES = {
   end_date: ['終了日', 'end_date', '終了'],
   cycle: ['cycle', 'サイクル'],
   mail_name: ['mail_name', 'メルマガ名'],
+  mail_content_extract: ['mail_content_extract', 'メルマガ内容(抽出)'],
+  mail_content_free: ['mail_content_free', 'メルマガ内容(フリー)'],
   job_url: ['job_url', '自動求人特集URL', '自動求人特集_URL', '求人URL', 'URL'],
   auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID', '自動求人特集_ID'],
   target_age: ['target_age', '対象年齢', 'USER_年齢'],
@@ -95,11 +103,13 @@ const CHECK_STATUS_FIELD_ALIASES = {
   user_desired_location: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'],
   user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種'],
   user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種'],
+  user_other_condition: ['user_other_condition', 'USER_その他条件'],
   job_location: ['job_location', 'JOB_勤務地'],
   job_type: ['job_type', 'JOB_職種'],
   job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード'],
   is_new: ['is_new', '新規', 'new_flag'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数'],
+  auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件'],
   override_fields: ['override_fields'],
   delivery_count: ['delivery_count', '通数'],
   assignee: ['assignee', '設定者'],
@@ -117,20 +127,29 @@ const DEPRECATED_SCHEDULE_HEADERS = ['job_count_updated_at', '求人数最終取
 function getInitialData(options) {
   const ss = getSourceSpreadsheet_();
   const dateRange = buildOperationalDateRange_(options);
-  return {
+  return Object.assign({
     schedule: getScheduleRows_(ss),
     scheduleHeaders: getSheetHeaders_(ss, SCHEDULE_SHEET_NAME),
     pr: getSheetObjectsCached_('app_pr'),
     prTargets: getSheetObjectsCached_('app_pr_targets', true),
     holidays: getSheetObjectsCached_('app_holidays', true),
     japaneseHolidays: getJapaneseHolidays_(),
+    readme: getSheetObjectsCached_('app_readme', true),
+    adminMaster: getSheetObjectsCached_('app_admin_master', true)
+  }, getOperationalDataForRange_(dateRange));
+}
+
+function getOperationalData(options) {
+  return getOperationalDataForRange_(buildOperationalDateRange_(options));
+}
+
+function getOperationalDataForRange_(dateRange) {
+  return {
     commentCounts: getCommentCounts_(dateRange),
     fixedOccurrences: getFixedOccurrences_(dateRange),
     archivedOccurrences: getArchivedOccurrenceRows_(dateRange),
     stoppedOccurrences: getStoppedOccurrences_(dateRange),
-    checkStatuses: getCheckStatuses_(dateRange),
-    readme: getSheetObjectsCached_('app_readme', true),
-    adminMaster: getSheetObjectsCached_('app_admin_master', true)
+    checkStatuses: getCheckStatuses_(dateRange)
   };
 }
 
@@ -216,6 +235,7 @@ function getPRData() {
   
   const targetMap = {};
   prTargets.rows.forEach(row => {
+    if (isMasterObjectInactive_(row, PR_TARGET_FIELD_ALIASES.is_inactive)) return;
     const prId = normalizeIdKey_(getObjectFieldByAliases_(row, PR_TARGET_FIELD_ALIASES.pr_id));
     const mailName = getObjectFieldByAliases_(row, PR_TARGET_FIELD_ALIASES.mail_name);
     if (prId && mailName) {
@@ -224,6 +244,7 @@ function getPRData() {
     }
   });
 
+  prMaster.rows = prMaster.rows.filter(row => !isMasterObjectInactive_(row, PR_FIELD_ALIASES.is_inactive));
   prMaster.rows.forEach(row => {
     const prId = normalizeIdKey_(getObjectFieldByAliases_(row, PR_FIELD_ALIASES.pr_id));
     const mailNames = Array.from(new Set((targetMap[prId] || []).filter(Boolean)));
@@ -314,6 +335,10 @@ function deleteMasterData(sheetName, rowNumber) {
   return withScriptLock_(() => deleteMasterDataUnlocked_(sheetName, rowNumber));
 }
 
+function stopMasterData(sheetName, rowNumber) {
+  return withScriptLock_(() => stopMasterDataUnlocked_(sheetName, rowNumber));
+}
+
 function deleteMasterDataUnlocked_(sheetName, rowNumber) {
   const safeSheetName = assertEditableSheet_(sheetName);
   const targetRow = Number(rowNumber || 0);
@@ -324,7 +349,36 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
   if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
   if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
 
-  // PR本文マスタ(app_pr)を削除した場合、紐づいている対象メルマガ(app_pr_targets)も削除する
+  let deletedPrId = '';
+  if (safeSheetName === 'app_pr') {
+    const lastCol = sheet.getLastColumn();
+    const prHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
+    const prIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(prHeaders), PR_FIELD_ALIASES.pr_id);
+    deletedPrId = prIdIndex == null ? '' : normalizeCell_(sheet.getRange(targetRow, prIdIndex + 1).getDisplayValue());
+  }
+
+  sheet.deleteRow(targetRow);
+
+  if (safeSheetName === 'app_pr' && deletedPrId) {
+    deletePrTargetRowsByPrId_(ss, deletedPrId);
+  }
+
+  invalidateInitialDataCaches_(safeSheetName === 'app_pr' ? ['app_pr', 'app_pr_targets'] : [safeSheetName]);
+  return { success: true, action: 'delete', rowNumber: targetRow };
+}
+
+function stopMasterDataUnlocked_(sheetName, rowNumber) {
+  const safeSheetName = assertEditableSheet_(sheetName);
+  const targetRow = Number(rowNumber || 0);
+  if (targetRow < 2) throw new Error('Invalid row number');
+
+  const ss = getSourceSpreadsheet_();
+  const sheet = ss.getSheetByName(safeSheetName);
+  if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
+  if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
+
+  stopMasterRow_(sheet, safeSheetName, targetRow);
+
   if (safeSheetName === 'app_pr') {
     const lastCol = sheet.getLastColumn();
     const prHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
@@ -334,14 +388,17 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
     if (prId) {
       const targetsSheet = ss.getSheetByName('app_pr_targets');
       if (targetsSheet) {
+        const targetInactiveIndex = getOrCreateInactiveColumn_(targetsSheet, PR_TARGET_FIELD_ALIASES.is_inactive);
         const targetValues = targetsSheet.getDataRange().getDisplayValues();
         if (targetValues.length >= 2) {
           const targetHeaders = targetValues[0].map(h => String(h || '').trim());
-          const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_FIELD_ALIASES.pr_id);
+          const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_TARGET_FIELD_ALIASES.pr_id);
           if (targetPrIdIndex != null) {
-            for (let r = targetValues.length; r >= 2; r--) {
+            for (let r = 2; r <= targetValues.length; r++) {
               const rowPrId = normalizeCell_(targetValues[r - 1][targetPrIdIndex]);
-              if (rowPrId && rowPrId === prId) targetsSheet.deleteRow(r);
+              if (rowPrId && normalizeIdKey_(rowPrId) === normalizeIdKey_(prId)) {
+                targetsSheet.getRange(r, targetInactiveIndex + 1).setValue(true);
+              }
             }
           }
         }
@@ -349,9 +406,59 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
     }
   }
 
-  sheet.deleteRow(targetRow);
   invalidateInitialDataCaches_(safeSheetName === 'app_pr' ? ['app_pr', 'app_pr_targets'] : [safeSheetName]);
-  return { success: true, action: 'delete', rowNumber: targetRow };
+  return { success: true, action: 'stop', rowNumber: targetRow };
+}
+
+function deletePrTargetRowsByPrId_(ss, prId) {
+  const targetsSheet = ss.getSheetByName('app_pr_targets');
+  if (!targetsSheet) return;
+  const targetValues = targetsSheet.getDataRange().getDisplayValues();
+  if (targetValues.length < 2) return;
+  const targetHeaders = targetValues[0].map(h => String(h || '').trim());
+  const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_TARGET_FIELD_ALIASES.pr_id);
+  if (targetPrIdIndex == null) return;
+  const rowsToDelete = [];
+  for (let r = 2; r <= targetValues.length; r++) {
+    const rowPrId = normalizeCell_(targetValues[r - 1][targetPrIdIndex]);
+    if (rowPrId && normalizeIdKey_(rowPrId) === normalizeIdKey_(prId)) {
+      rowsToDelete.push(r);
+    }
+  }
+  rowsToDelete.reverse().forEach(rowNumber => targetsSheet.deleteRow(rowNumber));
+}
+
+function stopMasterRow_(sheet, sheetName, rowNumber) {
+  const inactiveIndex = getOrCreateInactiveColumn_(sheet, getInactiveAliasesForMasterSheet_(sheetName));
+  sheet.getRange(rowNumber, inactiveIndex + 1).setValue(true);
+}
+
+function getOrCreateInactiveColumn_(sheet, aliases) {
+  const lastColumn = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(h => String(h || '').trim());
+  const inactiveIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), aliases);
+  if (inactiveIndex != null) return inactiveIndex;
+
+  const nextColumn = lastColumn + 1;
+  sheet.getRange(1, nextColumn).setValue('配信停止');
+  return nextColumn - 1;
+}
+
+function getInactiveAliasesForMasterSheet_(sheetName) {
+  switch (String(sheetName || '').trim()) {
+    case SCHEDULE_SHEET_NAME:
+      return SCHEDULE_FIELD_ALIASES.is_inactive;
+    case 'app_pr':
+      return PR_FIELD_ALIASES.is_inactive;
+    case 'app_pr_targets':
+      return PR_TARGET_FIELD_ALIASES.is_inactive;
+    default:
+      return ['is_inactive', '配信停止', '停止', '無効'];
+  }
+}
+
+function isMasterObjectInactive_(row, aliases) {
+  return isTruthy_(getObjectFieldByAliases_(row, aliases || ['is_inactive', '配信停止', '停止', '無効']));
 }
 
 function backupAndLockTwoWeeksAgo() {
@@ -486,7 +593,8 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   // 2. app_pr_targets の一括更新
   const targetsSheet = ss.getSheetByName('app_pr_targets');
   if (!targetsSheet) throw new Error('Sheet not found: app_pr_targets');
-  
+
+  getOrCreateInactiveColumn_(targetsSheet, PR_TARGET_FIELD_ALIASES.is_inactive);
   const range = targetsSheet.getDataRange();
   const values = range.getValues();
   const headers = values[0].map(h => String(h).trim());
@@ -495,23 +603,48 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   const mailNameIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.mail_name);
   const sourceRowIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.source_row);
   const targetIndexIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.target_index);
+  const inactiveIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.is_inactive);
   if (prIdIndex == null || mailNameIndex == null) {
     throw new Error('app_pr_targets must have PR ID/pr_id and メルマガ名/mail_name headers');
   }
-  
-  // 該当する pr_id 以外を残す形でフィルタリングし、一括でセットする
-  const remainingRows = values.slice(1).filter(row => normalizeIdKey_(row[prIdIndex]) !== prId);
-  
-  const newRows = (targetNewsletters || []).map((nl, index) => {
+
+  const selectedRows = (targetNewsletters || []).map((nl, index) => ({
+    mailName: normalizeCell_(nl && nl.mail_name),
+    sourceRow: normalizeCell_(nl && nl.source_row),
+    targetIndex: index + 1
+  })).filter(row => row.mailName);
+  const selectedByMail = new Map(selectedRows.map(row => [row.mailName, row]));
+  const usedSelected = new Set();
+  const bodyRows = values.slice(1).map(row => row.slice(0, headers.length));
+
+  bodyRows.forEach(row => {
+    if (normalizeIdKey_(row[prIdIndex]) !== prId) return;
+    const mailName = normalizeCell_(row[mailNameIndex]);
+    const selected = selectedByMail.get(mailName);
+    if (selected) {
+      row[prIdIndex] = prId;
+      row[mailNameIndex] = selected.mailName;
+      if (sourceRowIndex != null) row[sourceRowIndex] = selected.sourceRow;
+      if (targetIndexIndex != null) row[targetIndexIndex] = selected.targetIndex;
+      if (inactiveIndex != null) row[inactiveIndex] = false;
+      usedSelected.add(mailName);
+    } else if (inactiveIndex != null) {
+      row[inactiveIndex] = true;
+    }
+  });
+
+  selectedRows.forEach(rowInfo => {
+    if (usedSelected.has(rowInfo.mailName)) return;
     const row = new Array(headers.length).fill('');
     row[prIdIndex] = prId;
-    row[mailNameIndex] = nl.mail_name;
-    if (sourceRowIndex != null) row[sourceRowIndex] = nl.source_row;
-    if (targetIndexIndex != null) row[targetIndexIndex] = index + 1;
-    return row;
+    row[mailNameIndex] = rowInfo.mailName;
+    if (sourceRowIndex != null) row[sourceRowIndex] = rowInfo.sourceRow;
+    if (targetIndexIndex != null) row[targetIndexIndex] = rowInfo.targetIndex;
+    if (inactiveIndex != null) row[inactiveIndex] = false;
+    bodyRows.push(row);
   });
   
-  const finalValues = [headers].concat(remainingRows).concat(newRows);
+  const finalValues = [headers].concat(bodyRows);
   
   // シートをクリアして一括書き込み
   targetsSheet.clearContents();
@@ -771,6 +904,10 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.cycle);
       case 'mail_name':
         return normalizeCell_(safePayload.mail_name);
+      case 'mail_content_extract':
+        return normalizeCell_(safePayload.mail_content_extract);
+      case 'mail_content_free':
+        return normalizeCell_(safePayload.mail_content_free);
       case 'job_url':
         return normalizeCell_(safePayload.job_url);
       case 'auto_job_feature_id':
@@ -785,6 +922,8 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.user_experience_job);
       case 'user_desired_job':
         return normalizeCell_(safePayload.user_desired_job);
+      case 'user_other_condition':
+        return normalizeCell_(safePayload.user_other_condition);
       case 'job_location':
         return normalizeCell_(safePayload.job_location);
       case 'job_type':
@@ -795,6 +934,8 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.is_new);
       case 'current_job_count':
         return normalizeCell_(safePayload.current_job_count);
+      case 'auto_job_other_condition':
+        return normalizeCell_(safePayload.auto_job_other_condition);
       case 'override_fields':
         return normalizeCell_(safePayload.override_fields);
       case 'delivery_count':
@@ -1123,6 +1264,7 @@ function getCheckStatuses_(dateRange) {
       statuses[key] = {
         item_id: itemId,
         field,
+        updated_at: normalizeCell_(status.updated_at),
         schedule_id: normalizeScheduleIdForMove_(status.schedule_id || itemId),
         original_date: normalizeCommentTargetDate_(status.original_date),
         delivery_date: normalizeCommentTargetDate_(status.delivery_date),
@@ -1137,6 +1279,7 @@ function getCheckStatuses_(dateRange) {
       const obj = {
         item_id: itemId,
         field,
+        updated_at: normalizeCell_(status.updated_at),
         schedule_id: normalizeScheduleIdForMove_(status.schedule_id || itemId),
         original_date: normalizeCommentTargetDate_(status.original_date),
         delivery_date: normalizeCommentTargetDate_(status.delivery_date),
@@ -1214,7 +1357,7 @@ function getCheckStatusHeaders_(sheet) {
       const key = getCanonicalKeyFromAliases_(SCHEDULE_FIELD_ALIASES, header) || String(header || '').trim();
       return key &&
         ['schedule_id', 'id', 'source_sheet', 'source_row', 'is_fixed'].indexOf(key) === -1 &&
-        !isDeprecatedScheduleHeader(header);
+        !isDeprecatedScheduleHeader_(SCHEDULE_SHEET_NAME, header);
     });
   const requiredHeaders = baseRequiredHeaders.concat(scheduleHeaders);
   const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
@@ -1614,10 +1757,13 @@ function isPositionMatchForBackup_(headers, row) {
 
 function normalizeCycleLabelForBackup_(value) {
   const text = normalizeCell_(value);
-  if (!text || text === '毎週') return '';
-  if (text === '単発' || text === '毎日' || text === '毎月' || text === '月末') return text;
-  if (text.indexOf('隔週A') !== -1 || text === 'A') return 'A';
-  if (text.indexOf('隔週B') !== -1 || text === 'B') return 'B';
+  if (!text || text === '毎週' || text === '毎週配信') return '';
+  if (text === '単発') return text;
+  if (text === '毎日' || text === '毎日配信') return '毎日';
+  if (text === '毎月' || text === '毎月配信') return '毎月';
+  if (text === '月末' || text === '月末増発') return '月末';
+  if (text.indexOf('隔週配信A') !== -1 || text.indexOf('隔週A') !== -1 || text === 'A') return 'A';
+  if (text.indexOf('隔週配信B') !== -1 || text.indexOf('隔週B') !== -1 || text === 'B') return 'B';
   const match = text.match(/(\d+)/);
   return match ? String(Number(match[1])) : text;
 }
@@ -1822,6 +1968,8 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     // mail_name も必ず mail_name 列（ヘッダー別名含む）からのみ取得する
     mail_name: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_name),
     mail_content: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content),
+    mail_content_extract: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content_extract),
+    mail_content_free: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content_free),
     format: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.format),
     delivery_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.delivery_count),
     assignee: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.assignee),
@@ -1837,11 +1985,13 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     user_desired_location: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_desired_location),
     user_experience_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_experience_job),
     user_desired_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_desired_job),
+    user_other_condition: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_other_condition),
     job_location: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_location),
     job_type: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_type),
     job_keyword: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_keyword),
     is_new: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_new),
     current_job_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_job_count),
+    auto_job_other_condition: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.auto_job_other_condition),
     current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),
     current_week_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_inactive),
     is_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_inactive),
@@ -2096,9 +2246,12 @@ function addCanonicalMasterFields_(sheetName, headers, row, obj) {
   const aliasesByKey = getMasterFieldAliases_(sheetName);
   if (!aliasesByKey || !obj) return obj;
   Object.keys(aliasesByKey).forEach(key => {
-    const value = getFieldByAliases_(headers, row, aliasesByKey[key]);
-    if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
-      obj[key] = value;
+    const aliases = aliasesByKey[key];
+    if (Array.isArray(aliases)) {
+      const value = getFieldByAliases_(headers, row, aliases);
+      if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
+        obj[key] = value;
+      }
     }
   });
   return obj;
@@ -2107,9 +2260,12 @@ function addCanonicalMasterFields_(sheetName, headers, row, obj) {
 function addCanonicalObjectFields_(aliasesByKey, obj) {
   if (!aliasesByKey || !obj) return obj;
   Object.keys(aliasesByKey).forEach(key => {
-    const value = getObjectFieldByAliases_(obj, aliasesByKey[key]);
-    if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
-      obj[key] = value;
+    const aliases = aliasesByKey[key];
+    if (Array.isArray(aliases)) {
+      const value = getObjectFieldByAliases_(obj, aliases);
+      if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
+        obj[key] = value;
+      }
     }
   });
   return obj;

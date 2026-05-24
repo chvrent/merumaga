@@ -31,7 +31,9 @@
           <div id="scheduleLegend" class="legend-container toolbar-legend" aria-label="凡例"></div>
           <button type="button" id="saveDailyChecksButton" class="primary-button toolbar-button" data-action="save-pending-check-statuses" disabled>本日の状態を一括保存（0）</button>
           <button type="button" id="moveModeToggle" class="secondary-button toolbar-button" data-action="toggle-move-mode">移動: OFF</button>
+          <button type="button" class="secondary-button toolbar-button" data-action="jump-week" data-week-offset="-1">前週</button>
           <button type="button" class="secondary-button toolbar-button" data-action="jump-to-current-week">今週</button>
+          <button type="button" class="secondary-button toolbar-button" data-action="jump-week" data-week-offset="1">次週</button>
           <label class="toolbar-field">
             <span>検索</span>
             <input type="text" id="searchInput" placeholder="メルマガ名、曜日、担当者">
@@ -163,12 +165,13 @@
           <!-- 項目はJSで動的に生成 -->
         </form>
         <div class="modal-actions">
+          <button type="button" id="stop-master-button" class="danger-button" data-action="stop-master-current">停止</button>
+          <button type="button" id="delete-master-button" class="danger-button" data-action="delete-master-current">削除</button>
           <button type="button" class="primary-button" data-action="save-master-edit">保存</button>
           <button type="button" class="secondary-button" data-action="close-master-modal">キャンセル</button>
         </div>
       </div>
     </div>
-
 
     <?!= include('ClientUtils'); ?>
     <?!= include('ClientComments'); ?>

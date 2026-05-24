@@ -789,6 +789,33 @@
   .is-pending-check {
     box-shadow: inset 0 0 0 2px #f59e0b;
   }
+  .is-saving-check {
+    opacity: 0.72;
+    box-shadow: inset 0 0 0 2px #60a5fa;
+  }
+  .delivery-row.has-occurrence-overrides {
+    box-shadow: inset 3px 0 0 #dc2626;
+  }
+  .delivery-row .is-occurrence-overridden {
+    background: #fef2f2;
+    color: #991b1b;
+    font-weight: 700;
+  }
+  .occurrence-change-badge {
+    display: inline-flex;
+    align-items: center;
+    max-width: 100%;
+    margin-top: 3px;
+    padding: 1px 5px;
+    border: 1px solid #fca5a5;
+    border-radius: 3px;
+    background: #fff7f7;
+    color: #991b1b;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.3;
+    white-space: normal;
+  }
   .modal {
     display: none;
     position: fixed;
@@ -936,25 +963,47 @@
     margin: 0;
     font-size: 16px;
   }
-  #masterModal[data-mode="master"] .modal-card,
   #masterModal[data-mode="edit"] .modal-card {
     border-top: 4px solid var(--primary);
   }
-  #masterModal[data-mode="master"] .modal-header,
   #masterModal[data-mode="edit"] .modal-header {
     margin: -16px -16px 12px;
     padding: 14px 16px 12px;
     border-bottom: 1px solid #bfdbfe;
     background: #eff6ff;
   }
-  #masterModal[data-mode="master"] .modal-header h2,
   #masterModal[data-mode="edit"] .modal-header h2 {
     color: #1d4ed8;
   }
-  #masterModal[data-mode="master"] .form-group,
   #masterModal[data-mode="edit"] .form-group {
     border-left: 3px solid #bfdbfe;
     padding-left: 8px;
+  }
+  #masterModal[data-mode="master"] .modal-card {
+    border-top: 4px solid #dc2626;
+  }
+  #masterModal[data-mode="master"] .modal-header {
+    margin: -16px -16px 12px;
+    padding: 14px 16px 12px;
+    border-bottom: 1px solid #fecaca;
+    background: #fef2f2;
+  }
+  #masterModal[data-mode="master"] .modal-header h2 {
+    color: #991b1b;
+  }
+  #masterModal[data-mode="master"] .form-group {
+    border-left: 4px solid #dc2626;
+    padding-left: 8px;
+    background: #fef2f2;
+  }
+  #masterModal[data-mode="master"] .form-group label {
+    color: #991b1b;
+  }
+  #masterModal[data-mode="master"] .form-group input,
+  #masterModal[data-mode="master"] .form-group select,
+  #masterModal[data-mode="master"] .form-group textarea {
+    border-color: #f87171;
+    background: #fff7f7;
   }
   #editModal .form-group.is-overridden {
     border-left: 4px solid #dc2626;

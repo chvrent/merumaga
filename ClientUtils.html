@@ -152,6 +152,18 @@
     loadData();
   }
 
+  function jumpWeek(offsetWeeks) {
+    const startInput = document.getElementById('startInput');
+    const offset = Number(offsetWeeks);
+    const current = startInput && startInput.value
+      ? parseScheduleDate_(startInput.value)
+      : getTuesdayWeekStart(new Date());
+    const base = getTuesdayWeekStart(current);
+    base.setDate(base.getDate() + (Number.isFinite(offset) ? offset : 0) * 7);
+    startInput.value = formatDateForInput(base);
+    loadData();
+  }
+
   function getTuesdayWeekStart(date) {
     const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
     const diffToTuesday = (target.getDay() + 5) % 7;
@@ -331,10 +343,13 @@
 
   function normalizeCycleLabel(value) {
     const text = String(value == null ? '' : value).trim();
-    if (!text || text === '毎週') return '';
-    if (text === '単発' || text === '毎日' || text === '毎月' || text === '月末') return text;
-    if (text.includes('隔週A') || text === 'A') return 'A';
-    if (text.includes('隔週B') || text === 'B') return 'B';
+    if (!text || text === '毎週' || text === '毎週配信') return '';
+    if (text === '単発') return text;
+    if (text === '毎日' || text === '毎日配信') return '毎日';
+    if (text === '毎月' || text === '毎月配信') return '毎月';
+    if (text === '月末' || text === '月末増発') return '月末';
+    if (text.includes('隔週配信A') || text.includes('隔週A') || text === 'A') return 'A';
+    if (text.includes('隔週配信B') || text.includes('隔週B') || text === 'B') return 'B';
     const match = text.match(/(\d+)/);
     return match ? String(Number(match[1])) : text;
   }
@@ -346,7 +361,7 @@
   }
 
   function isInactive(row) {
-    const value = String(row && row.is_inactive != null ? row.is_inactive : '').trim().toLowerCase();
+    const value = String(getValueByKeys(row || {}, ['is_inactive', '配信停止', '配信終了', '停止', '無効'])).trim().toLowerCase();
     return ['true', 'yes', '1', '停止', '配信停止'].includes(value);
   }
 
@@ -425,6 +440,45 @@
       }
     });
     return next;
+  }
+
+  function getOccurrenceOverrideFieldsForEntry(entry) {
+    const override = getOccurrenceOverrideForItemId(getCheckItemId(entry));
+    if (!override || !Array.isArray(override.override_fields)) return [];
+    return override.override_fields.map(key => String(key || '').trim()).filter(Boolean);
+  }
+
+  function isOccurrenceFieldOverridden(entry, keys) {
+    const fields = new Set(getOccurrenceOverrideFieldsForEntry(entry));
+    return keys.some(key => fields.has(key));
+  }
+
+  function getOccurrenceOverrideLabel_(key) {
+    const labels = {
+      assignee: '設定者',
+      reviewer: '確認者',
+      delivery_count: '通数',
+      hour: '時間',
+      weekday: '曜日',
+      mail_name: 'メルマガ名',
+      mail_content: '内容',
+      mail_content_extract: '内容(抽出)',
+      mail_content_free: '内容(フリー)',
+      notes: '備考',
+      cycle: 'サイクル',
+      start_date: '開始日',
+      end_date: '終了日',
+      user_other_condition: 'USER_その他条件',
+      auto_job_other_condition: '自動求人特集_その他条件'
+    };
+    return labels[key] || getDisplayName(key);
+  }
+
+  function renderOccurrenceOverrideBadges(entry) {
+    const fields = getOccurrenceOverrideFieldsForEntry(entry);
+    if (!fields.length) return '';
+    const labels = fields.map(getOccurrenceOverrideLabel_).filter(Boolean);
+    return `<div class="occurrence-change-badge">変更: ${escapeHtml(labels.join(' / '))}</div>`;
   }
 
 </script>

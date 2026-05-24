@@ -65,7 +65,7 @@
       const key = normalizeScheduleEditKey_(header);
       if (key === 'format') return '';
       const value = row[key] != null ? row[key] : row[header];
-      const isFullWidth = ['mail_content', 'notes'].includes(key);
+      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition'].includes(key);
       const input = renderMasterFieldInput_(header, key, value, mode);
       if (input === '') return '';
 
@@ -94,8 +94,17 @@
         prIdField.placeholder = '保存時に自動採番';
       }
       window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
+      updateMasterActionButtons_(!!row.__rowNumber);
       setModalVisible_(modal, true);
     }
+  }
+
+  function updateMasterActionButtons_(hasExistingRow) {
+    const stopButton = document.getElementById('stop-master-button');
+    const deleteButton = document.getElementById('delete-master-button');
+    const display = hasExistingRow ? '' : 'none';
+    if (stopButton) stopButton.style.display = display;
+    if (deleteButton) deleteButton.style.display = display;
   }
 
   function renderNewsletterSelector_(prId) {
@@ -105,6 +114,7 @@
     // 現在紐付いているメルマガ名のセットを作成
     const linkedMailNames = new Set(
       prTargets
+        .filter(t => !isInactive(t))
         .filter(t => normalizeIdKey(getValueByKeys(t, ['pr_id', 'PR ID', 'PR', 'ID', 'id'])) === normalizeIdKey(prId))
         .map(t => normalizeText(getValueByKeys(t, ['mail_name', 'メルマガ名', '対象メルマガ'])))
     );
@@ -154,12 +164,16 @@
         mail_name: ['mail_name', 'block_name', 'メルマガ名'],
         delivery_count: ['delivery_count', 'mail_count', '通数'],
         mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
+        mail_content_extract: ['mail_content_extract', 'メルマガ内容(抽出)'],
+        mail_content_free: ['mail_content_free', 'メルマガ内容(フリー)'],
         notes: ['notes', 'note', '備考'],
         mail_type: ['mail_type', 'category', '種別'],
         format: ['format', '形式'],
         setter: ['setter', 'assignee', '設定者'],
         checker: ['checker', 'reviewer', '確認者'],
-        is_new: ['is_new', 'new_flag', '新規']
+        is_new: ['is_new', 'new_flag', '新規'],
+        user_other_condition: ['user_other_condition', 'USER_その他条件'],
+        auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件']
       };
     }
 
@@ -167,12 +181,16 @@
       mail_name: ['mail_name', 'block_name', 'メルマガ名'],
       delivery_count: ['delivery_count', 'mail_count', '通数'],
       mail_content: ['mail_content', 'mail_body', 'content', 'メルマガ内容'],
+      mail_content_extract: ['mail_content_extract', 'メルマガ内容(抽出)'],
+      mail_content_free: ['mail_content_free', 'メルマガ内容(フリー)'],
       notes: ['notes', 'note', '備考'],
       mail_type: ['mail_type', 'category', '種別'],
       format: ['format', '形式'],
       setter: ['setter', 'assignee', '設定者'],
       checker: ['checker', 'reviewer', '確認者'],
-      is_new: ['is_new', 'new_flag', '新規']
+      is_new: ['is_new', 'new_flag', '新規'],
+      user_other_condition: ['user_other_condition', 'USER_その他条件'],
+      auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件']
     };
   }
 
@@ -221,6 +239,8 @@
     const lower = key.toLowerCase();
     const map = {
       'メルマガ内容': 'mail_content',
+      'メルマガ内容(抽出)': 'mail_content_extract',
+      'メルマガ内容(フリー)': 'mail_content_free',
       '通数': 'delivery_count',
       '設定者': 'assignee',
       '確認者': 'reviewer',
@@ -251,6 +271,7 @@
       'USER_経験職種': 'user_experience_job',
       '希望職種': 'user_desired_job',
       'USER_希望職種': 'user_desired_job',
+      'USER_その他条件': 'user_other_condition',
       'JOB_勤務地': 'job_location',
       'JOB_職種': 'job_type',
       'フリーワード': 'job_keyword',
@@ -259,7 +280,11 @@
       'new_flag': 'is_new',
       '新規': 'is_new',
       '自動求人特集_求人数': 'current_job_count',
+      '自動求人特集_その他条件': 'auto_job_other_condition',
+      '確定済': 'is_fixed',
       '配信終了': 'is_inactive',
+      '配信停止': 'is_inactive',
+      '削除': 'delete',
       'サイクル': 'cycle',
       'PR': 'pr',
       'ID': 'schedule_id',
@@ -315,6 +340,7 @@
       'job_type',
       'job_keyword',
       'is_new',
+      'is_fixed',
       'current_job_count',
       'cycle',
       'pr',
@@ -347,6 +373,15 @@
     return renderMasterFieldInput_(header, key, value, 'edit');
   }
 
+  function getEntryFieldValue_(entry, header, key) {
+    const canonical = entry && entry[key];
+    if (canonical != null && String(canonical).trim() !== '') return canonical;
+    const raw = entry && entry[header];
+    if (raw != null && String(raw).trim() !== '') return raw;
+    if (key === 'hour') return getValueByKeys(entry, ['hour', '時間', '時刻', '配信時間', 'time', 'delivery_time']);
+    return canonical != null ? canonical : raw;
+  }
+
   function renderEditModalFields_(entry) {
     const container = document.getElementById('editCoreFields');
     if (!container) return;
@@ -364,8 +399,8 @@
       return !excludedKeys.has(key);
     }).map(header => {
       const key = normalizeScheduleEditKey_(header);
-      const value = entry[key] != null ? entry[key] : entry[header];
-      const isFullWidth = key === 'mail_content' || key === 'notes';
+      const value = getEntryFieldValue_(entry, header, key);
+      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition'].includes(key);
       const input = renderEditInput_(header, key, value);
       if (input === '') return '';
       return `
@@ -397,8 +432,9 @@
       reviewerEl.required = false;
     } else {
       reviewerEl.disabled = false;
-      reviewerEl.required = true;
+      reviewerEl.required = false;
     }
+    reviewerEl.removeAttribute('required');
   }
 
   function collectNamedFormValues(form, options = {}) {
@@ -566,7 +602,7 @@
           .withSuccessHandler(() => {
             closeMasterModal();
             loadActiveMaster();
-            loadData();
+            loadData({ force: true, includeStatic: true });
             btn.disabled = false;
             btn.textContent = '保存';
             hideBusy();
@@ -585,7 +621,7 @@
           .withSuccessHandler(() => {
             closeMasterModal();
             loadActiveMaster();
-            loadData();
+            loadData({ force: true, includeStatic: true });
             btn.disabled = false;
             btn.textContent = '保存';
             hideBusy();
@@ -601,21 +637,54 @@
     }
   }
 
-  function deleteMasterRow(rowNumber) {
-    if (!rowNumber || !confirm('この行を削除しますか？')) return;
+  function stopMasterRow(rowNumber) {
+    const message = 'この行を停止扱いにします。シートの行は残りますが、通常の一覧や利用対象からは外れます。よろしいですか？';
+    if (!rowNumber || !confirm(message)) return;
 
-    showBusy('行を削除中...');
+    showBusy('停止を保存中...');
     google.script.run
       .withSuccessHandler(() => {
         hideBusy();
         loadActiveMaster();
-        loadData();
+        loadData({ force: true, includeStatic: true });
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        alert('停止に失敗しました: ' + (err.message || err));
+      })
+      .stopMasterData(MASTER_DATA.sheetName, rowNumber);
+  }
+
+  function deleteMasterRow(rowNumber) {
+    const message = 'この行をスプレッドシートから削除します。停止とは違い、行そのものが消えます。よろしいですか？';
+    if (!rowNumber || !confirm(message)) return;
+
+    showBusy('削除中...');
+    google.script.run
+      .withSuccessHandler(() => {
+        hideBusy();
+        closeMasterModal();
+        loadActiveMaster();
+        loadData({ force: true, includeStatic: true });
       })
       .withFailureHandler(err => {
         hideBusy();
         alert('削除に失敗しました: ' + (err.message || err));
       })
       .deleteMasterData(MASTER_DATA.sheetName, rowNumber);
+  }
+
+  function getCurrentMasterRowNumber_() {
+    const input = document.getElementById('master-row-number');
+    return input ? input.value : '';
+  }
+
+  function stopCurrentMasterRow() {
+    stopMasterRow(getCurrentMasterRowNumber_());
+  }
+
+  function deleteCurrentMasterRow() {
+    deleteMasterRow(getCurrentMasterRowNumber_());
   }
 
   function closeModal() {
@@ -630,6 +699,10 @@
     baseEntry.target_date = entry.target_date;
     if (entry.original_date) baseEntry.original_date = entry.original_date;
     if (entry.source_row) baseEntry.source_row = entry.source_row;
+    const masterHour = getValueByKeys(scheduleRow || {}, ['hour', '時間', '時刻', '配信時間', 'time', 'delivery_time']);
+    if (masterHour !== '') {
+      baseEntry.hour = masterHour;
+    }
 
     CURRENT_ENTRY_BASE = baseEntry;
     CURRENT_ENTRY = applyOccurrenceOverrideToEntry(baseEntry);
@@ -637,7 +710,6 @@
     const modal = document.getElementById('editModal');
     if (!modal) return;
     modal.dataset.mode = 'edit';
-
     // 1. 追加フィールドのレンダリング
     const editCoreFields = modal.querySelector('#editCoreFields');
     if (editCoreFields) {
@@ -726,19 +798,18 @@
     modal.querySelectorAll('[name="format"]').forEach(input => {
       input.value = nextFormat;
     });
-    if (modal.id === 'masterModal') {
-      if (modal.dataset.modalType !== 'pr-master') {
-        updateMasterFormFields();
-      }
-      return;
-    }
     applyDynamicInputControl(nextFormat, modal.id);
   }
 
   function resetModalFieldStates_(modal) {
     modal.querySelectorAll('.form-group').forEach(group => {
+      group.hidden = false;
+      group.style.display = '';
       group.classList.remove('disabled');
-      group.querySelectorAll('input, select, textarea').forEach(input => input.disabled = false);
+      group.querySelectorAll('input, select, textarea').forEach(input => {
+        input.disabled = false;
+        if ('readOnly' in input) input.readOnly = false;
+      });
     });
   }
 
@@ -748,6 +819,82 @@
     group.classList.toggle('disabled', !enabled);
     group.querySelectorAll('input, select, textarea').forEach(input => {
       input.disabled = !enabled;
+    });
+  }
+
+  function setFieldGroupControlState_(modal, key, state) {
+    const group = modal.querySelector(`[data-field="${key}"]`);
+    if (!group) return;
+    const normalizedState = String(state || '表示').trim();
+    const hidden = normalizedState === '非表示';
+    const locked = normalizedState === 'ロック';
+    group.hidden = hidden;
+    group.style.display = hidden ? 'none' : '';
+    group.classList.toggle('disabled', hidden || locked);
+    group.querySelectorAll('input, select, textarea').forEach(input => {
+      input.disabled = hidden || locked;
+      if ('readOnly' in input) input.readOnly = locked;
+    });
+  }
+
+  function getInputControlFormatKey_(format) {
+    const text = String(format || '').trim();
+    if (text === '自動求人特集') return 'auto';
+    if (text === '抽出') return 'extract';
+    if (text === 'その他') return 'other';
+    return 'free';
+  }
+
+  function getInputControlModalKey_(modal) {
+    if (!modal) return '';
+    if (modal.id === 'editModal') return 'deliveryEdit';
+    if (modal.id === 'masterModal' && modal.dataset.mode === 'edit') return 'masterEdit';
+    if (modal.id === 'masterModal') return 'masterNew';
+    return '';
+  }
+
+  function getInputControlHiddenKeys_(modalKey, formatKey) {
+    const hidden = new Set();
+    const autoJobKeys = ['auto_job_feature_id', 'job_url', 'current_job_count', 'auto_job_other_condition'];
+    const jobKeys = ['job_location', 'job_type', 'job_keyword'];
+
+    if (formatKey === 'free') hidden.add('mail_content_extract');
+    if (formatKey === 'extract' || formatKey === 'auto') hidden.add('mail_content_free');
+    if (formatKey === 'free' || formatKey === 'extract') autoJobKeys.forEach(key => hidden.add(key));
+    if (formatKey === 'auto') jobKeys.forEach(key => hidden.add(key));
+
+    if (modalKey === 'masterNew') ['is_fixed', 'is_inactive'].forEach(key => hidden.add(key));
+    if ((modalKey === 'deliveryEdit' || modalKey === 'masterEdit') && formatKey === 'auto') hidden.add('is_fixed');
+    if (modalKey === 'deliveryEdit' && ['free', 'extract'].includes(formatKey)) hidden.add('is_fixed');
+    return hidden;
+  }
+
+  function applyInputControlMatrix_(modal, format) {
+    if (!modal || modal.dataset.modalType === 'pr-master') {
+      applyPrMasterControls_(modal);
+      return;
+    }
+
+    const modalKey = getInputControlModalKey_(modal);
+    const formatKey = getInputControlFormatKey_(format);
+    const hiddenKeys = getInputControlHiddenKeys_(modalKey, formatKey);
+    const lockedKeys = new Set(['schedule_id']);
+
+    if (modalKey === 'deliveryEdit') {
+      ['start_date', 'end_date', 'mail_name', 'mail_type', 'cycle', 'format', 'sub_category', 'is_new'].forEach(key => lockedKeys.add(key));
+    }
+    if (modalKey === 'masterEdit') lockedKeys.add('is_new');
+    if (formatKey === 'auto') lockedKeys.add('current_job_count');
+
+    modal.querySelectorAll('.form-group[data-field]').forEach(group => {
+      const key = String(group.dataset.field || '').trim();
+      if (hiddenKeys.has(key)) {
+        setFieldGroupControlState_(modal, key, '非表示');
+      } else if (lockedKeys.has(key)) {
+        setFieldGroupControlState_(modal, key, 'ロック');
+      } else {
+        setFieldGroupControlState_(modal, key, '表示');
+      }
     });
   }
 
@@ -768,6 +915,7 @@
     const currentJobCountGroup = modal.querySelector('[data-field="current_job_count"]');
     const currentJobCountInput = currentJobCountGroup ? currentJobCountGroup.querySelector('input, select, textarea') : null;
     if (!currentJobCountInput || !currentJobCountGroup) return;
+    if (!isAutoJob) return;
     currentJobCountInput.disabled = true;
     currentJobCountInput.readOnly = true;
     currentJobCountInput.placeholder = isAutoJob
@@ -785,8 +933,8 @@
       getModalFieldValue_(modal, ['sub_category'])
     ].join(' ');
     const isValidation = categoryText.includes('検証');
-    cycleInput.required = !isValidation;
-    if (isValidation) cycleInput.removeAttribute('required');
+    cycleInput.required = false;
+    cycleInput.removeAttribute('required');
     cycleInput.closest('.form-group')?.classList.toggle('optional-field', isValidation);
   }
 
@@ -815,6 +963,7 @@
     const normalizedFormat = String(format || '').trim();
     const isAutoJob = normalizedFormat === '自動求人特集';
     resetModalFieldStates_(modal);
+    applyInputControlMatrix_(modal, normalizedFormat);
     applyAutoJobFieldControls_(modal, isAutoJob);
 
     if (modalId === 'editModal') {
@@ -881,7 +1030,7 @@
         .withSuccessHandler(() => {
           hideBusy();
           closeModal();
-          loadData();
+          loadData({ force: true });
         })
         .withFailureHandler(err => {
           hideBusy();

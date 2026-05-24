@@ -17,7 +17,6 @@
   }
 
   function getArchivedOccurrencesForSlot(dateStr, hour, keyword) {
-    if (!isPastDateString(dateStr)) return [];
     const targetHour = String(hour || '').split(':')[0].trim();
     return Object.values(APP_DATA.archivedOccurrences || {}).filter(row => {
       if (normalizeDateString(row && row.target_date) !== dateStr) return false;
@@ -74,14 +73,7 @@
   function toggleCheckStatus(event, encodedItemId, field) {
     event.stopPropagation();
     const itemId = decodeURIComponent(encodedItemId);
-    const nextActive = !isCheckStatusActive(itemId, field);
-    const cell = event.currentTarget;
-    const payload = parseCheckLogPayload(cell.dataset.logPayload);
-    setPendingCheckStatus(itemId, field, nextActive, payload);
-    schedulePendingCheckPersist();
-    cell.classList.toggle('is-active-red', nextActive);
-    cell.classList.toggle('is-pending-check', hasPendingCheckStatus(itemId, field));
-    updatePendingCheckSaveButton();
+    saveCheckStatusImmediately(event.currentTarget, itemId, field);
   }
 
   function buildCheckLogPayload(itemId, field, row) {
@@ -103,11 +95,13 @@
   function applyArchiveResult_(archive) {
     if (!archive || !archive.source_row || !archive.target_date) return;
     if (!APP_DATA.fixedOccurrences) APP_DATA.fixedOccurrences = {};
+    if (!APP_DATA.archivedOccurrences) APP_DATA.archivedOccurrences = {};
     const key = `${archive.source_row}|${archive.target_date}`;
     if (archive.archived) {
       APP_DATA.fixedOccurrences[key] = true;
-    } else if (archive.deleted) {
+    } else if (archive.deleted || Object.prototype.hasOwnProperty.call(archive, 'archived')) {
       delete APP_DATA.fixedOccurrences[key];
+      delete APP_DATA.archivedOccurrences[key];
     }
   }
 
@@ -125,7 +119,6 @@
     if (pending) return !!pending.active;
     const archivedActive = getArchivedCheckStatusActive(itemId, field);
     if (archivedActive != null) return archivedActive;
-    if (field === 'setter' || field === 'checker') return false;
     const statuses = APP_DATA.checkStatuses || {};
     return !!statuses[getCheckStatusKey(itemId, field)];
   }
@@ -133,7 +126,6 @@
   function isSavedCheckStatusActive(itemId, field) {
     const archivedActive = getArchivedCheckStatusActive(itemId, field);
     if (archivedActive != null) return archivedActive;
-    if (field === 'setter' || field === 'checker') return false;
     const statuses = APP_DATA.checkStatuses || {};
     return !!statuses[getCheckStatusKey(itemId, field)];
   }
@@ -187,6 +179,67 @@
 
   function hasPendingCheckStatus(itemId, field) {
     return !!LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
+  }
+
+  function clearPendingCheckStatus(itemId, field) {
+    delete LOCAL_CHECK_CHANGES[getCheckStatusKey(itemId, field)];
+  }
+
+  function isCheckStatusSaving(cell) {
+    return !!(cell && cell.dataset && cell.dataset.saving === 'true');
+  }
+
+  function setCheckStatusCellSaving(cell, saving) {
+    if (!cell) return;
+    cell.dataset.saving = saving ? 'true' : '';
+    cell.classList.toggle('is-saving-check', !!saving);
+    cell.style.pointerEvents = saving ? 'none' : '';
+  }
+
+  function saveCheckStatusImmediately(cell, itemId, field) {
+    if (!cell || !itemId || !field || isCheckStatusSaving(cell)) return;
+
+    const nextActive = !isCheckStatusActive(itemId, field);
+    const payload = parseCheckLogPayload(cell.dataset.logPayload);
+    const update = { itemId, field, active: nextActive, payload: payload || {} };
+
+    clearPendingCheckStatus(itemId, field);
+    schedulePendingCheckPersist();
+    cell.classList.toggle('is-active-red', nextActive);
+    cell.classList.remove('is-pending-check');
+    setCheckStatusCellSaving(cell, true);
+    updatePendingCheckSaveButton();
+
+    google.script.run
+      .withSuccessHandler(results => {
+        const list = Array.isArray(results) ? results : [];
+        const result = list.find(item => item && item.item_id === itemId && item.field === field) || list[0];
+        if (!result || !result.success) {
+          setPendingCheckStatus(itemId, field, nextActive, payload);
+          persistPendingCheckStatuses();
+          cell.classList.toggle('is-pending-check', true);
+          setCheckStatusCellSaving(cell, false);
+          updatePendingCheckSaveButton();
+          alert('保存結果を確認できませんでした。一括保存の未保存状態として保持しました。');
+          return;
+        }
+        setLocalCheckStatus(result.item_id, result.field, !!result.active);
+        applyArchiveResult_(result.archive);
+        clearPendingCheckStatus(result.item_id, result.field);
+        persistPendingCheckStatuses();
+        updatePendingCheckSaveButton();
+        renderScheduleGrid();
+      })
+      .withFailureHandler(err => {
+        setPendingCheckStatus(itemId, field, nextActive, payload);
+        persistPendingCheckStatuses();
+        cell.classList.toggle('is-active-red', nextActive);
+        cell.classList.toggle('is-pending-check', true);
+        setCheckStatusCellSaving(cell, false);
+        updatePendingCheckSaveButton();
+        alert('保存に失敗しました。一括保存の未保存状態として保持しました: ' + (err.message || String(err)));
+      })
+      .saveDailyCheckStatuses([update]);
   }
 
   function getPendingCheckStatusUpdates() {
