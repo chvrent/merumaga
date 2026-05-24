@@ -339,6 +339,10 @@ function stopMasterData(sheetName, rowNumber) {
   return withScriptLock_(() => stopMasterDataUnlocked_(sheetName, rowNumber));
 }
 
+function resumeMasterData(sheetName, rowNumber) {
+  return withScriptLock_(() => resumeMasterDataUnlocked_(sheetName, rowNumber));
+}
+
 function deleteMasterDataUnlocked_(sheetName, rowNumber) {
   const safeSheetName = assertEditableSheet_(sheetName);
   const targetRow = Number(rowNumber || 0);
@@ -416,6 +420,21 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
   return { success: true, action: 'stop', rowNumber: targetRow };
 }
 
+function resumeMasterDataUnlocked_(sheetName, rowNumber) {
+  const safeSheetName = assertEditableSheet_(sheetName);
+  const targetRow = Number(rowNumber || 0);
+  if (targetRow < 2) throw new Error('Invalid row number');
+
+  const ss = getSourceSpreadsheet_();
+  const sheet = ss.getSheetByName(safeSheetName);
+  if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
+  if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
+
+  resumeMasterRow_(sheet, safeSheetName, targetRow);
+  invalidateInitialDataCaches_([safeSheetName]);
+  return { success: true, action: 'resume', rowNumber: targetRow };
+}
+
 function deletePrTargetRowsByPrId_(ss, prId) {
   const targetsSheet = ss.getSheetByName('app_pr_targets');
   if (!targetsSheet) return;
@@ -437,6 +456,15 @@ function deletePrTargetRowsByPrId_(ss, prId) {
 function stopMasterRow_(sheet, sheetName, rowNumber) {
   const inactiveIndex = getOrCreateInactiveColumn_(sheet, getInactiveAliasesForMasterSheet_(sheetName));
   sheet.getRange(rowNumber, inactiveIndex + 1).setValue(true);
+}
+
+function resumeMasterRow_(sheet, sheetName, rowNumber) {
+  const aliases = getInactiveAliasesForMasterSheet_(sheetName);
+  const lastColumn = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(h => String(h || '').trim());
+  const inactiveIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), aliases);
+  if (inactiveIndex == null) return;
+  sheet.getRange(rowNumber, inactiveIndex + 1).clearContent();
 }
 
 function getOrCreateInactiveColumn_(sheet, aliases) {
@@ -549,6 +577,13 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
   const sourceRow = getSourceRowByScheduleId_(safeScheduleId);
   if (!sourceRow) throw new Error(`Schedule row not found for ID: ${safeScheduleId}`);
 
+  const scheduleSheet = getSourceSpreadsheet_().getSheetByName(SCHEDULE_SHEET_NAME);
+  const scheduleValues = scheduleSheet ? scheduleSheet.getDataRange().getValues() : [];
+  const scheduleHeaders = scheduleValues.length ? scheduleValues[0].map(header => String(header || '').trim()) : [];
+  const scheduleRow = scheduleValues[Number(sourceRow) - 1] || [];
+  const originalHour = getFieldByAliases_(scheduleHeaders, scheduleRow, SCHEDULE_FIELD_ALIASES.hour);
+  const isBackToOriginalSlot = safeDate === safeOldDate && normalizeHourForMoveCompare_(safeHour) === normalizeHourForMoveCompare_(originalHour);
+
   const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
   const checkStatusSheet = getCheckStatusSheet_();
   const csHeaders = getCheckStatusHeaders_(checkStatusSheet);
@@ -565,7 +600,7 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
   };
   
   const itemId = `${safeScheduleId}|${safeOldDate}`;
-  const logRow = buildCheckStatusRow_(csHeaders, itemId, 'move_override', true, logPayload, timestamp);
+  const logRow = buildCheckStatusRow_(csHeaders, itemId, 'move_override', !isBackToOriginalSlot, logPayload, timestamp);
   const values = checkStatusSheet.getDataRange().getValues();
   const itemIdIndex = csHeaders.indexOf('item_id');
   const fieldIndex = csHeaders.indexOf('field');
@@ -577,9 +612,20 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
     }
   }
 
+  if (isBackToOriginalSlot) {
+    return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
+  }
+
   checkStatusSheet.appendRow(logRow);
 
   return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour };
+}
+
+function normalizeHourForMoveCompare_(value) {
+  const text = normalizeCell_(value);
+  const match = text.match(/^(\d{1,2})(?::\d{1,2})?/);
+  if (!match) return text;
+  return String(Number(match[1]));
 }
 
 /**

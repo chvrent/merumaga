@@ -51,15 +51,16 @@
   function renderCheckStatusCell(itemId, field, value, className, row) {
     const active = isCheckStatusActive(itemId, field);
     const archived = isArchivedDate(row.target_date);
+    const emptyChecker = field === 'checker' && String(value == null ? '' : value).trim() === '';
     const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
     const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
 
-    const actionAttr = archived ? '' : 'data-action="toggle-check-status"';
-    const cursor = archived ? 'default' : 'pointer';
+    const actionAttr = archived || emptyChecker ? '' : 'data-action="toggle-check-status"';
+    const cursor = archived || emptyChecker ? 'default' : 'pointer';
 
     return `
       <div
-        class="${className} check-status-cell ${active ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''}"
+        class="${className} check-status-cell ${active && !emptyChecker ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''} ${emptyChecker ? 'is-disabled-check' : ''}"
         data-item-id="${escapeAttribute(itemId)}"
         data-check-field="${escapeAttribute(field)}"
         data-log-payload="${escapeAttribute(logPayload)}"

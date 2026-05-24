@@ -783,6 +783,14 @@
     outline: 2px solid #fca5a5;
     outline-offset: -2px;
   }
+  .check-status-cell.is-disabled-check {
+    color: var(--muted);
+    cursor: default;
+    opacity: 0.65;
+  }
+  .check-status-cell.is-disabled-check:hover {
+    outline: none;
+  }
   .is-active-red {
     background-color: #ffcccc !important;
   }
@@ -952,6 +960,9 @@
   .table-action-button.danger {
     color: #b42318;
   }
+  .table-action-button.resume {
+    color: #166534;
+  }
   .modal-header {
     display: flex;
     align-items: center;
@@ -1025,6 +1036,14 @@
     gap: 8px;
     justify-content: flex-end;
     margin-top: 16px;
+  }
+  .modal-row-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-start;
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
   }
   .pr-info-container {
     margin-top: 10px;

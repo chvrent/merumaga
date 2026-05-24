@@ -59,10 +59,10 @@
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
     const html = visibleHeaders.map(header => {
-      if (isPrMaster && (header === 'target_ids' || header === 'is_inactive' || header === '配信停止')) return '';
       if (isHiddenMasterInputHeader(header)) return '';
 
       const key = normalizeScheduleEditKey_(header);
+      if (isPrMaster && isHiddenPrMasterInputKey_(key, header)) return '';
       if (key === 'format') return '';
       const value = row[key] != null ? row[key] : row[header];
       const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition'].includes(key);
@@ -94,17 +94,51 @@
         prIdField.placeholder = '保存時に自動採番';
       }
       window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
-      updateMasterActionButtons_(!!row.__rowNumber);
+      updateMasterActionButtons_(row);
       setModalVisible_(modal, true);
     }
   }
 
-  function updateMasterActionButtons_(hasExistingRow) {
+  function updateMasterActionButtons_(row) {
     const stopButton = document.getElementById('stop-master-button');
+    const resumeButton = document.getElementById('resume-master-button');
     const deleteButton = document.getElementById('delete-master-button');
-    const display = hasExistingRow ? '' : 'none';
-    if (stopButton) stopButton.style.display = MASTER_DATA.sheetName === 'app_pr' ? 'none' : display;
-    if (deleteButton) deleteButton.style.display = display;
+    const hasExistingRow = !!(row && row.__rowNumber);
+    const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
+    const inactive = row ? isInactive(row) : false;
+    if (stopButton) stopButton.style.display = hasExistingRow && !isPrMaster && !inactive ? '' : 'none';
+    if (resumeButton) resumeButton.style.display = hasExistingRow && !isPrMaster && inactive ? '' : 'none';
+    if (deleteButton) deleteButton.style.display = hasExistingRow ? '' : 'none';
+  }
+
+  function isHiddenPrMasterInputKey_(key, header) {
+    const normalizedKey = String(key == null ? '' : key).trim();
+    const normalizedHeader = String(header == null ? '' : header).trim();
+    const hiddenKeys = new Set([
+      'format',
+      'target_ids',
+      'target_mails',
+      'mail_name',
+      'source_row',
+      'target_index',
+      'is_inactive',
+      'schedule_id',
+      'delivery_count',
+      'assignee',
+      'reviewer',
+      'mail_type',
+      'category',
+      'sub_category',
+      'cycle',
+      'weekday',
+      'hour',
+      'current_job_count',
+      'is_fixed',
+      'is_new',
+      'pr'
+    ]);
+    const hiddenHeaders = new Set(['target_ids', 'target_mails', '配信停止', '配信終了', '停止']);
+    return hiddenKeys.has(normalizedKey) || hiddenHeaders.has(normalizedHeader);
   }
 
   function renderNewsletterSelector_(prId) {
@@ -655,6 +689,24 @@
       .stopMasterData(MASTER_DATA.sheetName, rowNumber);
   }
 
+  function resumeMasterRow(rowNumber) {
+    if (!rowNumber) return;
+
+    showBusy('再開を保存中...');
+    google.script.run
+      .withSuccessHandler(() => {
+        hideBusy();
+        closeMasterModal();
+        loadActiveMaster();
+        loadData({ force: true, includeStatic: true });
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        alert('再開に失敗しました: ' + (err.message || err));
+      })
+      .resumeMasterData(MASTER_DATA.sheetName, rowNumber);
+  }
+
   function deleteMasterRow(rowNumber) {
     const message = 'この行をスプレッドシートから削除します。停止とは違い、行そのものが消えます。よろしいですか？';
     if (!rowNumber || !confirm(message)) return;
@@ -681,6 +733,10 @@
 
   function stopCurrentMasterRow() {
     stopMasterRow(getCurrentMasterRowNumber_());
+  }
+
+  function resumeCurrentMasterRow() {
+    resumeMasterRow(getCurrentMasterRowNumber_());
   }
 
   function deleteCurrentMasterRow() {

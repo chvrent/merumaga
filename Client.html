@@ -560,6 +560,7 @@
           const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
 
           if (isInactive(rowForDate)) return false;
+          if (!isWithinScheduleRange) return false;
 
           // この日付/時間における「有効」な状態
           const moveOverride = getMoveOverrideForDate(row, dateStr);
@@ -576,7 +577,7 @@
             // ただし、もし他の日時に移動されている場合はこの枠には出さない
             if (isMovedOriginalOccurrence(row, dateStr) || isOccurrenceOverrideOriginal(row, dateStr)) return false;
 
-            isMatch = (isWithinScheduleRange || prStates.length > 0) && rowHour === String(hour);
+            isMatch = rowHour === String(hour);
 
             // サイクル判定も本来の日程で行う
             if (isMatch) {
@@ -600,7 +601,7 @@
           }
           return isMatch;
         });
-        const slotEntries = entries.concat(getArchivedOccurrencesForSlot(dateStr, hour, keyword));
+        const slotEntries = dedupeSlotEntries_(entries.concat(getArchivedOccurrencesForSlot(dateStr, hour, keyword)), dateStr, hour);
         html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
         if (slotEntries.length) {
           const renderedPrIds = new Set();
@@ -701,6 +702,18 @@
 
     html += '</tbody></table>';
     container.innerHTML = html;
+  }
+
+  function dedupeSlotEntries_(entries, dateStr, hour) {
+    const seen = new Set();
+    return (entries || []).filter(entry => {
+      const id = String(entry && (entry.schedule_id || entry.source_row || entry.mail_name) || '').trim();
+      const originalDate = String(entry && (entry.original_date || entry.target_date) || dateStr || '').trim();
+      const key = [id, originalDate, dateStr, String(hour)].join('|');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   }
 
   function switchTab(tabName) {
@@ -963,6 +976,9 @@
       const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
         ? ''
         : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;
+      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowInactive
+        ? `<button type="button" class="table-action-button resume" data-action="resume-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">再開</button>`
+        : '';
       const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>`;
 
       html += `
@@ -970,6 +986,7 @@
       <td class="actions-col">
         <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
         ${stopButton}
+        ${resumeButton}
         ${deleteButton}
       </td>
     `;
@@ -1656,6 +1673,10 @@
       stopMasterRow(actionElement.dataset.rowNumber || '');
       return;
     }
+    if (action === 'resume-master-row') {
+      resumeMasterRow(actionElement.dataset.rowNumber || '');
+      return;
+    }
     if (action === 'delete-master-row') {
       deleteMasterRow(actionElement.dataset.rowNumber || '');
       return;
@@ -1748,6 +1769,11 @@
 
     if (action === 'stop-master-current') {
       stopCurrentMasterRow();
+      return;
+    }
+
+    if (action === 'resume-master-current') {
+      resumeCurrentMasterRow();
       return;
     }
 
