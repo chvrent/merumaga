@@ -81,6 +81,9 @@
           <h2>配信編集</h2>
           <button type="button" class="icon-button" data-action="close-modal" aria-label="閉じる">×</button>
         </div>
+        <div class="modal-impact-note delivery-impact-note">
+          この配信だけが修正されます。繰り返し設定のメルマガはマスタから編集してください。
+        </div>
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
           <div class="modal-tab" data-format="抽出">抽出</div>
@@ -153,6 +156,9 @@
         <div class="modal-header">
           <h2 id="masterModalTitle">マスタ編集</h2>
           <button type="button" class="icon-button" data-action="close-master-modal" aria-label="閉じる">×</button>
+        </div>
+        <div id="masterImpactNote" class="modal-impact-note master-impact-note" hidden>
+          確定済・確認済みではない同じメルマガ予定がすべて変更されます。
         </div>
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>

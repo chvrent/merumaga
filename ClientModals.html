@@ -55,6 +55,10 @@
       modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
       modal.dataset.mode = mode;
       modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
+      const impactNote = modal.querySelector('#masterImpactNote');
+      if (impactNote) {
+        impactNote.hidden = isPrMaster || mode !== 'edit';
+      }
     }
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
