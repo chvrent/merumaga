@@ -624,36 +624,15 @@
   .delivery-row.bg-default {
     background: #f8fafc;
   }
-  /* Updated Line colors (Left Border) */
-  .delivery-row.is-monthly {
-    border-left: 6px solid #fbbc04;
+  .slot-item.is-special {
+    border-left: 6px solid var(--schedule-line-special, #800080);
   }
-  .delivery-row.is-others-dept {
-    border-left: 6px solid #ffd966;
+  .slot-item.is-product {
+    border-left: 6px solid var(--schedule-line-product, #008080);
   }
-  .delivery-row.is-biweeklyA {
-    border-left: 6px solid #9bd283;
+  .slot-item.is-others {
+    border-left: 6px solid var(--schedule-line-others, #FFA500);
   }
-  .delivery-row.is-biweeklyB {
-    border-left: 6px solid #e171c0;
-  }
-  .delivery-row.is-special {
-    border-left: 6px solid #8e7cc3;
-  }
-
-  /* Updated Status and Category backgrounds */
-  .delivery-row.is-verifying {
-    background-color: #d9e6fc !important;
-  }
-  .delivery-row.is-product {
-    background-color: #ead1dc !important;
-  }
-
-  /* Header Badge Colors */
-  .cycle-badge.is-biweeklyA { background-color: #9bd283; color: #1f2933; }
-  .cycle-badge.is-biweeklyB { background-color: #e171c0; color: #1f2933; }
-  .cycle-badge.is-special { background-color: #8e7cc3; color: #1f2933; }
-
   .delivery-row:hover {
     outline: 2px solid var(--primary-weak);
     outline-offset: -2px;

@@ -408,9 +408,6 @@
     if (key === 'is_new' || key === 'new_flag') {
       return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_('is_new') ? 'disabled' : ''}>`;
     }
-    if (key === 'is_verifying' || key === 'verifying_flag') {
-      return `<input type="checkbox" name="is_verifying" aria-label="検証中" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_('is_verifying') ? 'disabled' : ''}>`;
-    }
     return renderMasterFieldInput_(header, key, value, 'edit');
   }
 
