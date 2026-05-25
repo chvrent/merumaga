@@ -33,6 +33,9 @@
       const h = String(header).trim();
       return !['source_sheet', 'source_row', 'schedule_action'].includes(h);
     });
+    if (MASTER_DATA.sheetName === 'app_pr' && !visible.some(header => ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID'].includes(String(header || '').trim()))) {
+      visible.unshift('pr_id');
+    }
     // PR管理画面では紐づいたメルマガを一覧の最後に別列表示する
     if (MASTER_DATA.sheetName === 'app_pr' && !visible.includes('target_mails')) {
       visible.push('target_mails');

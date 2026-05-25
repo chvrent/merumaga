@@ -1375,18 +1375,16 @@
     const startMs = dateStringToMs(startDate);
     const endMs = dateStringToMs(endDate);
     if (targetMs == null) return null;
-    if (startMs != null && targetMs < startMs) return null;
-    if (endMs != null && targetMs > endMs) return null;
 
     let status = '';
     let action = '';
-    if (endMs != null && targetMs > endMs - 7 * DAY_MS) {
+    if (endMs != null && targetMs > endMs && targetMs <= endMs + 7 * DAY_MS) {
       status = 'remove';
       action = '削除';
-    } else if (startMs != null && targetMs < startMs + 7 * DAY_MS) {
+    } else if (startMs != null && targetMs >= startMs && targetMs < startMs + 7 * DAY_MS) {
       status = 'add';
       action = '追加';
-    } else if (startMs != null || endMs != null) {
+    } else if ((startMs == null || targetMs >= startMs) && (endMs == null || targetMs <= endMs)) {
       status = 'active';
       action = '掲出中';
     }
