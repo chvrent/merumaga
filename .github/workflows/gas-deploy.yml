@@ -10,9 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     env:
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-      CLASP_USER: chvrent18
-      CLASP_PROJECT_FILE: .clasp.staging.json
-      CLASP_DEPLOYMENT_ID: AKfycbwBER-C0zjRd1piXcqvC-LHNFYP-b9zBitXxAsoaCfeJgWFjf7uxktzjdzpun3PIzdz
+      CLASP_USER: ayana.yokoo
+      CLASP_PROJECT_FILE: .clasp.prod.json
+      CLASP_DEPLOYMENT_ID: AKfycbzfuyTAe_ZUsCutzU5H1UkQZVoq2zOrmn1WoP4j9tiEYBo5BDNzPW6kofDGXkTiDAJ0Qw
     steps:
       - name: Checkout
         uses: actions/checkout@v4
