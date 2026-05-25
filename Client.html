@@ -13,7 +13,7 @@
   display: inline-block !important;
   padding: 10px 24px !important;
   cursor: pointer !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
   color: #64748b !important;
   font-weight: bold !important;
   border: 1px solid #e2e8f0 !important;
@@ -73,11 +73,11 @@
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     weekly: '#FFFFFF',
     special: '#E6E6FA',
-    monthly: '#FFF0F5',
-    biweeklyA: '#E0FFE0',
-    biweeklyB: '#FFF5F7',
+    monthly: '#ffe5a0',
+    biweeklyA: '#b7e1cd',
+    biweeklyB: '#ffe1f6',
     ma: '#FFF8D6',
-    otherCheck: '#E0FFFF'
+    otherCheck: '#d9e6fc'
   });
   const SCHEDULE_CYCLE_OPTIONS = Object.freeze([
     '単発',
@@ -94,17 +94,16 @@
   const SCHEDULE_LINE_COLORS = Object.freeze({
     special: '#800080',
     product: '#008080',
-    others: '#FFA500'
+    others: '#e6cff2'
   });
   const SCHEDULE_LEGEND_ITEMS = Object.freeze([
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週配信' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '特殊サイクル1-3' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '毎月配信' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: '月末増発' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: 'サイクル:月末配信' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyA, label: '隔週配信A' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyB, label: '隔週配信B' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.ma, label: 'MA' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.otherCheck, label: 'その他/検証' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.otherCheck, label: '検証・イレギュラー' },
     { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: '担当部署: 特殊' },
     { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: '担当部署: 商品' },
     { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: '担当部署: その他(他部署)' }
@@ -116,14 +115,6 @@
 
   function isEditModalLockedField_(key) {
     return EDIT_MODAL_LOCKED_FIELDS.includes(String(key || '').trim());
-  }
-
-  function getBgColor(entry) {
-    var category = String(entry.category || entry.mail_type || '').trim();
-    var cycle = String(entry.cycle || '').trim();
-    if (category === 'MA') return SCHEDULE_BACKGROUND_COLORS.ma;
-    if (cycle === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
-    return SCHEDULE_BACKGROUND_COLORS.weekly;
   }
 
   const CYCLE_BASE_DATE = new Date(2026, 3, 28);
@@ -1247,7 +1238,7 @@
     if (scheduleCycleType === 'single' || typeof scheduleCycleType === 'number' || text.includes('特殊') || text.includes('特段')) return SCHEDULE_BACKGROUND_COLORS.special;
     if (scheduleCycleType === 'A') return SCHEDULE_BACKGROUND_COLORS.biweeklyA;
     if (scheduleCycleType === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
-    if (text.includes('その他') || text.includes('検証')) return SCHEDULE_BACKGROUND_COLORS.otherCheck;
+    if (text.includes('その他') || text.includes('検証') || text.includes('イレギュラー')) return SCHEDULE_BACKGROUND_COLORS.otherCheck;
     return SCHEDULE_BACKGROUND_COLORS.weekly;
   }
 
