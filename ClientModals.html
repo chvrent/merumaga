@@ -825,10 +825,15 @@
     const prContainer = modal.querySelector('#edit-pr-details');
     if (prContainer) {
       if (prDetails.length > 0) {
+        const targetDate = normalizeDateString(CURRENT_ENTRY.target_date || CURRENT_ENTRY.delivery_date || CURRENT_ENTRY.original_date);
         const prList = prDetails.map(pr => {
           const title = pr.pr_title || '不明';
           const body = pr.pr_text || '（未設定）';
-          return `<div class="pr-info-item"><strong>PR ID:</strong> ${escapeHtml(pr.pr_id)}<br><strong>タイトル:</strong> ${escapeHtml(title)}<br><strong>PR内容:</strong><div class="pr-info-body">${escapeHtml(body).replace(/\r?\n/g, '<br>')}</div></div>`;
+          const prState = typeof getPrState === 'function' ? getPrState(pr, targetDate) : null;
+          const statusLabel = prState
+            ? `<div class="pr-label pr-label-${escapeAttribute(prState.status)}">${escapeHtml(prState.label)}</div>`
+            : '';
+          return `<div class="pr-info-item">${statusLabel}<strong>PR ID:</strong> ${escapeHtml(pr.pr_id)}<br><strong>タイトル:</strong> ${escapeHtml(title)}<br><strong>PR内容:</strong><div class="pr-info-body">${escapeHtml(body).replace(/\r?\n/g, '<br>')}</div></div>`;
         }).join('<hr>');
         prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
       } else {
