@@ -25,3 +25,9 @@ git remote -v
 ## 4. デプロイ
 - Apps Scriptデプロイは `scripts/deploy-gas.ps1` だけを使う。
 
+## 5. デプロイ前の強制確認事項（merumagaルール追加）
+「検証デプロイ」または「本番デプロイ」の指示を受けた際、AIは実行前に必ず以下を確認し、ユーザーに不一致がないか報告する：
+1. **CI/CD設定の確認**: `.github/workflows/gas-deploy.yml` の `CLASP_PROJECT_FILE` と `CLASP_DEPLOYMENT_ID` が、意図した環境（検証/本番）と一致しているか。
+2. **ローカル設定の確認**: 使用する `.clasp.json` (または `staging.json`) の `scriptId` が正しいか。
+3. **プッシュ先の確認**: `git push origin` が Actions 経由でどこにデプロイされるかを把握した上で実行する。
+---

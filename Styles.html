@@ -624,15 +624,25 @@
   .delivery-row.bg-default {
     background: #f8fafc;
   }
-  .slot-item.is-special {
-    border-left: 6px solid var(--schedule-line-special, #800080);
+  /* Sub-category line colors */
+  .delivery-row.is-special {
+    border-left: 6px solid #d9d2e9;
   }
-  .slot-item.is-product {
+  .delivery-row.is-product {
     border-left: 6px solid var(--schedule-line-product, #008080);
   }
-  .slot-item.is-others {
-    border-left: 6px solid var(--schedule-line-others, #FFA500);
+  .delivery-row.is-others {
+    border-left: 6px solid #fce5cd;
   }
+  .delivery-row.is-monthly {
+    border-left: 6px solid #fff2cc;
+  }
+
+  /* Status backgrounds */
+  .delivery-row.is-verifying {
+    background-color: #d9e6fc !important;
+  }
+
   .delivery-row:hover {
     outline: 2px solid var(--primary-weak);
     outline-offset: -2px;

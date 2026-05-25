@@ -162,6 +162,7 @@
     job_type: 'JOB_職種',
     job_keyword: 'JOB_フリーワード',
     is_new: '新規',
+    is_verifying: '検証中',
     current_job_count: '自動求人特集_求人数',
     auto_job_other_condition: '自動求人特集_その他条件',
     is_inactive: '配信終了',
@@ -1229,16 +1230,13 @@
   function getBgColor(row) {
     const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
     const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
-    const format = String(row && row.format != null ? row.format : '').trim();
-    const text = [category, cycle, format].join(' ');
     const scheduleCycleType = getScheduleCycleType(row);
+    const isVerifying = isTruthyValue(row && row.is_verifying);
 
     if (category === 'MA') return SCHEDULE_BACKGROUND_COLORS.ma;
-    if (scheduleCycleType === 'monthly' || scheduleCycleType === 'month_end') return SCHEDULE_BACKGROUND_COLORS.monthly;
-    if (scheduleCycleType === 'single' || typeof scheduleCycleType === 'number' || text.includes('特殊') || text.includes('特段')) return SCHEDULE_BACKGROUND_COLORS.special;
+    if (isVerifying || scheduleCycleType === 'single') return SCHEDULE_BACKGROUND_COLORS.verifying;
     if (scheduleCycleType === 'A') return SCHEDULE_BACKGROUND_COLORS.biweeklyA;
     if (scheduleCycleType === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
-    if (text.includes('その他') || text.includes('検証') || text.includes('イレギュラー')) return SCHEDULE_BACKGROUND_COLORS.otherCheck;
     return SCHEDULE_BACKGROUND_COLORS.weekly;
   }
 
@@ -1270,6 +1268,7 @@
     document.documentElement.style.setProperty('--schedule-line-special', SCHEDULE_LINE_COLORS.special);
     document.documentElement.style.setProperty('--schedule-line-product', SCHEDULE_LINE_COLORS.product);
     document.documentElement.style.setProperty('--schedule-line-others', SCHEDULE_LINE_COLORS.others);
+    document.documentElement.style.setProperty('--schedule-line-monthly', SCHEDULE_LINE_COLORS.monthly);
 
     const container = document.getElementById('scheduleLegend');
     if (!container) return;
@@ -1283,13 +1282,14 @@
     const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
     if (category === 'MA') return '';
 
-    const className = String(row && row.sub_category_class != null ? row.sub_category_class : '').trim();
-    if (['is-special', 'is-product', 'is-others'].includes(className)) return className;
+    const cycleType = getScheduleCycleType(row);
+    if (cycleType === 'month_end' || cycleType === 'monthly') return 'is-monthly';
+    if (typeof cycleType === 'number') return 'is-special';
 
     const text = String(row && row.sub_category != null ? row.sub_category : '').trim();
     if (text.includes('特殊')) return 'is-special';
     if (text.includes('商品')) return 'is-product';
-    if (text.includes('その他') || text.includes('他部署')) return 'is-others';
+    if (text.includes('その他') || text.includes('他部署') || (text !== '' && !text.includes('ウキ課'))) return 'is-others';
     return '';
   }
 

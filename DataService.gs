@@ -109,6 +109,7 @@ const CHECK_STATUS_FIELD_ALIASES = {
   job_type: ['job_type', 'JOB_職種'],
   job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード'],
   is_new: ['is_new', '新規', 'new_flag'],
+  is_verifying: ['is_verifying', '検証中', 'verifying_flag'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数'],
   auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件'],
   override_fields: ['override_fields'],

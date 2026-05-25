@@ -79,6 +79,18 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env 
 - 配信停止と削除は別概念。カレンダーや一覧から消したいだけなら停止、シート行を物理削除する場合だけ削除。
 - 配信編集モーダルの日付別変更は `app_check_status.occurrence_override` を使う。マスタの週次定義を不用意に上書きしない。
 
+## Calendar Color Rules (2026-05-25)
+
+| Category | Type | Color | Description |
+| :--- | :--- | :--- | :--- |
+| 検証中・サイクル:単発 | 背景色 | `#d9e6fc` | 「検証中」チェックあり、またはサイクルが「単発」の場合 |
+| サイクル:月末配信 | 左ライン | `#fff2cc` | サイクルが「毎月配信」または「月末増発」の場合 |
+| 担当部署: ウキ課以外 | 左ライン | `#fce5cd` | 担当部署名に「ウキ課」が含まれない場合 |
+| 隔週配信A | 背景色 | `#b7e1cd` | サイクルが「隔週配信A」の場合 |
+| 隔週配信B | 背景色 | `#ffe1f6` | サイクルが「隔週配信B」の場合 |
+| 特殊サイクル | 左ライン | `#d9d2e9` | サイクルが「特殊サイクル1-3」の場合 |
+| MA | 背景色 | `#FFF8D6` | 種別が「MA」の場合 |
+
 ## 2026-05-24 Fix Note
 
 - Archive/fixed occurrence matching now prefers `schedule_id`; master deletion snapshots past schedule occurrences before physical row deletion.
