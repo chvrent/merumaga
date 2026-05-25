@@ -97,15 +97,14 @@
   });
   const SCHEDULE_LEGEND_ITEMS = Object.freeze([
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週配信' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '特殊サイクル1-3' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: 'サイクル:月末配信' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyA, label: '隔週配信A' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyB, label: '隔週配信B' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.verifying, label: '検証中・単発' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.others, label: '担当部署: ウキ課以外' },
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.ma, label: 'MA' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.otherCheck, label: '検証・イレギュラー' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: '担当部署: 特殊' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: '担当部署: 商品' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: '担当部署: その他(他部署)' }
+    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyA, label: '隔週配信A' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyB, label: '隔週配信B' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.monthly, label: 'サイクル:月末配信' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: '特殊サイクル1-3' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: '担当部署: 商品' }
   ]);
   const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
   const WEEKDAY_OPTIONS = Object.freeze(['月', '火', '水', '木', '金', '土', '日']);
@@ -1886,6 +1885,21 @@
         hideBusy();
         alert('一括再開に失敗しました: ' + err.message);
         loadData({ force: true });
+      })
+      .resumeAllDeliveriesForDay(dateStr);
+  }
+
+  window.addEventListener('beforeunload', event => {
+    if (!getPendingCheckStatusUpdates().length) return;
+    flushPendingCheckPersist();
+    event.preventDefault();
+    event.returnValue = '';
+  });
+  loadPendingCheckStatuses();
+  wireEvents();
+  loadData();
+</script>
+ta({ force: true });
       })
       .resumeAllDeliveriesForDay(dateStr);
   }
