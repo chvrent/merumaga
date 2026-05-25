@@ -1377,6 +1377,7 @@
     const startMs = dateStringToMs(startDate);
     const endMs = dateStringToMs(endDate);
     if (targetMs == null) return null;
+    if (startMs == null && endMs == null) return null;
 
     let status = '';
     let action = '';
