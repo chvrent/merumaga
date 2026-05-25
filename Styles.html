@@ -624,24 +624,35 @@
   .delivery-row.bg-default {
     background: #f8fafc;
   }
-  /* Sub-category line colors */
+  /* Sub-category and Cycle line colors (Left Border) */
+  .delivery-row.is-biweeklyA {
+    border-left: 6px solid #b7e1cd;
+  }
+  .delivery-row.is-biweeklyB {
+    border-left: 6px solid #ffe1f6;
+  }
   .delivery-row.is-special {
     border-left: 6px solid #d9d2e9;
   }
   .delivery-row.is-product {
     border-left: 6px solid var(--schedule-line-product, #008080);
   }
-  .delivery-row.is-others {
-    border-left: 6px solid #fce5cd;
-  }
   .delivery-row.is-monthly {
     border-left: 6px solid #fff2cc;
   }
 
-  /* Status backgrounds */
+  /* Status and Category backgrounds */
   .delivery-row.is-verifying {
     background-color: #d9e6fc !important;
   }
+  .delivery-row.is-others {
+    background-color: #fce5cd !important;
+  }
+
+  /* Header Badge Colors */
+  .cycle-badge.is-biweeklyA { background-color: #b7e1cd; color: #1f2933; }
+  .cycle-badge.is-biweeklyB { background-color: #ffe1f6; color: #1f2933; }
+  .cycle-badge.is-special { background-color: #d9d2e9; color: #1f2933; }
 
   .delivery-row:hover {
     outline: 2px solid var(--primary-weak);

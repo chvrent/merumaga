@@ -72,12 +72,9 @@
   };
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     weekly: '#FFFFFF',
-    special: '#E6E6FA',
-    monthly: '#ffe5a0',
-    biweeklyA: '#b7e1cd',
-    biweeklyB: '#ffe1f6',
     ma: '#FFF8D6',
-    otherCheck: '#d9e6fc'
+    verifying: '#d9e6fc',
+    others: '#fce5cd'
   });
   const SCHEDULE_CYCLE_OPTIONS = Object.freeze([
     '単発',
@@ -92,9 +89,11 @@
     '隔週配信B'
   ]);
   const SCHEDULE_LINE_COLORS = Object.freeze({
-    special: '#800080',
+    special: '#d9d2e9',
     product: '#008080',
-    others: '#e6cff2'
+    monthly: '#fff2cc',
+    biweeklyA: '#b7e1cd',
+    biweeklyB: '#ffe1f6'
   });
   const SCHEDULE_LEGEND_ITEMS = Object.freeze([
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週配信' },
@@ -507,8 +506,8 @@
             ${bulkActions}
             ${monthEndInfo.isInWindow ? '<div class="date-note">月末配信期間</div>' : ''}
             <div class="date-cycles">
-              <span class="cycle-chip cycle-chip-${cycleInfo.weekGroup}">${cycleInfo.weekLabel}</span>
-              <span class="cycle-chip cycle-chip-${cycleInfo.threeWeekNum}">${cycleInfo.threeWeekLabel}</span>
+              <span class="cycle-chip cycle-chip-${cycleInfo.weekGroup} ${cycleInfo.weekClass || ''}">${cycleInfo.weekLabel}</span>
+              <span class="cycle-chip cycle-chip-${cycleInfo.threeWeekNum} ${cycleInfo.threeWeekClass || ''}">${cycleInfo.threeWeekLabel}</span>
             </div>
           </div>
         </th>
@@ -1229,14 +1228,13 @@
 
   function getBgColor(row) {
     const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
-    const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
     const scheduleCycleType = getScheduleCycleType(row);
     const isVerifying = isTruthyValue(row && row.is_verifying);
+    const subCategory = String(row && row.sub_category != null ? row.sub_category : '').trim();
 
     if (category === 'MA') return SCHEDULE_BACKGROUND_COLORS.ma;
     if (isVerifying || scheduleCycleType === 'single') return SCHEDULE_BACKGROUND_COLORS.verifying;
-    if (scheduleCycleType === 'A') return SCHEDULE_BACKGROUND_COLORS.biweeklyA;
-    if (scheduleCycleType === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
+    if (subCategory !== '' && !subCategory.includes('ウキ課')) return SCHEDULE_BACKGROUND_COLORS.others;
     return SCHEDULE_BACKGROUND_COLORS.weekly;
   }
 
@@ -1267,7 +1265,6 @@
   function renderScheduleLegend() {
     document.documentElement.style.setProperty('--schedule-line-special', SCHEDULE_LINE_COLORS.special);
     document.documentElement.style.setProperty('--schedule-line-product', SCHEDULE_LINE_COLORS.product);
-    document.documentElement.style.setProperty('--schedule-line-others', SCHEDULE_LINE_COLORS.others);
     document.documentElement.style.setProperty('--schedule-line-monthly', SCHEDULE_LINE_COLORS.monthly);
 
     const container = document.getElementById('scheduleLegend');
@@ -1284,12 +1281,13 @@
 
     const cycleType = getScheduleCycleType(row);
     if (cycleType === 'month_end' || cycleType === 'monthly') return 'is-monthly';
+    if (cycleType === 'A') return 'is-biweeklyA';
+    if (cycleType === 'B') return 'is-biweeklyB';
     if (typeof cycleType === 'number') return 'is-special';
 
     const text = String(row && row.sub_category != null ? row.sub_category : '').trim();
     if (text.includes('特殊')) return 'is-special';
     if (text.includes('商品')) return 'is-product';
-    if (text.includes('その他') || text.includes('他部署') || (text !== '' && !text.includes('ウキ課'))) return 'is-others';
     return '';
   }
 
