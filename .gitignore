@@ -5,3 +5,4 @@ DataService.js
 *.gs.old
 .git_BROKEN_DO_NOT_USE_*
 .git_ACL_BROKEN_DO_NOT_USE/
+.claude/
