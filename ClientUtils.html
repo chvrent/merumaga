@@ -60,9 +60,9 @@
       threeWeekNum: positionMatchCycle,
       positionMatchCycle,
       weekLabel: `隔週${weekGroup}`,
-      weekClass: weekGroup === 'A' ? 'is-biweeklyA' : 'is-biweeklyB',
+      weekClass: (weekGroup === 'A' ? 'is-biweeklyA' : (weekGroup === 'B' ? 'is-biweeklyB' : '')),
       threeWeekLabel: `特殊${positionMatchCycle}週目${positionMatchCycle === 3 ? ' (関西オープン)' : ''}`,
-      threeWeekClass: 'is-special'
+      threeWeekClass: (positionMatchCycle != null ? 'is-special' : '')
     };
   }
 
