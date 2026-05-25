@@ -547,7 +547,6 @@
         const dayLabel = weekdays[date.getDay()];
         const monthEndInfo = getMonthEndInfo(date);
         const entries = filtered.filter(row => {
-          if (getArchivedOccurrenceForRow(row, dateStr)) return false;
           const occurrenceOverride = getOccurrenceOverrideForDate(row, dateStr);
           const rowForDate = applyOccurrenceOverrideObjectToEntry(
             applyMoveOverrideToEntry(Object.assign({}, row, { target_date: dateStr })),
@@ -570,10 +569,10 @@
           let isMatch = false;
 
           if (moveOverride) {
-            const effectiveHour = String(moveOverride.hour || '').split(':')[0].trim();
+            const effectiveHour = String(normalizeMasterHourValue(moveOverride.hour) || moveOverride.hour || '').split(':')[0].trim();
             isMatch = effectiveHour === String(hour);
           } else if (occurrenceOverride) {
-            const effectiveHour = String(occurrenceOverride.hour || rowForDate.hour || '').split(':')[0].trim();
+            const effectiveHour = String(normalizeMasterHourValue(occurrenceOverride.hour || rowForDate.hour) || occurrenceOverride.hour || rowForDate.hour || '').split(':')[0].trim();
             isMatch = effectiveHour === String(hour);
           } else {
             // 移動先ではない場合、元のスケジュール通りか確認
@@ -604,7 +603,8 @@
           }
           return isMatch;
         });
-        const slotEntries = dedupeSlotEntries_(entries.concat(getArchivedOccurrencesForSlot(dateStr, hour, keyword)), dateStr, hour);
+        const archivedSlotEntries = getArchivedOccurrencesForSlot(dateStr, hour, keyword);
+        const slotEntries = dedupeSlotEntries_(archivedSlotEntries.concat(entries), dateStr, hour);
         html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
         if (slotEntries.length) {
           const renderedPrIds = new Set();
@@ -1199,6 +1199,8 @@
   function normalizeMasterHourValue(value) {
     const text = String(value == null ? '' : value).trim();
     if (!text) return '';
+    const dateTimeMatch = text.match(/(?:T|\s)(\d{1,2}):(\d{2})(?::\d{2})?/);
+    if (dateTimeMatch) return `${Number(dateTimeMatch[1])}:00`;
     if (/^\d+(\.\d+)?$/.test(text)) {
       const numeric = Number(text);
       if (!Number.isNaN(numeric)) {
