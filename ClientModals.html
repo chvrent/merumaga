@@ -153,7 +153,7 @@
     const linkedMailNames = new Set(
       prTargets
         .filter(t => !isInactive(t))
-        .filter(t => normalizeIdKey(getValueByKeys(t, ['pr_id', 'PR ID', 'PR', 'ID', 'id'])) === normalizeIdKey(prId))
+        .filter(t => normalizeIdKey(getValueByKeys(t, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR'])) === normalizeIdKey(prId))
         .map(t => normalizeText(getValueByKeys(t, ['mail_name', 'メルマガ名', '対象メルマガ'])))
     );
 

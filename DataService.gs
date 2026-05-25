@@ -237,7 +237,7 @@ function getPRData() {
   const targetMap = {};
   prTargets.rows.forEach(row => {
     if (isMasterObjectInactive_(row, PR_TARGET_FIELD_ALIASES.is_inactive)) return;
-    const prId = normalizeIdKey_(getObjectFieldByAliases_(row, PR_TARGET_FIELD_ALIASES.pr_id));
+    const prId = getPrLinkIdFromTargetRow_(row);
     const mailName = getObjectFieldByAliases_(row, PR_TARGET_FIELD_ALIASES.mail_name);
     if (prId && mailName) {
       if (!targetMap[prId]) targetMap[prId] = [];
@@ -247,7 +247,7 @@ function getPRData() {
 
   prMaster.rows = prMaster.rows.filter(row => !isMasterObjectInactive_(row, PR_FIELD_ALIASES.is_inactive));
   prMaster.rows.forEach(row => {
-    const prId = normalizeIdKey_(getObjectFieldByAliases_(row, PR_FIELD_ALIASES.pr_id));
+    const prId = getPrLinkIdFromMasterRow_(row);
     const mailNames = Array.from(new Set((targetMap[prId] || []).filter(Boolean)));
     row.target_mails = mailNames.length > 0 ? mailNames.join(', ') : '(未設定)';
   });
@@ -257,6 +257,14 @@ function getPRData() {
   }
 
   return prMaster;
+}
+
+function getPrLinkIdFromMasterRow_(row) {
+  return normalizeIdKey_(getObjectFieldByAliases_(row, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR', 'ID', 'id']));
+}
+
+function getPrLinkIdFromTargetRow_(row) {
+  return normalizeIdKey_(getObjectFieldByAliases_(row, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR']));
 }
 
 function saveMasterData(sheetName, payload) {
@@ -2381,7 +2389,7 @@ function addCanonicalMasterFields_(sheetName, headers, row, obj) {
     const aliases = aliasesByKey[key];
     if (Array.isArray(aliases)) {
       const value = getFieldByAliases_(headers, row, aliases);
-      if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
+      if (value !== '' && (!Object.prototype.hasOwnProperty.call(obj, key) || normalizeCell_(obj[key]) === '')) {
         obj[key] = value;
       }
     }
@@ -2395,7 +2403,7 @@ function addCanonicalObjectFields_(aliasesByKey, obj) {
     const aliases = aliasesByKey[key];
     if (Array.isArray(aliases)) {
       const value = getObjectFieldByAliases_(obj, aliases);
-      if (value !== '' && !Object.prototype.hasOwnProperty.call(obj, key)) {
+      if (value !== '' && (!Object.prototype.hasOwnProperty.call(obj, key) || normalizeCell_(obj[key]) === '')) {
         obj[key] = value;
       }
     }

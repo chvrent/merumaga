@@ -667,7 +667,8 @@
             const jobAlert = getJobCountAlert(effectiveEntry);
             const jobAlertIcon = renderJobAlertIcon(jobAlert);
             const rowTitle = jobAlert ? ` title="${escapeAttribute(getJobAlertTooltip(jobAlert))}"` : '';
-            const prLabel = getPrStates(effectiveEntry, dateStr)
+            const prStates = getPrStates(effectiveEntry, dateStr);
+            const prLabel = prStates
               .filter(prState => {
                 const key = normalizeText(prState.pr_id);
                 if (!key || renderedPrIds.has(key)) return false;
@@ -676,6 +677,9 @@
               })
               .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
               .join('');
+            const prSummary = prStates.length > 1
+              ? `<div class="pr-label pr-label-summary">PR ${escapeHtml(String(prStates.length))}件紐づき</div>`
+              : '';
             html += `
             <div class="delivery-row slot-item ${subCategoryClass} ${hasOccurrenceOverrides ? 'has-occurrence-overrides' : ''} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
               <div class="col-name ${nameChanged ? 'is-occurrence-overridden' : ''}">
@@ -686,6 +690,7 @@
                   ${stoppedBadge}
                   ${renderCommentBadge(entryForDate)}
                 </div>
+                ${prSummary}
                 ${prLabel}
                 ${renderOccurrenceOverrideBadges(entryForDate)}
               </div>
@@ -1370,19 +1375,18 @@
     const startMs = dateStringToMs(startDate);
     const endMs = dateStringToMs(endDate);
     if (targetMs == null) return null;
+    if (startMs != null && targetMs < startMs) return null;
+    if (endMs != null && targetMs > endMs) return null;
 
     let status = '';
     let action = '';
-    if (startMs != null && targetMs >= startMs && targetMs < startMs + 7 * DAY_MS) {
+    if (endMs != null && targetMs > endMs - 7 * DAY_MS) {
+      status = 'remove';
+      action = '削除';
+    } else if (startMs != null && targetMs < startMs + 7 * DAY_MS) {
       status = 'add';
       action = '追加';
-    } else if (endMs != null && targetMs > endMs - 7 * DAY_MS && targetMs <= endMs) {
-      status = 'remove';
-      action = '除外';
-    } else if (startMs != null && endMs != null && targetMs >= startMs && targetMs <= endMs) {
-      status = 'active';
-      action = '掲出中';
-    } else if (startMs != null && endMs == null && targetMs >= startMs + 7 * DAY_MS) {
+    } else if (startMs != null || endMs != null) {
       status = 'active';
       action = '掲出中';
     }
@@ -1426,7 +1430,7 @@
     });
 
     const records = matchedPrs.map(prRow => ({
-      pr_id: normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])),
+      pr_id: getPrLinkIdFromMasterRow_(prRow),
       pr_title: getPrTitle_(prRow),
       pr_text: getPrText_(prRow),
       start_date: getPrStartDate_(prRow),
@@ -1435,7 +1439,7 @@
 
     // 2. app_pr_targets からの紐付け (旧方式・互換性)
     const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets.filter(target => !isInactive(target) && !isDraft(target)) : [];
-    const prById = new Map(prRows.map(prRow => [normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])), prRow]));
+    const prById = new Map(prRows.map(prRow => [getPrLinkIdFromMasterRow_(prRow), prRow]).filter(([prId]) => prId));
 
     const targetRecords = mailName ? prTargets
       .filter(target => normalizeText(getValueByKeys(target, ['mail_name', 'メルマガ内容', 'target_mail_name', '対象メルマガ'])) === mailName)
@@ -1466,7 +1470,7 @@
   }
 
   function buildPrRecordFromTarget_(target, prById) {
-    const prId = normalizeIdKey(getValueByKeys(target, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id']));
+    const prId = getPrLinkIdFromTargetRow_(target);
     if (!prId) return null;
 
     const prRow = prById.get(prId) || {};
@@ -1483,11 +1487,19 @@
     return prRows
       .filter(prRow => Object.keys(prRow).some(key => normalizeText(prRow[key]) === mailName))
       .map(prRow => ({
-        pr_id: normalizeIdKey(getValueByKeys(prRow, ['pr_id', 'PR ID', 'PR', 'pr', 'ID', 'id'])),
+        pr_id: getPrLinkIdFromMasterRow_(prRow),
         start_date: getPrStartDate_(prRow),
         end_date: getPrEndDate_(prRow)
       }))
       .filter(record => record.pr_id);
+  }
+
+  function getPrLinkIdFromMasterRow_(row) {
+    return normalizeIdKey(getValueByKeys(row, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR', 'pr', 'ID', 'id']));
+  }
+
+  function getPrLinkIdFromTargetRow_(row) {
+    return normalizeIdKey(getValueByKeys(row, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR', 'pr']));
   }
 
   function getPrStartDate_(row) {
