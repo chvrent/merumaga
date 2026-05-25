@@ -66,11 +66,6 @@
   let MASTER_STATUS_FILTER = 'active';
   let MASTER_NEW_ONLY = false;
   let MASTER_VERIFYING_ONLY = false;
-  let MASTER_FILTERS = {
-    'format:自動求人特集': false,
-    'category:イレギュラー': false,
-    'category:検証': false
-  };
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     default: '#FFFFFF',
     checkingSingle: '#d9e6fc',
@@ -777,73 +772,6 @@
     }
   }
 
-  function renderMasterFilterChips() {
-    const container = document.getElementById('masterFilterChips');
-    if (!container) return;
-
-    if (MASTER_DATA.sheetName !== 'app_schedule') {
-      container.innerHTML = '';
-      container.style.display = 'none';
-      MASTER_SUBCATEGORY_FILTER = '__all__';
-      MASTER_FORMAT_FILTER = '__all__';
-      MASTER_CATEGORY_FILTER = '__all__';
-      MASTER_STATUS_FILTER = 'active';
-      MASTER_NEW_ONLY = false;
-      return;
-    }
-
-    container.style.display = 'flex';
-    const headers = MASTER_DATA.headers || [];
-    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ', '担当部署'].includes(String(h || '').trim())) || '';
-    const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
-    const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
-
-    const uniqValues = header => {
-      if (!header) return [];
-      const set = new Set();
-      (MASTER_DATA.rows || []).forEach(row => {
-        const v = String((row && row[header]) || '').trim();
-        if (v) set.add(v);
-      });
-      return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
-    };
-
-    const subCategories = uniqValues(subCategoryHeader);
-    const formats = uniqValues(formatHeader);
-    const categories = uniqValues(mailTypeHeader);
-
-    const subCategorySelect = subCategories.length ? `
-      <select id="masterSubCategorySelect" class="filter-select" onchange="setMasterSubCategoryFilter(this.value)">
-        <option value="__all__" ${MASTER_SUBCATEGORY_FILTER === '__all__' ? 'selected' : ''}>サブカテゴリ: すべて</option>
-        <option value="__contains:商品" ${MASTER_SUBCATEGORY_FILTER === '__contains:商品' ? 'selected' : ''}>サブカテゴリ: 商品</option>
-        ${subCategories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_SUBCATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
-      </select>
-    ` : '';
-    const statusSelect = `
-      <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
-        <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
-        <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
-      </select>
-    `;
-    const formatSelect = formats.length ? `
-      <select id="masterFormatSelect" class="filter-select" onchange="setMasterFormatFilter(this.value)">
-        <option value="__all__" ${MASTER_FORMAT_FILTER === '__all__' ? 'selected' : ''}>形式: すべて</option>
-        ${formats.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_FORMAT_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
-      </select>
-    ` : '';
-    const categorySelect = categories.length ? `
-      <select id="masterCategorySelect" class="filter-select" onchange="setMasterCategoryFilter(this.value)">
-        <option value="__all__" ${MASTER_CATEGORY_FILTER === '__all__' ? 'selected' : ''}>種別: すべて</option>
-        ${categories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_CATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
-      </select>
-    ` : '';
-    const newOnlyChip = `
-      <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" data-action="toggle-master-new-only">新規のみ</button>
-    `;
-
-    container.innerHTML = [statusSelect, newOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
-  }
-
   function setMasterSubCategoryFilter(value) {
     MASTER_SUBCATEGORY_FILTER = String(value || '__all__');
     renderMasterTable();
@@ -859,141 +787,14 @@
     renderMasterTable();
   }
 
-  function setMasterNewOnly(checked) {
-    MASTER_NEW_ONLY = !!checked;
-    renderMasterTable();
-  }
-
   function setMasterStatusFilter(value) {
     MASTER_STATUS_FILTER = (value === 'ended') ? 'ended' : 'active';
-    renderMasterTable();
-  }
-
-  function toggleMasterFilter(id) {
-    MASTER_FILTERS[id] = !MASTER_FILTERS[id];
-    renderMasterFilterChips();
     renderMasterTable();
   }
 
   function getActiveMasterSheetName() {
     const config = MASTER_CONFIG[ACTIVE_MASTER] || MASTER_CONFIG.schedule;
     return config.sheets[0].name;
-  }
-
-  function renderMasterTable() {
-    const container = document.getElementById('masterTableContainer');
-    const headers = MASTER_DATA.headers || [];
-    const visibleHeaders = getVisibleMasterHeaders(headers);
-    const searchInput = document.getElementById('masterSearchInput');
-    const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
-
-    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ', '担当部署'].includes(String(h || '').trim())) || '';
-    const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
-    const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
-    const endDateHeader = headers.find(h => ['end_date', '終了日'].includes(String(h || '').trim())) || '';
-    const inactiveHeader = headers.find(h => ['is_inactive', '配信停止', '配信終了'].includes(String(h || '').trim())) || '';
-    const isNewHeader = headers.find(h => ['is_new', 'new_flag', '新規'].includes(String(h || '').trim())) || '';
-
-    const rows = (MASTER_DATA.rows || []).filter(row => {
-      // 検索キーワードフィルター
-      if (keyword && !headers.map(header => row[header] == null ? '' : String(row[header])).join(' ').toLowerCase().includes(keyword)) {
-        return false;
-      }
-
-      // サブカテゴリフィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER !== '__all__' && subCategoryHeader) {
-        const v = String(row[subCategoryHeader] || '').trim();
-        if (MASTER_SUBCATEGORY_FILTER === '__contains:商品') {
-          if (!v.includes('商品')) return false;
-        } else if (v !== MASTER_SUBCATEGORY_FILTER) {
-          return false;
-        }
-      }
-
-      // 形式フィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_FORMAT_FILTER !== '__all__' && formatHeader) {
-        if (String(row[formatHeader] || '').trim() !== MASTER_FORMAT_FILTER) return false;
-      }
-
-      // 種別フィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
-        if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
-      }
-
-      // 状態フィルター (app_schedule のみ適用)
-      if (MASTER_DATA.sheetName === 'app_schedule' && (endDateHeader || inactiveHeader)) {
-        const endDate = normalizeDateString(row[endDateHeader]);
-        const today = formatDate(new Date());
-        const isInactiveRow = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : false;
-        const isEnded = isInactiveRow || (!!endDate && endDate < today);
-        if (MASTER_STATUS_FILTER === 'active' && isEnded) return false;
-        if (MASTER_STATUS_FILTER === 'ended' && !isEnded) return false;
-      }
-
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && isNewHeader) {
-        if (!isTruthyValue(row[isNewHeader])) return false;
-      }
-
-      return true;
-    });
-
-    if (!headers.length) {
-      container.innerHTML = '<div class="empty-state">ヘッダー行がありません。</div>';
-      return;
-    }
-
-    const visibleRows = rows.slice(0, MASTER_RENDER_LIMIT);
-    const isLimited = rows.length > visibleRows.length;
-
-    let html = `
-      <div class="master-result-summary">
-        ${escapeHtml(String(rows.length))}件中 ${escapeHtml(String(visibleRows.length))}件を表示
-        ${isLimited ? `<span>表示を絞るには検索またはフィルタを使ってください。</span>` : ''}
-      </div>
-      <table class="master-table"><thead><tr><th class="actions-col">操作</th>
-    `;
-
-    // PR管理画面では紐づいたメルマガを最後に1列だけ表示する。
-    const tableHeaders = visibleHeaders;
-    tableHeaders.forEach(header => {
-      html += `<th title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</th>`;
-    });
-    html += '</tr></thead><tbody>';
-
-    visibleRows.forEach(row => {
-      const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
-      const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
-      const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
-      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < formatDate(new Date()));
-      const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
-        ? ''
-        : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;
-      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowInactive
-        ? `<button type="button" class="table-action-button resume" data-action="resume-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">再開</button>`
-        : '';
-      const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>`;
-
-      html += `
-      <tr>
-      <td class="actions-col">
-        <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
-        ${stopButton}
-        ${resumeButton}
-        ${deleteButton}
-      </td>
-    `;
-
-      tableHeaders.forEach(h => {
-        const cellValue = row[h] == null ? '' : String(row[h]);
-        const isExpandable = cellValue.length > 60 || cellValue.includes('\n');
-        html += `<td class="${isExpandable ? 'expandable-cell' : ''}" ${isExpandable ? 'data-action="toggle-cell-expand"' : ''} title="${escapeAttribute(cellValue)}">${escapeHtml(cellValue)}</td>`;
-      });
-
-      html += '</tr>';
-    });
-
-    html += '</tbody></table>';
-    container.innerHTML = html;
   }
 
   function findMasterHeaderByAliases_(aliases) {
@@ -1111,6 +912,7 @@
     const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信停止', '配信終了', '停止', '無効']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
+    const today = formatDate(new Date());
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       if (keyword && !headers.map(header => row[header] == null ? '' : String(row[header])).join(' ').toLowerCase().includes(keyword)) {
@@ -1127,7 +929,6 @@
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && (endDateHeader || inactiveHeader)) {
         const endDate = normalizeDateString(row[endDateHeader]);
-        const today = formatDate(new Date());
         const isInactiveRow = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : false;
         const isEnded = isInactiveRow || (!!endDate && endDate < today);
         if (MASTER_STATUS_FILTER === 'active' && isEnded) return false;
@@ -1168,7 +969,7 @@
       const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
       const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
       const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
-      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < formatDate(new Date()));
+      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < today);
       const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
         ? ''
         : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;

@@ -1112,6 +1112,16 @@
     return text;
   }
 
+  function getInputControlValueByAliases_(row, aliases) {
+    for (const alias of aliases) {
+      if (Object.prototype.hasOwnProperty.call(row, alias)) {
+        const value = String(row[alias] == null ? '' : row[alias]).trim();
+        if (value) return value;
+      }
+    }
+    return '';
+  }
+
   function getInputControlStateFromSheet_(key, modalKey, formatKey) {
     const rows = getInputControlSectionRows_(String(modalKey || '').indexOf('prMaster') === 0 ? 'PR管理専用' : 'タブ別');
     if (!rows.length) return '';
@@ -1175,25 +1185,13 @@
       pr_text: ['PR本文', '本文', 'pr_text'],
       target_ids: ['PRが入るメルマガを選択', '紐づいたメルマガ', 'target_ids']
     };
-    const getByAliases = (row, aliases) => {
-      for (const alias of aliases) {
-        if (Object.prototype.hasOwnProperty.call(row, alias) && normalize(row[alias])) return normalize(row[alias]);
-      }
-      return '';
-    };
-    const getByExactKeys = (row, keys) => {
-      for (const exactKey of keys) {
-        if (Object.prototype.hasOwnProperty.call(row, exactKey) && normalize(row[exactKey])) return normalize(row[exactKey]);
-      }
-      return '';
-    };
 
     for (const row of rows) {
-      const rowKey = normalizeScheduleEditKey_(getByAliases(row, keyAliases));
+      const rowKey = normalizeScheduleEditKey_(getInputControlValueByAliases_(row, keyAliases));
       if (rowKey && rowKey !== key) continue;
       // シートは「画面」列と「モーダル」列が別々のため、「モーダル」列を優先して照合する
       const rowModal = normalize(row['モーダル'] || '') || normalize(row['画面'] || '');
-      const rowFormat = getByAliases(row, formatAliases) || getByExactKeys(row, ['タブ', '形式']);
+      const rowFormat = getInputControlValueByAliases_(row, formatAliases);
       const modalMatches = !rowModal || modalLabels.some(label => rowModal.includes(label));
       const formatMatches = !rowFormat || formatLabels.some(label => rowFormat.includes(label));
       if (modalMatches && formatMatches) {
@@ -1206,7 +1204,7 @@
         }
       }
       if (modalMatches && formatMatches) {
-        const directState = normalizeInputControlState_(getByAliases(row, stateAliases));
+        const directState = normalizeInputControlState_(getInputControlValueByAliases_(row, stateAliases));
         if (directState) return directState;
       }
       for (const modalLabel of modalLabels) {
@@ -1263,15 +1261,9 @@
       start_date: ['開始日', '開始', 'start_date'],
       end_date: ['終了日', '終了', 'end_date']
     };
-    const getByAliases = (row, aliases) => {
-      for (const alias of aliases) {
-        if (Object.prototype.hasOwnProperty.call(row, alias) && normalize(row[alias])) return normalize(row[alias]);
-      }
-      return '';
-    };
     const normalizedCycle = normalize(cycleValue);
     for (const row of rows) {
-      const rowCycle = getByAliases(row, cycleAliases);
+      const rowCycle = getInputControlValueByAliases_(row, cycleAliases);
       if (!rowCycle || rowCycle !== normalizedCycle) continue;
       // シートは「画面」列と「モーダル」列が別々のため、「モーダル」列を優先して照合する
       const rowModal = normalize(row['モーダル'] || '') || normalize(row['画面'] || '');

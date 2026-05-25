@@ -15,6 +15,7 @@
 | 2026-05-25 | 1.6 | 入力制御シート反映: 配信編集ロック対象に weekday・is_verifying を追加、is_fixed/is_inactive/is_draft を全モーダルで常時非表示化、シート行照合バグ修正（モーダル列の参照先修正）、Section 4.1 を全面刷新。 | Claude Sonnet |
 | 2026-05-25 | 1.7 | 最新の「入力制御」シート構成を仕様へ再整理。タブ別・サイクル別・PR管理専用の3ブロックを同一シートで管理し、`__section` で読み分けるルールを明文化。 | Codex |
 | 2026-05-26 | 1.8 | 配信編集・マスタ編集モーダルに変更影響範囲の注意書きを追加。 | Codex |
+| 2026-05-26 | 1.9 | メンテナンス方針を追記。重複関数の削除、入力制御ヘルパー共通化、一覧描画中の日付再計算削減を反映。 | Codex |
 
 ## 1. 目的
 
@@ -394,6 +395,13 @@ UI仕様を変更する場合は、該当箇所の近傍だけで判断しては
 - マスタ編集・配信編集の特殊項目（メルマガ名、PR ID、設定者、確認者、新規、求人件数、PR、形式非表示）は `Client.html` の `getMasterSpecialFieldConfig_()` / `renderMasterSpecialFieldInput_()` を経由して描画する。特殊扱いを追加・解除する場合は、select/text の共通描画に入る前の同関数を更新する。
 - `applyDynamicInputControl()` のモード別制御は `resetModalFieldStates_()`、`applyAutoJobFieldControls_()`、`applyEditModalLockedFieldControls_()`、`applyCurrentJobCountControls_()`、`applyPrMasterControls_()` に分かれている。モーダル状態の条件を増減する場合は、同じ責務の関数へ寄せてから変更する。
 - 形式タブは `Client.html` の `setModalFormatState()` と `setModalFormatTabLockState()` を正とし、`dataset.mode === 'edit'` のモーダルではタブをロック状態にする。編集時はタブの有効/無効と `format` の値が必ず同期しているか確認する。
+
+### 5.6 メンテナンス・高速化ルール
+
+- 同じHTMLファイル内に同名の `function` 定義を複数残さない。後勝ち上書きで動いていても、保守時に古い実装へ修正が入り事故につながるため、不要な旧定義は削除する。
+- 一覧描画など行数分ループする処理では、`formatDate(new Date())`、ヘッダー探索、DOM検索などの不変値をループ外で計算する。
+- 入力制御シートの行値取得は `getInputControlValueByAliases_()` のような共通ヘルパーを使い、同じ alias 探索ロジックを複数箇所へ複写しない。
+- 小さいコード分割は、責務が明確で既存の呼び出し元を減らせる場合に行う。単なる名前付けだけで呼び出し階層を増やす分割は避ける。
 
 ## 6. セレクトボックス（プルダウン）におけるプレースホルダー制御ルール
 
