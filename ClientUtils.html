@@ -28,10 +28,11 @@
   }
 
   function getVisibleMasterHeaders(headers) {
-    const systemHeaders = ['source_sheet', 'source_row', '元シート', '元行', 'is_inactive', '配信停止', 'schedule_action'];
     const visible = headers.filter(header => {
       const h = String(header).trim();
-      return !['source_sheet', 'source_row', 'schedule_action'].includes(h);
+      if (['source_sheet', 'source_row', 'schedule_action'].includes(h)) return false;
+      if (MASTER_DATA.sheetName === 'app_schedule' && ['is_inactive', '配信停止', '配信終了', 'is_draft', '下書き'].includes(h)) return false;
+      return true;
     });
     if (MASTER_DATA.sheetName === 'app_pr' && !visible.some(header => ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID'].includes(String(header || '').trim()))) {
       visible.unshift('pr_id');
@@ -218,11 +219,7 @@
 
   function isHiddenMasterInputHeader(header) {
     const key = String(header == null ? '' : header).trim().toLowerCase();
-    return isDeprecatedScheduleHeader(header) ||
-      key === 'is_fixed' ||
-      key === 'is_draft' ||
-      key === '下書き' ||
-      key === '確定済';
+    return isDeprecatedScheduleHeader(header);
   }
 
   function isDeprecatedScheduleHeader(header) {
@@ -434,13 +431,14 @@
   function getOccurrenceOverrideForDate(row, targetDate) {
     const scheduleId = String(row && row.schedule_id || '').trim();
     if (!scheduleId || !targetDate) return null;
+    const rowOrigDate = row && row.original_date ? normalizeDateString(row.original_date) : null;
     const matches = Object.values(APP_DATA.checkStatuses || {}).filter(status => {
-      return status &&
-        typeof status === 'object' &&
-        status.field === 'occurrence_override' &&
-        status.is_active === true &&
-        String(status.schedule_id || '').trim() === scheduleId &&
-        normalizeDateString(status.delivery_date || status.original_date) === targetDate;
+      if (!status || typeof status !== 'object') return false;
+      if (status.field !== 'occurrence_override' || status.is_active !== true) return false;
+      if (String(status.schedule_id || '').trim() !== scheduleId) return false;
+      const deliveryMatch = normalizeDateString(status.delivery_date || status.original_date) === targetDate;
+      const originalMatch = rowOrigDate && normalizeDateString(status.original_date) === rowOrigDate;
+      return deliveryMatch || originalMatch;
     });
     if (!matches.length) return null;
     matches.sort((left, right) => String(right.updated_at || '').localeCompare(String(left.updated_at || '')));
@@ -483,7 +481,10 @@
   }
 
   function applyOccurrenceOverrideToEntry(entry) {
-    const itemId = getCheckItemId(entry);
+    const origDate = entry && (entry.original_date || entry.target_date);
+    const itemId = entry && entry.schedule_id
+      ? `${String(entry.schedule_id || '').trim()}|${String(origDate || '').trim()}`
+      : getCheckItemId(entry);
     const override = getOccurrenceOverrideForItemId(itemId);
     return applyOccurrenceOverrideObjectToEntry(entry, override);
   }
@@ -506,7 +507,11 @@
     if (!move) return entry;
     const next = Object.assign({}, entry);
     if (move.hour) next.hour = move.hour;
-    if (move.weekday) next.weekday = move.weekday;
+    if (move.weekday) {
+      next.weekday = move.weekday;
+    } else if (next.target_date) {
+      next.weekday = getWeekdayLabelForDateString(next.target_date);
+    }
     if (move.original_date) next.original_date = move.original_date;
     return next;
   }
@@ -536,7 +541,11 @@
   function getOccurrenceOverrideFieldsForEntry(entry) {
     const move = getMoveOverrideForDate(entry, entry && entry.target_date);
     if (move) return ['weekday', 'hour'];
-    const override = getOccurrenceOverrideForItemId(getCheckItemId(entry)) ||
+    const origDate = entry && (entry.original_date || entry.target_date);
+    const occItemId = entry && entry.schedule_id
+      ? `${String(entry.schedule_id || '').trim()}|${String(origDate || '').trim()}`
+      : getCheckItemId(entry);
+    const override = getOccurrenceOverrideForItemId(occItemId) ||
       getOccurrenceOverrideForDate(entry, entry && entry.target_date);
     if (!override || !Array.isArray(override.override_fields)) return [];
     return override.override_fields.map(key => String(key || '').trim()).filter(Boolean);

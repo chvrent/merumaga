@@ -550,24 +550,29 @@
     background: #f8fafc;
   }
   .cycle-chip-A {
-    background: #E0FFE0;
-    border-color: #8fcf8f;
+    background: #fff;
+    border-color: var(--schedule-line-biweekly-a, #9bd283);
+    border-left: 4px solid var(--schedule-line-biweekly-a, #9bd283);
   }
   .cycle-chip-B {
-    background: #FFD1DC;
-    border-color: #f59aae;
+    background: #fff;
+    border-color: var(--schedule-line-biweekly-b, #e171c0);
+    border-left: 4px solid var(--schedule-line-biweekly-b, #e171c0);
   }
   .cycle-chip-1 {
-    background: #fff7ed;
-    border-color: #fdba74;
+    background: #fff;
+    border-color: var(--schedule-line-special-cycle, #8e7cc3);
+    border-left: 4px solid var(--schedule-line-special-cycle, #8e7cc3);
   }
   .cycle-chip-2 {
-    background: #e0f2fe;
-    border-color: #7dd3fc;
+    background: #fff;
+    border-color: var(--schedule-line-special-cycle, #8e7cc3);
+    border-left: 4px solid var(--schedule-line-special-cycle, #8e7cc3);
   }
   .cycle-chip-3 {
-    background: #ede9fe;
-    border-color: #c4b5fd;
+    background: #fff;
+    border-color: var(--schedule-line-special-cycle, #8e7cc3);
+    border-left: 4px solid var(--schedule-line-special-cycle, #8e7cc3);
   }
   .month-end-header {
     background: #fff1f5;
@@ -624,14 +629,14 @@
   .delivery-row.bg-default {
     background: #f8fafc;
   }
-  .slot-item.is-special {
-    border-left: 6px solid var(--schedule-line-special, #800080);
+  .slot-item.is-biweekly-a {
+    border-left: 6px solid var(--schedule-line-biweekly-a, #9bd283);
   }
-  .slot-item.is-product {
-    border-left: 6px solid var(--schedule-line-product, #008080);
+  .slot-item.is-biweekly-b {
+    border-left: 6px solid var(--schedule-line-biweekly-b, #e171c0);
   }
-  .slot-item.is-others {
-    border-left: 6px solid var(--schedule-line-others, #FFA500);
+  .slot-item.is-special-cycle {
+    border-left: 6px solid var(--schedule-line-special-cycle, #8e7cc3);
   }
   .delivery-row:hover {
     outline: 2px solid var(--primary-weak);
@@ -1039,11 +1044,59 @@
     background: #fff7f7;
     box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.08);
   }
+  #editModal .form-group .previous-value {
+    display: block;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 3px;
+    font-style: italic;
+  }
   .modal-actions {
     display: flex;
     gap: 8px;
     justify-content: flex-end;
     margin-top: 16px;
+  }
+  .schedule-scope-card {
+    width: min(460px, 100%);
+  }
+  .scope-choice-body {
+    display: grid;
+    gap: 14px;
+  }
+  .scope-choice-body p {
+    margin: 0;
+    color: var(--text);
+    line-height: 1.6;
+  }
+  .scope-choice-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .scope-choice-actions button {
+    min-height: 38px;
+    white-space: normal;
+  }
+  .cycle-button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .cycle-option-button {
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 7px 10px;
+    background: #fff;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .cycle-option-button.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+    font-weight: 700;
   }
   .modal-row-actions {
     display: flex;

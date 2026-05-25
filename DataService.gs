@@ -27,8 +27,10 @@ const PR_FIELD_ALIASES = {
   pr_text: ['pr_text', 'PR本文', '本文'],
   start_date: ['start_date', '開始日', '開始'],
   end_date: ['end_date', '終了日', '終了'],
+  notes: ['notes', '備考'],
   target_ids: ['target_ids', '紐付けID', '対象ID', 'PRが入るメルマガ', '紐付けメルマガ'],
-  is_inactive: ['is_inactive', '配信停止', '配信終了', '停止', '無効']
+  is_inactive: ['is_inactive', '配信停止', '配信終了', '停止', '無効'],
+  is_draft: ['is_draft', '下書き']
 };
 
 const PR_TARGET_FIELD_ALIASES = {
@@ -67,10 +69,12 @@ const SCHEDULE_FIELD_ALIASES = {
   user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種'],
   user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種'],
   user_other_condition: ['user_other_condition', 'USER_その他条件'],
+  parameter: ['parameter', 'parameters', 'パラメータ'],
   job_location: ['job_location', 'JOB_勤務地'],
   job_type: ['job_type', 'JOB_職種'],
   job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード'],
   is_new: ['is_new', 'new_flag', '新規'],
+  is_verifying: ['is_verifying', '検証中', 'verifying_flag'],
   current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数'],
   auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件'],
   cycle: ['cycle', 'サイクル'],
@@ -105,6 +109,7 @@ const CHECK_STATUS_FIELD_ALIASES = {
   user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種'],
   user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種'],
   user_other_condition: ['user_other_condition', 'USER_その他条件'],
+  parameter: ['parameter', 'parameters', 'パラメータ'],
   job_location: ['job_location', 'JOB_勤務地'],
   job_type: ['job_type', 'JOB_職種'],
   job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード'],
@@ -137,7 +142,8 @@ function getInitialData(options) {
     holidays: getSheetObjectsCached_('app_holidays', true),
     japaneseHolidays: getJapaneseHolidays_(),
     readme: getSheetObjectsCached_('app_readme', true),
-    adminMaster: getSheetObjectsCached_('app_admin_master', true)
+    adminMaster: getSheetObjectsCached_('app_admin_master', true),
+    inputControls: getInputControlRows_()
   }, getOperationalDataForRange_(dateRange));
 }
 
@@ -196,6 +202,43 @@ function getSheetHeaders_(ss, sheetName) {
   return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getDisplayValues()[0]
     .map(header => String(header || '').trim())
     .filter(Boolean);
+}
+
+function getInputControlRows_() {
+  const ss = getSourceSpreadsheet_();
+  const sheetNames = ['入力制御', 'input_control', 'app_input_control'];
+  let sheet = null;
+  for (const name of sheetNames) {
+    sheet = ss.getSheetByName(name);
+    if (sheet) break;
+  }
+  if (!sheet) return [];
+
+  const values = sheet.getDataRange().getDisplayValues();
+  const rows = [];
+  let section = '';
+  for (let rowIndex = 0; rowIndex < values.length; rowIndex++) {
+    const row = values[rowIndex].map(value => String(value || '').trim());
+    if (row[0] && row.slice(1).every(value => !value)) {
+      section = row[0];
+      continue;
+    }
+    if (row[0] !== '画面' || row[1] !== 'モーダル') continue;
+    const headers = row;
+    for (let dataIndex = rowIndex + 1; dataIndex < values.length; dataIndex++) {
+      const dataRow = values[dataIndex].map(value => String(value || '').trim());
+      if (!dataRow.some(Boolean)) break;
+      if (dataRow[0] === '画面' && dataRow[1] === 'モーダル') break;
+      const obj = {};
+      obj.__section = section;
+      headers.forEach((header, columnIndex) => {
+        if (!header) return;
+        obj[header] = dataRow[columnIndex] || '';
+      });
+      rows.push(obj);
+    }
+  }
+  return rows;
 }
 
 function getMasterData(sheetName) {
@@ -283,6 +326,11 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'checker') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'reviewer')) {
     normalizedPayload.reviewer = normalizedPayload.checker;
   }
+  ['assignee', 'reviewer'].forEach(function(key) {
+    if (Object.prototype.hasOwnProperty.call(normalizedPayload, key) && isBooleanText_(normalizedPayload[key])) {
+      normalizedPayload[key] = '';
+    }
+  });
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'mail_type') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'category')) {
     normalizedPayload.category = normalizedPayload.mail_type;
   }
@@ -296,9 +344,21 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     normalizedPayload.is_new = isTruthy_(normalizedPayload.is_new) ? 'TRUE' : 'FALSE';
     delete normalizedPayload.new_flag;
   }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'verifying_flag') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_verifying')) {
+    normalizedPayload.is_verifying = normalizedPayload.verifying_flag;
+  }
+  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_verifying')) {
+    normalizedPayload.is_verifying = isTruthy_(normalizedPayload.is_verifying) ? 'TRUE' : 'FALSE';
+    delete normalizedPayload.verifying_flag;
+  }
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_draft')) {
     normalizedPayload.is_draft = isTruthy_(normalizedPayload.is_draft) ? 'TRUE' : 'FALSE';
   }
+  ['is_fixed', 'is_inactive'].forEach(function(key) {
+    if (Object.prototype.hasOwnProperty.call(normalizedPayload, key)) {
+      normalizedPayload[key] = isTruthy_(normalizedPayload[key]) ? 'TRUE' : 'FALSE';
+    }
+  });
   applySingleDeliveryPayloadRule_(normalizedPayload);
 
   const ss = getSourceSpreadsheet_();
@@ -350,6 +410,7 @@ function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload)
   if (!payload || typeof payload !== 'object') return;
   const optionalHeaders = [];
   if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) optionalHeaders.push('is_draft');
+  if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) optionalHeaders.push('is_verifying');
   optionalHeaders.forEach(header => {
     if (headers.indexOf(header) >= 0) return;
     headers.push(header);
@@ -670,16 +731,22 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
   const values = checkStatusSheet.getDataRange().getValues();
   const itemIdIndex = csHeaders.indexOf('item_id');
   const fieldIndex = csHeaders.indexOf('field');
+  if (isBackToOriginalSlot) {
+    for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
+      const row = values[rowIndex];
+      if (normalizeCell_(row[itemIdIndex]) === itemId && normalizeCell_(row[fieldIndex]) === 'move_override') {
+        checkStatusSheet.deleteRow(rowIndex + 1);
+        return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
+      }
+    }
+    return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
+  }
   for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
     const row = values[rowIndex];
     if (normalizeCell_(row[itemIdIndex]) === itemId && normalizeCell_(row[fieldIndex]) === 'move_override') {
       checkStatusSheet.getRange(rowIndex + 1, 1, 1, csHeaders.length).setValues([mergeCheckStatusRow_(csHeaders, row, logRow)]);
       return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour };
     }
-  }
-
-  if (isBackToOriginalSlot) {
-    return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
   }
 
   checkStatusSheet.appendRow(logRow);
@@ -871,6 +938,11 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
       const index = archiveHeaderMap.get('check_checker_active');
       if (index != null) nextRow[index] = change.fields.checker;
     }
+    ['assignee', 'reviewer'].forEach(key => {
+      if (!Object.prototype.hasOwnProperty.call(change.payload || {}, key)) return;
+      const archiveIndex = firstExistingHeaderIndex_(archiveHeaderMap, SCHEDULE_FIELD_ALIASES[key]);
+      if (archiveIndex != null) nextRow[archiveIndex] = normalizeCell_(change.payload[key]);
+    });
 
     const confirmed = isArchiveDiffConfirmed_(archiveHeaders, nextRow);
     if (!confirmed && existingIndex == null) {
@@ -977,6 +1049,16 @@ function saveCheckStatusUnlocked_(itemId, field, active, payload) {
   const fieldIndex = headers.indexOf('field');
   const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
   const activeValue = active === true || String(active).toLowerCase() === 'true';
+  if (!activeValue && (safeField === 'move_override' || safeField === 'occurrence_override')) {
+    for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
+      const row = values[rowIndex];
+      if (normalizeCell_(row[itemIdIndex]) === safeItemId && normalizeCell_(row[fieldIndex]) === safeField) {
+        sheet.deleteRow(rowIndex + 1);
+        return { success: true, item_id: safeItemId, field: safeField, active: false, updated_at: timestamp, deleted: true };
+      }
+    }
+    return { success: true, item_id: safeItemId, field: safeField, active: false, updated_at: timestamp, deleted: false };
+  }
   const rowValues = buildCheckStatusRow_(headers, safeItemId, safeField, activeValue, payload, timestamp);
 
   for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
@@ -1046,6 +1128,8 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
         return normalizeCell_(safePayload.user_desired_job);
       case 'user_other_condition':
         return normalizeCell_(safePayload.user_other_condition);
+      case 'parameter':
+        return normalizeCell_(safePayload.parameter);
       case 'job_location':
         return normalizeCell_(safePayload.job_location);
       case 'job_type':
@@ -2112,8 +2196,8 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     mail_content_free: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content_free),
     format: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.format),
     delivery_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.delivery_count),
-    assignee: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.assignee),
-    reviewer: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.reviewer),
+    assignee: getPersonFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.assignee),
+    reviewer: getPersonFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.reviewer),
     start_date: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.start_date),
     end_date: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.end_date),
     pr: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.pr),
@@ -2126,10 +2210,12 @@ function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
     user_experience_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_experience_job),
     user_desired_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_desired_job),
     user_other_condition: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_other_condition),
+    parameter: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.parameter),
     job_location: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_location),
     job_type: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_type),
     job_keyword: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_keyword),
     is_new: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_new),
+    is_verifying: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_verifying),
     current_job_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_job_count),
     auto_job_other_condition: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.auto_job_other_condition),
     current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),
@@ -2429,6 +2515,21 @@ function getFieldByAliases_(headers, row, aliases) {
     }
   }
   return '';
+}
+
+function getPersonFieldByAliases_(headers, row, aliases) {
+  for (const alias of toAliasList_(aliases)) {
+    const index = headers.indexOf(alias);
+    if (index < 0) continue;
+    const value = normalizeCell_(row[index]);
+    if (value !== '' && !isBooleanText_(value)) return value;
+  }
+  return '';
+}
+
+function isBooleanText_(value) {
+  const text = normalizeCell_(value).toLowerCase();
+  return ['true', 'false'].indexOf(text) !== -1 || value === true || value === false;
 }
 
 function getObjectFieldByAliases_(obj, aliases) {
