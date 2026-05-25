@@ -14,11 +14,29 @@
 - **環境確認**: 作業前に必ず `pwd`, `git status --short`, `git remote -v` を確認すること。
 - **仕様変更**: 仕様・運用を変えたら `SPEC.md`, `SPEC_SUMMARY.md`, `START_HERE.md`, `運用台帳.md` を更新すること。
 
+## AI引き継ぎルール（必須）
+
+複数AIで交代しながら作業するため、作業前に必ず `AI_HANDOFF.md` も読むこと。
+最初に `scripts/ai-start.ps1` を実行して、自分のAI用ブランチへ自動分岐すること。
+
+- Codex は `codex/<task>` ブランチで作業する。
+- Claude は `claude/<task>` ブランチで作業する。
+- Gemini は `gemini/<task>` ブランチで作業する。
+- Antigravity は `antigravity/<task>` ブランチで作業する。
+- `main` は安定版・統合用。ユーザーが明示した場合以外、直接編集しない。
+- 他AI名のブランチは、ユーザーが「その続きから」と明示した場合以外は編集しない。
+- 途中で止める前に、必要なら `scripts/ai-wip.ps1` で `wip: ...` コミットを作り、`運用台帳.md` に引き継ぎメモを残す。
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ai-start.ps1 -Agent Codex -Task <short-task-name>
+```
+
 ## 作業前チェック
 
 ```powershell
 pwd
-git status --short
+git status --short --branch
+git branch --show-current
 git remote -v
 ```
 
@@ -78,6 +96,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env 
 - `Config.gs.js` や `*.js` は `clasp pull` で生成される一時ファイルの場合がある。Apps Scriptの正ファイルは原則 `.gs` / `.html`。
 - 配信停止と削除は別概念。カレンダーや一覧から消したいだけなら停止、シート行を物理削除する場合だけ削除。
 - 配信編集モーダルの日付別変更は `app_check_status.occurrence_override` を使う。マスタの週次定義を不用意に上書きしない。
+
+## 2026-05-25 入力制御シート反映ノート
+
+- `入力制御` シートは、1枚の中に `タブ別入力制御`、`サイクル別入力制御`、`PR管理専用 入力項目・配置マトリクス` を縦に並べる構成。`DataService.gs` の `getInputControlRows_()` がブロック名を `__section` として各行へ付ける。
+- クライアント側は `__section` で読み分ける。通常モーダルは `タブ別`、サイクル上書きは `サイクル別`、PR管理モーダルは `PR管理専用` を見る。
+- 状態セルは `表示` / `ロック` / `非表示` を先頭語で判定する。`非表示(ボタンのみ表示)` などの補足は運用メモとして残せる。
+- `getInputControlStateFromSheet_` / `getInputControlCycleStateFromSheet_` は `row['モーダル']` 列（例: `配信編集モーダル`）を直接参照する。`getByAliases(row, ['画面','モーダル',...])` は `画面` 列値を返すため照合が失敗するバグがあり修正済み。
+- 配信編集モーダルのロック対象（全形式）: `start_date`、`end_date`、`mail_name`、`mail_type`、`cycle`、`format`、`sub_category`、`is_new`、**`weekday`（新規追加）**、**`is_verifying`（新規追加）**。
+- `is_fixed`・`is_inactive`・`is_draft` は全モーダルで常時フォーム非表示。ボタン/外部フローでのみ操作する。
 
 ## 2026-05-24 Fix Note
 

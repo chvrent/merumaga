@@ -41,7 +41,12 @@
 
 - シートのヘッダー名を正とする。
 - app_scheduleに列追加した場合は、モーダルだけでなくメルマガ一覧・PR管理・保存API・入力制御を同時確認する。
-- `入力制御` シートがある場合は、画面入力可否・必須・表示/非表示の制御元として扱う。
+- `入力制御` シートが正本。`APP_DATA.inputControls`（`getInputControlRows_()` 読み込み）を参照し `applyDynamicInputControl` で適用する。
+- `入力制御` は1枚の中に `タブ別入力制御`、`サイクル別入力制御`、`PR管理専用 入力項目・配置マトリクス` を縦に並べる。`getInputControlRows_()` が各行へ `__section` を付け、クライアント側でブロック別に読み分ける。
+- 状態セルは `表示`、`ロック`、`非表示` を先頭語として判定する。`非表示(ボタンのみ表示)` などの補足は書いてよいが、判定は先頭語が正。
+- 配信編集モーダルのロック対象（全形式）: `start_date`、`end_date`、`mail_name`、`mail_type`、`cycle`、`format`、`sub_category`、`is_new`、`weekday`、`is_verifying`。
+- `is_fixed`・`is_inactive`・`is_draft` は全モーダルで常時フォーム非表示（ボタン/外部フロー管理）。
+- シート照合は `row['モーダル']` 列（例: `配信編集モーダル`）を直接参照する。`画面`列と混同しないこと。
 - PRは `app_pr` と `app_pr_targets` の整合を保つ。
 
 ## ドキュメント
