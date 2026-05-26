@@ -109,16 +109,28 @@
     const resumeButton = document.getElementById('resume-master-button');
     const deleteButton = document.getElementById('delete-master-button');
     const draftButton = document.getElementById('draft-master-button');
+    const stoppedNote = document.getElementById('masterStoppedNote');
     const hasExistingRow = !!(row && row.__rowNumber);
     const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
     const inactive = row ? isInactive(row) : false;
     const endDate = row ? normalizeDateString(getValueByKeys(row, ['end_date', '終了日', '終了'])) : '';
     const today = formatDate(new Date());
     const ended = inactive || (!!endDate && endDate <= today);
-    if (stopButton) stopButton.style.display = hasExistingRow && !isPrMaster && !ended ? '' : 'none';
-    if (resumeButton) resumeButton.style.display = hasExistingRow && !isPrMaster && ended ? '' : 'none';
-    if (deleteButton) deleteButton.style.display = hasExistingRow ? '' : 'none';
+
+    if (stopButton) {
+      stopButton.style.display = hasExistingRow && !isPrMaster && !ended ? '' : 'none';
+      stopButton.title = '終了日を今日に設定します。明日からカレンダーに表示されなくなります。';
+    }
+    if (resumeButton) {
+      resumeButton.style.display = hasExistingRow && !isPrMaster && ended ? '' : 'none';
+      resumeButton.title = '終了日をクリアし、開始日を今日に更新して配信を再開します。';
+    }
+    if (deleteButton) {
+      deleteButton.style.display = hasExistingRow ? '' : 'none';
+      deleteButton.title = 'シートからこの行を完全に削除します。停止とは異なり取り消せません。';
+    }
     if (draftButton) draftButton.style.display = hasExistingRow ? 'none' : '';
+    if (stoppedNote) stoppedNote.hidden = !ended;
   }
 
   function isHiddenPrMasterInputKey_(key, header) {
@@ -867,7 +879,7 @@
   }
 
   function deleteMasterRow(rowNumber) {
-    const message = 'この行をスプレッドシートから削除します。停止とは違い、行そのものが消えます。よろしいですか？';
+    const message = '本当に削除しますか？\nシートからこの行を完全に削除します。停止とは異なりデータそのものが消え、カレンダーからも即座に非表示になります。\nこの操作は取り消せません。';
     if (!rowNumber || !confirm(message)) return;
 
     showBusy('削除中...');
