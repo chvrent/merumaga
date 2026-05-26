@@ -1217,32 +1217,23 @@
     gap: 8px;
     margin-top: 12px;
   }
-  .job-alert-guidance {
-    flex: 1 1 260px;
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 12px;
-    font-weight: 700;
+  #editModal .form-group.has-job-count-alert label {
+    color: #b91c1c;
   }
-  .job-alert-guidance-critical {
-    border: 1px solid #dc2626;
+  #editModal .form-group.has-job-count-alert input,
+  #editModal .form-group.has-job-count-alert select,
+  #editModal .form-group.has-job-count-alert textarea {
+    border-color: #dc2626;
     background: #fef2f2;
     color: #991b1b;
+    font-weight: 700;
   }
-  .job-alert-guidance-warning {
-    border: 1px solid #f97316;
-    background: #fff7ed;
-    color: #9a3412;
-  }
-  .job-alert-guidance-info {
-    border: 1px solid #3b82f6;
-    background: #eff6ff;
-    color: #1d4ed8;
-  }
-  .job-alert-guidance-unavailable {
-    border: 1px solid #9ca3af;
-    background: #f9fafb;
-    color: #4b5563;
+  .job-count-alert-message {
+    margin-top: 6px;
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.4;
   }
   .delivery-status-pill {
     display: none;
@@ -1295,10 +1286,6 @@
     background: #dc2626;
     border-color: #dc2626;
     color: #fff;
-  }
-  .danger-button.is-critical {
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.22);
-    font-weight: 700;
   }
   .resume-button {
     background: #16803c;

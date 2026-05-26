@@ -1331,21 +1331,19 @@
     if (countText === '') return null;
 
     const count = Number(countText);
-    const hasUrl = !!String(row && row.job_url != null ? row.job_url : '').trim();
-
-    if (!hasUrl) return null;
     if (!Number.isFinite(count)) return null;
-    if (count === 0) {
+    if (count <= 10 || count >= 700) {
       return {
         level: 'critical',
         icon: '[!]',
         count,
-        message: '求人数が0件です'
+        message: count <= 10
+          ? '求人数が10件以下です。配信停止を検討してください'
+          : '求人数が700件以上です。配信停止を検討してください'
       };
     }
     return null;
   }
-
   function renderJobAlertIcon(alert) {
     if (!alert) return '';
     return `<span class="job-alert-icon job-alert-${alert.level}" title="${escapeAttribute(getJobAlertTooltip(alert))}">${escapeHtml(alert.icon)}</span>`;
@@ -1357,20 +1355,6 @@
     return `件数：${countText} / ${alert.message}`;
   }
 
-  function renderJobAlertGuidance(row) {
-    const alert = getJobCountAlert(row);
-    const panel = document.getElementById('job-alert-guidance');
-    if (!panel) return;
-    if (!alert) {
-      panel.style.display = 'none';
-      panel.textContent = '';
-      panel.className = 'job-alert-guidance';
-      return;
-    }
-    panel.className = `job-alert-guidance job-alert-guidance-${alert.level}`;
-    panel.textContent = getJobAlertTooltip(alert);
-    panel.style.display = 'block';
-  }
 
   function getPrStates(row, targetDateString) {
     const records = getPrRecordsForSchedule(row);
@@ -1587,8 +1571,6 @@
     if (stopButton && resumeButton) {
       stopButton.style.display = !fixed && !stopped ? '' : 'none';
       resumeButton.style.display = !fixed && stopped ? '' : 'none';
-      const jobAlert = getJobCountAlert(CURRENT_ENTRY);
-      stopButton.classList.toggle('is-critical', !!jobAlert && jobAlert.level === 'critical');
     }
 
     const statusPill = document.getElementById('delivery-status-pill');

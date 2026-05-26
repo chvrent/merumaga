@@ -461,10 +461,15 @@
       const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword'].includes(key);
       const input = renderEditInput_(header, key, value);
       if (input === '') return '';
+      const jobAlert = key === 'current_job_count' && typeof getJobCountAlert === 'function'
+        ? getJobCountAlert(entry)
+        : null;
+      const jobAlertText = jobAlert ? `<div class="job-count-alert-message">${escapeHtml(jobAlert.message)}</div>` : '';
       return `
-        <div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}">
+        <div class="form-group ${isFullWidth ? 'full-width' : ''} ${jobAlert ? 'has-job-count-alert' : ''}" data-field="${escapeAttribute(key)}">
           <label>${escapeHtml(getModalFieldLabel_(header, key))}</label>
           ${input}
+          ${jobAlertText}
         </div>
       `;
     }).join('');
