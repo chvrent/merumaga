@@ -22,23 +22,10 @@ function getMasterData(sheetName) {
 
   const headers = values[0].map(header => String(header || '').trim());
   const visibleHeaders = headers.filter(header => !isDeprecatedScheduleHeader_(safeSheetName, header));
-  const rows = values
-    .slice(1)
-    .map((row, index) => {
-      const obj = { __rowNumber: String(index + 2) };
-      headers.forEach((header, columnIndex) => {
-        if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
-        // 正規キーで格納することでJSONを軽量化。
-        // エイリアスにない列は生ヘッダー名にフォールバック。
-        const canonicalKey = getCanonicalKeyForHeader_(safeSheetName, header);
-        obj[canonicalKey || header || `column_${columnIndex + 1}`] = normalizeCell_(row[columnIndex]);
-      });
-      // 正規キーはすでに格納済みなので addCanonicalMasterFields_ は実質ノーオペレーションだが、
-      // getPRData 等のサーバー側利用 (getObjectFieldByAliases_) のために残す。
-      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
-      return obj;
-    })
-    .filter(row => Object.keys(row).some(key => key !== '__rowNumber' && row[key] !== ''));
+  const rows = mapDisplayValuesToMasterRows_(safeSheetName, values, {
+    withRowNumber: true,
+    filterEmptyObjects: true
+  });
 
   return { sheetName: safeSheetName, headers: visibleHeaders, rows };
 }
@@ -149,8 +136,9 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     ? values[rowNumber - 1].slice(0, headers.length)
     : headers.map(() => '');
 
+  const headerCanonicalKeys = headers.map(header => getCanonicalKeyForHeader_(safeSheetName, header));
   headers.forEach((header, index) => {
-    const canonicalKey = getCanonicalKeyForHeader_(safeSheetName, header);
+    const canonicalKey = headerCanonicalKeys[index];
     if (Object.prototype.hasOwnProperty.call(normalizedPayload, header)) {
       row[index] = normalizeCell_(normalizedPayload[header]);
     } else if (canonicalKey && Object.prototype.hasOwnProperty.call(normalizedPayload, canonicalKey)) {

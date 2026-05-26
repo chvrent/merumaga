@@ -207,17 +207,84 @@ function getCheckStatusCanonicalKey_(header) {
   return getCanonicalKeyFromAliases_(CHECK_STATUS_FIELD_ALIASES, header) || String(header || '').trim();
 }
 
-function addCanonicalMasterFields_(sheetName, headers, row, obj) {
+function buildMasterAliasFieldIndex_(headers, aliasesByKey) {
+  const headerMap = buildHeaderMap_(headers);
+  const fieldIdx = {};
+  Object.keys(aliasesByKey).forEach(key => {
+    const idx = firstExistingHeaderIndex_(headerMap, aliasesByKey[key]);
+    fieldIdx[key] = idx != null ? idx : -1;
+  });
+  return fieldIdx;
+}
+
+function buildCanonicalHeaderMeta_(sheetName, headers) {
+  const safeSheetName = String(sheetName || '').trim();
+  return headers.map((header, columnIndex) => ({
+    header,
+    columnIndex,
+    deprecated: isDeprecatedScheduleHeader_(safeSheetName, header),
+    storeKey: getCanonicalKeyForHeader_(safeSheetName, header) || header || `column_${columnIndex + 1}`
+  }));
+}
+
+/**
+ * DisplayValues からマスタ行オブジェクトを生成する。
+ * エイリアス定義があるシートは正規キーで格納し、ループ外で列インデックスを解決する。
+ */
+function mapDisplayValuesToMasterRows_(sheetName, values, options) {
+  const safeSheetName = String(sheetName || '').trim();
+  const opts = options || {};
+  if (!values || values.length < 2) return [];
+
+  const headers = values[0].map(header => String(header || '').trim());
+  const aliasesByKey = getMasterFieldAliases_(safeSheetName);
+
+  if (!aliasesByKey) {
+    return values
+      .slice(1)
+      .filter(row => row.some(v => v !== ''))
+      .map((row, index) => {
+        const obj = opts.withRowNumber ? { __rowNumber: String(index + 2) } : {};
+        headers.forEach((header, columnIndex) => {
+          if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
+          obj[header] = normalizeCell_(row[columnIndex]);
+        });
+        return obj;
+      })
+      .filter(row => !opts.filterEmptyObjects || Object.keys(row).some(
+        key => key !== '__rowNumber' && row[key] !== ''
+      ));
+  }
+
+  const activeHeaderMeta = buildCanonicalHeaderMeta_(safeSheetName, headers).filter(m => !m.deprecated);
+  const aliasFieldIdx = buildMasterAliasFieldIndex_(headers, aliasesByKey);
+
+  return values
+    .slice(1)
+    .filter(row => row.some(v => v !== ''))
+    .map((row, index) => {
+      const obj = opts.withRowNumber ? { __rowNumber: String(index + 2) } : {};
+      activeHeaderMeta.forEach(({ storeKey, columnIndex }) => {
+        obj[storeKey] = normalizeCell_(row[columnIndex]);
+      });
+      addCanonicalMasterFields_(safeSheetName, headers, row, obj, aliasFieldIdx);
+      return obj;
+    })
+    .filter(row => !opts.filterEmptyObjects || Object.keys(row).some(
+      key => key !== '__rowNumber' && row[key] !== ''
+    ));
+}
+
+function addCanonicalMasterFields_(sheetName, headers, row, obj, fieldIdx) {
   const aliasesByKey = getMasterFieldAliases_(sheetName);
   if (!aliasesByKey || !obj) return obj;
+  const indices = fieldIdx || buildMasterAliasFieldIndex_(headers, aliasesByKey);
   Object.keys(aliasesByKey).forEach(key => {
-    const aliases = aliasesByKey[key];
-    if (Array.isArray(aliases)) {
-      const value = getFieldByAliases_(headers, row, aliases);
-      if (value !== '' && (!Object.prototype.hasOwnProperty.call(obj, key) || normalizeCell_(obj[key]) === '')) {
-        obj[key] = value;
-      }
-    }
+    if (Object.prototype.hasOwnProperty.call(obj, key) && normalizeCell_(obj[key]) !== '') return;
+    const idx = indices[key];
+    if (idx == null || idx < 0) return;
+    const value = normalizeCell_(row[idx]);
+    if (value !== '') obj[key] = value;
   });
   return obj;
 }

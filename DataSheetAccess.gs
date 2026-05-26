@@ -77,20 +77,8 @@ function getSheetObjects_(sheetName, allowMissing = false) {
   const values = sheet.getDataRange().getDisplayValues();
   if (!values.length) return [];
 
-  const headers = values[0].map(header => String(header || '').trim());
   const safeSheetName = String(sheetName || '').trim();
-  return values
-    .slice(1)
-    .filter(row => row.some(v => v !== ''))
-    .map(row => {
-      const obj = {};
-      headers.forEach((header, index) => {
-        if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
-        obj[header] = normalizeCell_(row[index]);
-      });
-      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
-      return obj;
-    });
+  return mapDisplayValuesToMasterRows_(safeSheetName, values);
 }
 
 function getSheetObjectsCached_(sheetName, allowMissing = false) {
