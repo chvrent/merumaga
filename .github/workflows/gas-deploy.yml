@@ -48,23 +48,24 @@ jobs:
           fi
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-
+          
       - name: Slack Notification
         uses: slackapi/slack-github-action@v1.26.0
         if: always() && steps.slack_webhook.outputs.enabled == 'true'
-        with:
-          payload: |
-            {
-              "text": "${{ job.status == 'success' && '✅ デプロイ成功!' || '❌ デプロイ失敗...' }}",
-              "blocks": [
-                {
-                  "type": "section",
-                  "text": {
-                    "type": "mrkdwn",
-                    "text": "${{ job.status == 'success' && '✅ *Deploy Success!*' || '❌ *Deploy Failed!*' }}\nリポジトリ: ${{ github.repository }}\nコミット: ${{ github.event.head_commit.message }}"
-                  }
-                }
-              ]
-            }
         env:
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+                SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+                COMMIT_MSG: ${{ github.event.head_commit.message }}
+              with:
+                payload: |
+                  {
+                    "text": "${{ job.status == 'success' && '✅ デプロイ成功!' || '❌ デプロイ失敗...' }}",
+                    "blocks": [
+                      {
+                        "type": "section",
+                        "text": {
+                          "type": "mrkdwn",
+                          "text": "*${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}*\nリポジトリ: ${{ github.repository }}\nコミット: ${{ env.COMMIT_MSG }}"
+                        }
+                      }
+                    ]
+                  }
