@@ -830,7 +830,7 @@
   }
 
   function stopMasterRow(rowNumber) {
-    const message = '終了日を今日の日付に設定します。明日以降のカレンダーから消えます。過去の配信実績はそのまま残ります。よろしいですか？';
+    const message = '本当に停止しますか？\nこのメルマガの終了日が本日となり、明日から配信が停止し、カレンダーから非表示になります。\n再開時は、その日が開始日となります。';
     if (!rowNumber || !confirm(message)) return;
 
     showBusy('停止を保存中...');
