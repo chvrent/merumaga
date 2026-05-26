@@ -915,11 +915,8 @@
     const subCategoryHeader = findMasterHeaderByAliases_(['sub_category', 'サブカテゴリ', '担当部署']);
     const formatHeader = findMasterHeaderByAliases_(['format', '形式']);
     const mailTypeHeader = findMasterHeaderByAliases_(['mail_type', 'category', '種別']);
-    const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日', '終了']);
-    const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止', '停止', '無効']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
-    const today = formatDate(new Date());
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       if (keyword && !headers.map(header => row[header] == null ? '' : String(row[header])).join(' ').toLowerCase().includes(keyword)) {
@@ -967,19 +964,12 @@
 
     visibleRows.forEach(row => {
       const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
-      const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
-      const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
-      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < today);
-      const stoppedBadge = rowEnded && MASTER_DATA.sheetName === 'app_schedule'
-        ? '<span class="master-stopped-badge">終了済</span>'
-        : '';
       const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="シートからこの行を完全に削除します。取り消せません。">削除</button>`;
 
       html += `
       <tr>
       <td class="actions-col">
         <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
-        ${stoppedBadge}
         ${deleteButton}
       </td>
     `;
