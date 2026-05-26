@@ -42,6 +42,8 @@ function stopDeliveryUnlocked_(scheduleId, targetDate) {
     }
   });
   sheet.appendRow(row);
+  // 配信停止と同時に setter・checker を自動確認済みにする（次回アーカイブ時に記録される）
+  autoConfirmOccurrences_([{ scheduleId: safeScheduleId, targetDate: safeTargetDate }]);
   return { success: true, action: 'stopped' };
 }
 
@@ -103,6 +105,11 @@ function stopAllDeliveriesForDay(dateStr, scheduleIds) {
     if (rowsToAppend.length) {
       const startRow = sheet.getLastRow() + 1;
       sheet.getRange(startRow, 1, rowsToAppend.length, headers.length).setValues(rowsToAppend);
+    }
+
+    // 停止した分を一括で自動確認済みにする
+    if (results.length) {
+      autoConfirmOccurrences_(results.map(id => ({ scheduleId: id, targetDate: safeDateStr })));
     }
 
     return { success: true, stoppedIds: results, count: results.length };
@@ -258,6 +265,10 @@ function resumeDeliveryUnlocked_(scheduleId, targetDate) {
     }
   }
 
+  if (deleted > 0) {
+    // 停止時に自動確認済みにしたエントリを削除（アーカイブ前であれば取り消し可能）
+    clearOccurrenceCheckStatus_(safeScheduleId, safeTargetDate);
+  }
   return { success: true, action: 'resumed', deleted };
 }
 

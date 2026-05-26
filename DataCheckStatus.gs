@@ -417,3 +417,81 @@ function getCheckStatusHeaders_(sheet) {
 function buildCheckStatusKey_(itemId, field) {
   return `${normalizeCell_(itemId)}|${normalizeCell_(field)}`;
 }
+
+/**
+ * 配信停止時に setter・checker 両方を自動確認済みにする（日付バリデーションなし）。
+ * saveDailyArchiveDiffs 実行後にアーカイブへ反映される。
+ */
+function autoConfirmOccurrences_(pairs) {
+  if (!pairs || !pairs.length) return;
+
+  const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+  const sheet = getCheckStatusSheet_();
+  const headers = getCheckStatusHeaders_(sheet);
+  const values = sheet.getDataRange().getValues();
+  const itemIdIndex = headers.indexOf('item_id');
+  const fieldIndex = headers.indexOf('field');
+
+  // 既存行をキーで引けるマップ
+  const existingMap = {};
+  for (let i = 1; i < values.length; i++) {
+    const key = `${normalizeCell_(values[i][itemIdIndex])}|${normalizeCell_(values[i][fieldIndex])}`;
+    existingMap[key] = i;
+  }
+
+  const rowsToAppend = [];
+  const rowsToUpdate = [];
+
+  pairs.forEach(pair => {
+    const safeScheduleId = normalizeCell_(pair.scheduleId);
+    const safeTargetDate = normalizeCommentTargetDate_(pair.targetDate);
+    if (!safeScheduleId || !safeTargetDate) return;
+
+    const itemId = `${safeScheduleId}|${safeTargetDate}`;
+    const payload = { schedule_id: safeScheduleId, delivery_date: safeTargetDate };
+
+    ['setter', 'checker'].forEach(field => {
+      const rowValues = buildCheckStatusRow_(headers, itemId, field, true, payload, timestamp);
+      const key = `${itemId}|${field}`;
+      if (existingMap[key] !== undefined) {
+        const existingRowIndex = existingMap[key];
+        rowsToUpdate.push({ rowIndex: existingRowIndex + 1, values: [mergeCheckStatusRow_(headers, values[existingRowIndex], rowValues)] });
+      } else {
+        rowsToAppend.push(rowValues);
+      }
+    });
+  });
+
+  rowsToUpdate.forEach(update => {
+    sheet.getRange(update.rowIndex, 1, 1, headers.length).setValues(update.values);
+  });
+  if (rowsToAppend.length) {
+    sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, headers.length).setValues(rowsToAppend);
+  }
+}
+
+/**
+ * 配信再開時に autoConfirmOccurrences_ で書いた setter・checker エントリを削除する。
+ * アーカイブ前（saveDailyArchiveDiffs 未実行）であれば確認状態をリセットできる。
+ */
+function clearOccurrenceCheckStatus_(scheduleId, targetDate) {
+  const safeScheduleId = normalizeCell_(scheduleId);
+  const safeTargetDate = normalizeCommentTargetDate_(targetDate);
+  if (!safeScheduleId || !safeTargetDate) return;
+
+  const itemId = `${safeScheduleId}|${safeTargetDate}`;
+  const sheet = getCheckStatusSheet_();
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return;
+
+  const headers = values[0].map(h => String(h || '').trim());
+  const itemIdIndex = headers.indexOf('item_id');
+  const fieldIndex = headers.indexOf('field');
+  if (itemIdIndex < 0 || fieldIndex < 0) return;
+
+  for (let i = values.length - 1; i >= 1; i--) {
+    if (normalizeCell_(values[i][itemIdIndex]) !== itemId) continue;
+    const field = normalizeCell_(values[i][fieldIndex]);
+    if (field === 'setter' || field === 'checker') sheet.deleteRow(i + 1);
+  }
+}
