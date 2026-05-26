@@ -1,5 +1,11 @@
 /**
  * DataExceptionService.gs
+ * 配信停止・再開機能
+ *
+ * - 個別発生分の停止・再開
+ * - 指定日の一括停止・一括再開
+ * - 停止発生分の読み込み
+ * - 例外シートのヘッダー管理
  */
 function isStopped(scheduleId, targetDate) {
   const key = buildStoppedOccurrenceKey_(scheduleId, targetDate);
@@ -190,7 +196,7 @@ function buildSourceRowMapForScheduleIds_(scheduleIds) {
 
   // "app_schedule:123" の形式は即決
   uniqueScheduleIds.forEach(scheduleId => {
-    const match = scheduleId.match(/^app_schedule:(\\d+)$/);
+    const match = scheduleId.match(/^app_schedule:(\d+)$/);
     if (match) map[scheduleId] = match[1];
   });
 

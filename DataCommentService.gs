@@ -1,3 +1,13 @@
+/**
+ * DataCommentService.gs
+ * コメント機能
+ *
+ * - コメント保存・取得
+ * - コメント件数集計（日付範囲フィルタ対応）
+ * - コメントシートのヘッダー管理
+ * - コメントキャッシュの無効化
+ */
+
 function saveComment(scheduleId, commentText, targetDate, user) {
   return withScriptLock_(() => saveCommentUnlocked_(scheduleId, commentText, targetDate, user));
 }
