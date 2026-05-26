@@ -37,9 +37,9 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
   const archiveHeaders = archiveValues[0].map(header => String(header || '').trim());
   const archiveHeaderMap = buildHeaderMap_(archiveHeaders);
   const scheduleHeaderMap = buildHeaderMap_(scheduleHeaders);
-  const sourceRowIndex = archiveHeaders.indexOf('source_row');
-  const startIndex = archiveHeaders.indexOf('fixed_week_start');
-  const endIndex = archiveHeaders.indexOf('fixed_week_end');
+  const sourceRowIndex = findHeaderIndex_(archiveHeaders, 'source_row');
+  const startIndex = findHeaderIndex_(archiveHeaders, 'fixed_week_start');
+  const endIndex = findHeaderIndex_(archiveHeaders, 'fixed_week_end');
   if (sourceRowIndex < 0 || startIndex < 0 || endIndex < 0) {
     throw new Error(`${SCHEDULE_ARCHIVE_SHEET_NAME} must have source_row and fixed_week_start headers`);
   }
@@ -103,11 +103,11 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
     });
 
     if (Object.prototype.hasOwnProperty.call(change.fields, 'setter')) {
-      const index = archiveHeaderMap.get('check_setter_active');
+      const index = resolveHeaderIndex_(archiveHeaderMap, 'check_setter_active');
       if (index != null) nextRow[index] = change.fields.setter;
     }
     if (Object.prototype.hasOwnProperty.call(change.fields, 'checker')) {
-      const index = archiveHeaderMap.get('check_checker_active');
+      const index = resolveHeaderIndex_(archiveHeaderMap, 'check_checker_active');
       if (index != null) nextRow[index] = change.fields.checker;
     }
     ['assignee', 'reviewer'].forEach(k => {
