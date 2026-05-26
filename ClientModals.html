@@ -112,29 +112,26 @@
     const stoppedNote = document.getElementById('masterStoppedNote');
     const hasExistingRow = !!(row && row.__rowNumber);
     const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
-    const isScheduleMaster = MASTER_DATA.sheetName === 'app_schedule';
-    // 停止中: 新方式 stop_date/resume_date ベース
-    const masterStopped = row && isScheduleMaster ? isCurrentlyMasterStopped(row) : false;
-    // 終了: end_dateが過去、または旧is_inactive（stop_dateなし）
     const inactive = row ? isInactive(row) : false;
     const endDate = row ? normalizeDateString(getValueByKeys(row, ['end_date', '終了日', '終了'])) : '';
     const today = formatDate(new Date());
-    const ended = (!!endDate && endDate < today) || (inactive && !getValueByKeys(row || {}, ['stop_date', '停止日']));
+    // 停止当日は配信あり → 翌日以降が停止中。end_dateなしのis_inactive(旧データ)は即停止扱い
+    const ended = (!!endDate && endDate < today) || (inactive && !endDate);
 
     if (stopButton) {
-      stopButton.style.display = hasExistingRow && isScheduleMaster && !masterStopped && !ended ? '' : 'none';
-      stopButton.title = '停止日を今日に設定します。翌日からカレンダーでグレー表示（停止中）になります。';
+      stopButton.style.display = hasExistingRow && !isPrMaster && !ended ? '' : 'none';
+      stopButton.title = '終了日を今日に設定します。明日からカレンダーに表示されなくなります。';
     }
     if (resumeButton) {
-      resumeButton.style.display = hasExistingRow && isScheduleMaster && masterStopped ? '' : 'none';
-      resumeButton.title = '再開日を今日に設定し、カレンダーを再開します。停止期間の記録は保持されます。';
+      resumeButton.style.display = hasExistingRow && !isPrMaster && ended ? '' : 'none';
+      resumeButton.title = '終了日をクリアし、開始日を今日に更新して配信を再開します。';
     }
     if (deleteButton) {
       deleteButton.style.display = hasExistingRow ? '' : 'none';
       deleteButton.title = 'シートからこの行を完全に削除します。停止とは異なり取り消せません。';
     }
     if (draftButton) draftButton.style.display = hasExistingRow ? 'none' : '';
-    if (stoppedNote) stoppedNote.hidden = !masterStopped;
+    if (stoppedNote) stoppedNote.hidden = !ended;
   }
 
   function isHiddenPrMasterInputKey_(key, header) {
@@ -846,7 +843,7 @@
   }
 
   function stopMasterRow(rowNumber) {
-    const message = '本当に停止しますか？\n本日が停止日として記録され、明日からカレンダーでグレー表示（停止中）になります。\n終了日・開始日は変更されません。再開するとその日が再開日になります。';
+    const message = '本当に停止しますか？\nこのメルマガの終了日が本日となり、明日から配信が停止し、カレンダーから非表示になります。\n再開時は、その日が開始日となります。';
     if (!rowNumber || !confirm(message)) return;
 
     showBusy('停止を保存中...');
@@ -865,7 +862,7 @@
 
   function resumeMasterRow(rowNumber) {
     if (!rowNumber) return;
-    if (!confirm('再開日を今日に設定して配信を再開します。\n停止期間（停止日〜本日前日）はカレンダーにグレーで残ります。よろしいですか？')) return;
+    if (!confirm('終了日をクリアし、開始日を今日に設定して配信を再開します。よろしいですか？')) return;
 
     showBusy('再開を保存中...');
     google.script.run

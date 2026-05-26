@@ -84,8 +84,6 @@ const SCHEDULE_FIELD_ALIASES = {
   current_week_cycle: ['current_week_cycle', '今週サイクル(内部)'],
   current_week_inactive: ['current_week_inactive', '今週非配信(内部)'],
   is_inactive: ['is_inactive', '配信終了', '配信停止'],
-  stop_date: ['stop_date', '停止日'],
-  resume_date: ['resume_date', '再開日'],
   is_draft: ['is_draft', '下書き'],
   is_fixed: ['is_fixed', '確定済']
 };

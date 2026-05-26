@@ -381,7 +381,7 @@
         animation: 150,
         ghostClass: 'sortable-ghost',
         dragClass: 'sortable-drag',
-        filter: '.is-fixed, .is-master-stopped',
+        filter: '.is-fixed',
         onStart: () => {
           document.querySelectorAll('#tableContainer td[data-date]').forEach(c => c.classList.add('drag-over-target'));
         },
@@ -648,14 +648,12 @@
             const itemBg = getBgColor(effectiveEntry);
             const fixed = isFixed(entry, dateStr) || isCheckStatusActive(checkItemId, 'setter') || isCheckStatusActive(checkItemId, 'checker');
             const stopped = !fixed && isStopped(entryForDate);
-            const masterStopped = isMasterStopped(entry, dateStr);
             const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
             const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
-            const masterStoppedBadge = masterStopped ? '<span class="master-stopped-badge-cal">停止中</span>' : '';
             const jobAlert = getJobCountAlert(effectiveEntry);
             const jobAlertIcon = renderJobAlertIcon(jobAlert);
             const rowTitle = jobAlert ? ` title="${escapeAttribute(getJobAlertTooltip(jobAlert))}"` : '';
-            const prStates = masterStopped ? [] : getPrStates(effectiveEntry, dateStr);
+            const prStates = getPrStates(effectiveEntry, dateStr);
             const prLabel = prStates
               .filter(prState => {
                 const key = normalizeText(prState.pr_id);
@@ -669,14 +667,13 @@
               ? `<div class="pr-label pr-label-summary">PR ${escapeHtml(String(prStates.length))}件紐づき</div>`
               : '';
             html += `
-            <div class="delivery-row slot-item ${subCategoryClass} ${hasOccurrenceOverrides ? 'has-occurrence-overrides' : ''} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''} ${masterStopped ? 'is-master-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
+            <div class="delivery-row slot-item ${subCategoryClass} ${hasOccurrenceOverrides ? 'has-occurrence-overrides' : ''} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
               <div class="col-name ${nameChanged ? 'is-occurrence-overridden' : ''}">
                 <div class="mail-name">
                   ${jobAlertIcon}
                   ${escapeHtml(effectiveEntry.mail_name)}
                   ${fixedBadge}
                   ${stoppedBadge}
-                  ${masterStoppedBadge}
                   ${renderCommentBadge(entryForDate)}
                 </div>
                 ${prSummary}
@@ -848,6 +845,7 @@
       return;
     }
     if (isPrMasterSheet) {
+      // PR管理一覧: フィルター不要
       container.style.display = 'none';
       MASTER_SUBCATEGORY_FILTER = '__all__';
       MASTER_FORMAT_FILTER = '__all__';
@@ -971,18 +969,15 @@
       const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
       const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
       const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
-      // 終了: end_dateが過去 or 旧is_inactiveデータ（stop_dateなし）
-      const rowEnded = (!!rowEndDate && rowEndDate < today) || (rowInactive && !row['stop_date'] && !row['停止日']);
-      // 停止中: stop_date/resume_dateベースの新方式
-      const rowMasterStopped = MASTER_DATA.sheetName === 'app_schedule' && isCurrentlyMasterStopped(row);
-      const stoppedBadge = rowMasterStopped
+      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < today);
+      const stoppedBadge = rowEnded && MASTER_DATA.sheetName === 'app_schedule'
         ? '<span class="master-stopped-badge">停止中</span>'
-        : (rowEnded && MASTER_DATA.sheetName === 'app_schedule' ? '<span class="master-ended-badge">終了</span>' : '');
-      const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowMasterStopped || rowEnded
+        : '';
+      const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
         ? ''
-        : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="停止日を今日に設定します。翌日からカレンダーでグレー表示になります。">停止</button>`;
-      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowMasterStopped
-        ? `<button type="button" class="table-action-button resume" data-action="resume-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="再開日を今日に設定し、カレンダーを再開します。">再開</button>`
+        : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="終了日を今日に設定します。明日からカレンダーに表示されなくなります。">停止</button>`;
+      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowEnded
+        ? `<button type="button" class="table-action-button resume" data-action="resume-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="終了日をクリアし、開始日を今日に更新して配信を再開します。">再開</button>`
         : '';
       const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="シートからこの行を完全に削除します。取り消せません。">削除</button>`;
 
