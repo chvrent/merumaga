@@ -5,9 +5,15 @@
 !ClientComments.html
 !ClientModals.html
 !ClientUtils.html
+!DataArchive.gs
+!DataCheckStatus.gs
 !DataCommentService.gs
+!DataConstants.gs
 !DataExceptionService.gs
+!DataMaintenance.gs
 !DataService.gs
+!DataSheetAccess.gs
+!DataUtils.gs
 !appsscript.json
 !Index.html
 !index.html
