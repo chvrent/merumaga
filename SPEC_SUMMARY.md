@@ -50,6 +50,7 @@
 - `is_fixed`・`is_inactive`・`is_draft` は全モーダルで常時フォーム非表示（ボタン/外部フロー管理）。
 - シート照合は `row['モーダル']` 列（例: `配信編集モーダル`）を直接参照する。`画面`列と混同しないこと。
 - PRは `app_pr` と `app_pr_targets` の整合を保つ。
+- PR管理一覧の終了判定は `end_date` が本日以前、または `is_inactive=TRUE` のどちらかで行う。`renderMasterTable` と `renderMasterFilterChips` は `app_schedule` と同様に `app_pr` でも `end_date` を使ったフィルタを適用する。デフォルト表示は「状態: 配信中」。
 
 ## ドキュメント
 

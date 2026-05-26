@@ -830,7 +830,8 @@
     const container = document.getElementById('masterFilterChips');
     if (!container) return;
 
-    if (MASTER_DATA.sheetName !== 'app_schedule') {
+    const isPrMasterSheet = MASTER_DATA.sheetName === 'app_pr';
+    if (MASTER_DATA.sheetName !== 'app_schedule' && !isPrMasterSheet) {
       container.innerHTML = '';
       container.style.display = 'none';
       MASTER_SUBCATEGORY_FILTER = '__all__';
@@ -839,6 +840,23 @@
       MASTER_STATUS_FILTER = 'active';
       MASTER_NEW_ONLY = false;
       MASTER_VERIFYING_ONLY = false;
+      return;
+    }
+    if (isPrMasterSheet) {
+      // PR管理一覧: 状態フィルターのみ表示
+      container.style.display = 'flex';
+      MASTER_SUBCATEGORY_FILTER = '__all__';
+      MASTER_FORMAT_FILTER = '__all__';
+      MASTER_CATEGORY_FILTER = '__all__';
+      MASTER_NEW_ONLY = false;
+      MASTER_VERIFYING_ONLY = false;
+      const statusSelect = `
+        <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
+          <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
+          <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
+        </select>
+      `;
+      container.innerHTML = statusSelect;
       return;
     }
 
@@ -927,7 +945,8 @@
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
         if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
       }
-      if (MASTER_DATA.sheetName === 'app_schedule' && (endDateHeader || inactiveHeader)) {
+      const isScheduleOrPr = MASTER_DATA.sheetName === 'app_schedule' || MASTER_DATA.sheetName === 'app_pr';
+      if (isScheduleOrPr && (endDateHeader || inactiveHeader)) {
         const endDate = normalizeDateString(row[endDateHeader]);
         const isInactiveRow = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : false;
         const isEnded = isInactiveRow || (!!endDate && endDate < today);
