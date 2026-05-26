@@ -48,7 +48,7 @@ jobs:
           fi
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-          
+
       - name: Slack Notification
         uses: slackapi/slack-github-action@v1.26.0
         if: always() && steps.slack_webhook.outputs.enabled == 'true'
