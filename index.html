@@ -160,7 +160,7 @@
           確定済・確認済みではない同じメルマガ予定がすべて変更されます。
         </div>
         <div id="masterStoppedNote" class="master-stopped-note" hidden>
-          ⚠ このメルマガは停止中です。終了日が過去に設定されているため、カレンダーに表示されていません。再開すると開始日が今日に更新されます。
+          ⚠ このメルマガは終了済みです。終了日が過去に設定されているため、カレンダーに表示されていません。再開する場合は終了日を変更してください。
         </div>
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
@@ -173,8 +173,6 @@
           <!-- 項目はJSで動的に生成 -->
         </form>
         <div class="modal-row-actions">
-          <button type="button" id="stop-master-button" class="danger-button" data-action="stop-master-current">停止</button>
-          <button type="button" id="resume-master-button" class="resume-button" data-action="resume-master-current">再開</button>
           <button type="button" id="delete-master-button" class="danger-button" data-action="delete-master-current">削除</button>
         </div>
         <div class="modal-actions">

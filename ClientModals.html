@@ -105,30 +105,18 @@
   }
 
   function updateMasterActionButtons_(row) {
-    const stopButton = document.getElementById('stop-master-button');
-    const resumeButton = document.getElementById('resume-master-button');
     const deleteButton = document.getElementById('delete-master-button');
     const draftButton = document.getElementById('draft-master-button');
     const stoppedNote = document.getElementById('masterStoppedNote');
     const hasExistingRow = !!(row && row.__rowNumber);
-    const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
     const inactive = row ? isInactive(row) : false;
     const endDate = row ? normalizeDateString(getValueByKeys(row, ['end_date', '終了日', '終了'])) : '';
     const today = formatDate(new Date());
-    // 停止当日は配信あり → 翌日以降が停止中。end_dateなしのis_inactive(旧データ)は即停止扱い
     const ended = (!!endDate && endDate < today) || (inactive && !endDate);
 
-    if (stopButton) {
-      stopButton.style.display = hasExistingRow && !isPrMaster && !ended ? '' : 'none';
-      stopButton.title = '終了日を今日に設定します。明日からカレンダーに表示されなくなります。';
-    }
-    if (resumeButton) {
-      resumeButton.style.display = hasExistingRow && !isPrMaster && ended ? '' : 'none';
-      resumeButton.title = '終了日をクリアし、開始日を今日に更新して配信を再開します。';
-    }
     if (deleteButton) {
       deleteButton.style.display = hasExistingRow ? '' : 'none';
-      deleteButton.title = 'シートからこの行を完全に削除します。停止とは異なり取り消せません。';
+      deleteButton.title = 'シートからこの行を完全に削除します。取り消せません。';
     }
     if (draftButton) draftButton.style.display = hasExistingRow ? 'none' : '';
     if (stoppedNote) stoppedNote.hidden = !ended;
@@ -842,43 +830,6 @@
     }
   }
 
-  function stopMasterRow(rowNumber) {
-    const message = '本当に停止しますか？\nこのメルマガの終了日が本日となり、明日から配信が停止し、カレンダーから非表示になります。\n再開時は、その日が開始日となります。';
-    if (!rowNumber || !confirm(message)) return;
-
-    showBusy('停止を保存中...');
-    google.script.run
-      .withSuccessHandler(() => {
-        hideBusy();
-        loadActiveMaster();
-        loadData({ force: true, includeStatic: true });
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        alert('停止に失敗しました: ' + (err.message || err));
-      })
-      .stopMasterData(MASTER_DATA.sheetName, rowNumber);
-  }
-
-  function resumeMasterRow(rowNumber) {
-    if (!rowNumber) return;
-    if (!confirm('終了日をクリアし、開始日を今日に設定して配信を再開します。よろしいですか？')) return;
-
-    showBusy('再開を保存中...');
-    google.script.run
-      .withSuccessHandler(() => {
-        hideBusy();
-        closeMasterModal();
-        loadActiveMaster();
-        loadData({ force: true, includeStatic: true });
-      })
-      .withFailureHandler(err => {
-        hideBusy();
-        alert('再開に失敗しました: ' + (err.message || err));
-      })
-      .resumeMasterData(MASTER_DATA.sheetName, rowNumber);
-  }
-
   function deleteMasterRow(rowNumber) {
     const message = '本当に削除しますか？\nシートからこの行を完全に削除します。停止とは異なりデータそのものが消え、カレンダーからも即座に非表示になります。\nこの操作は取り消せません。';
     if (!rowNumber || !confirm(message)) return;
@@ -901,14 +852,6 @@
   function getCurrentMasterRowNumber_() {
     const input = document.getElementById('master-row-number');
     return input ? input.value : '';
-  }
-
-  function stopCurrentMasterRow() {
-    stopMasterRow(getCurrentMasterRowNumber_());
-  }
-
-  function resumeCurrentMasterRow() {
-    resumeMasterRow(getCurrentMasterRowNumber_());
   }
 
   function deleteCurrentMasterRow() {
