@@ -542,7 +542,8 @@
           const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
 
           if (isDraft(rowForDate)) return false;
-          if (isInactive(rowForDate)) return false;
+          // end_dateがある場合はisWithinScheduleRangeに委ねる（停止当日は配信あり）
+          if (isInactive(rowForDate) && !endDate) return false;
           if (!isWithinScheduleRange) return false;
 
           // この日付/時間における「有効」な状態
@@ -748,6 +749,7 @@
         MASTER_DATA = data || { sheetName, headers: [], rows: [] };
         if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
         if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
+        if (MASTER_DATA.sheetName === 'app_pr') MASTER_STATUS_FILTER = '__all__';
         renderMasterFilterChips();
         renderMasterTable();
       } catch (error) {
@@ -788,7 +790,7 @@
   }
 
   function setMasterStatusFilter(value) {
-    MASTER_STATUS_FILTER = (value === 'ended') ? 'ended' : 'active';
+    MASTER_STATUS_FILTER = value === '__all__' ? '__all__' : ((value === 'ended') ? 'ended' : 'active');
     renderMasterTable();
   }
 
@@ -843,20 +845,13 @@
       return;
     }
     if (isPrMasterSheet) {
-      // PR管理一覧: 状態フィルターのみ表示
-      container.style.display = 'flex';
+      // PR管理一覧: フィルター不要
+      container.style.display = 'none';
       MASTER_SUBCATEGORY_FILTER = '__all__';
       MASTER_FORMAT_FILTER = '__all__';
       MASTER_CATEGORY_FILTER = '__all__';
       MASTER_NEW_ONLY = false;
       MASTER_VERIFYING_ONLY = false;
-      const statusSelect = `
-        <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
-          <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
-          <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
-        </select>
-      `;
-      container.innerHTML = statusSelect;
       return;
     }
 
@@ -867,12 +862,6 @@
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
 
-    const statusSelect = `
-      <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
-        <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
-        <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
-      </select>
-    `;
     const newOnlyChip = isNewHeader ? `
       <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" onclick="setMasterNewOnly(!MASTER_NEW_ONLY)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
     ` : '';
@@ -901,7 +890,7 @@
       'setMasterCategoryFilter'
     );
 
-    container.innerHTML = [statusSelect, newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterVerifyingOnly(checked) {
@@ -927,7 +916,7 @@
     const formatHeader = findMasterHeaderByAliases_(['format', '形式']);
     const mailTypeHeader = findMasterHeaderByAliases_(['mail_type', 'category', '種別']);
     const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日', '終了']);
-    const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信停止', '配信終了', '停止', '無効']);
+    const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止', '停止', '無効']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
     const today = formatDate(new Date());
@@ -944,14 +933,6 @@
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
         if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
-      }
-      const isScheduleOrPr = MASTER_DATA.sheetName === 'app_schedule' || MASTER_DATA.sheetName === 'app_pr';
-      if (isScheduleOrPr && (endDateHeader || inactiveHeader)) {
-        const endDate = normalizeDateString(row[endDateHeader]);
-        const isInactiveRow = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : false;
-        const isEnded = isInactiveRow || (!!endDate && endDate < today);
-        if (MASTER_STATUS_FILTER === 'active' && isEnded) return false;
-        if (MASTER_STATUS_FILTER === 'ended' && !isEnded) return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && isNewHeader) {
         if (!isTruthyValue(row[isNewHeader])) return false;
@@ -986,29 +967,25 @@
 
     visibleRows.forEach(row => {
       const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
-      const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
-      const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
-      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < today);
-      const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
-        ? ''
-        : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;
-      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowEnded
-        ? `<button type="button" class="table-action-button resume" data-action="resume-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">再開</button>`
-        : '';
-      const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>`;
+      const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="シートからこの行を完全に削除します。取り消せません。">削除</button>`;
 
       html += `
       <tr>
       <td class="actions-col">
         <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
-        ${stopButton}
-        ${resumeButton}
         ${deleteButton}
       </td>
     `;
 
       tableHeaders.forEach(h => {
-        const cellValue = row[h] == null ? '' : String(row[h]);
+        let cellValue = row[h] == null ? '' : String(row[h]);
+        // 配信終了列: end_date が今日より前なら自動で TRUE 表示
+        if (h === inactiveHeader && inactiveHeader) {
+          const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
+          if (!isTruthyValue(cellValue) && !!rowEndDate && rowEndDate < today) {
+            cellValue = 'TRUE';
+          }
+        }
         const isExpandable = cellValue.length > 60 || cellValue.includes('\n');
         html += `<td class="${isExpandable ? 'expandable-cell' : ''}" ${isExpandable ? 'data-action="toggle-cell-expand"' : ''} title="${escapeAttribute(cellValue)}">${escapeHtml(cellValue)}</td>`;
       });
@@ -1693,14 +1670,7 @@
       return;
     }
 
-    if (action === 'stop-master-row') {
-      stopMasterRow(actionElement.dataset.rowNumber || '');
-      return;
-    }
-    if (action === 'resume-master-row') {
-      resumeMasterRow(actionElement.dataset.rowNumber || '');
-      return;
-    }
+
     if (action === 'delete-master-row') {
       deleteMasterRow(actionElement.dataset.rowNumber || '');
       return;
@@ -1793,16 +1763,6 @@
 
     if (action === 'save-master-draft') {
       saveMasterEdit({ draft: true });
-      return;
-    }
-
-    if (action === 'stop-master-current') {
-      stopCurrentMasterRow();
-      return;
-    }
-
-    if (action === 'resume-master-current') {
-      resumeCurrentMasterRow();
       return;
     }
 

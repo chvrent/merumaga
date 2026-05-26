@@ -128,8 +128,9 @@ function savePRData(prPayload, targetNewsletters) {
 function savePRDataUnlocked_(prPayload, targetNewsletters) {
   const ss = getSourceSpreadsheet_();
 
-  const savedPr = saveMasterDataUnlocked_('app_pr', prPayload);
-  const prId = normalizeIdKey_(getObjectFieldByAliases_(prPayload, PR_FIELD_ALIASES.pr_id) || normalizeCell_(savedPr.id));
+  const normalizedPrPayload = normalizePrEndStatePayload_(prPayload);
+  const savedPr = saveMasterDataUnlocked_('app_pr', normalizedPrPayload);
+  const prId = normalizeIdKey_(getObjectFieldByAliases_(normalizedPrPayload, PR_FIELD_ALIASES.pr_id) || normalizeCell_(savedPr.id));
   if (!prId) throw new Error('pr_id is required');
 
   const targetsSheet = ss.getSheetByName('app_pr_targets');
@@ -191,6 +192,17 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   invalidateInitialDataCaches_(['app_pr', 'app_pr_targets']);
 
   return { success: true };
+}
+
+function normalizePrEndStatePayload_(prPayload) {
+  const payload = Object.assign({}, prPayload || {});
+  if (PR_FIELD_ALIASES.end_date.some(key => Object.prototype.hasOwnProperty.call(payload, key))) {
+    const endDateValue = getObjectFieldByAliases_(payload, PR_FIELD_ALIASES.end_date);
+    const endDate = parseScheduleDate_(endDateValue);
+    const today = parseScheduleDate_(formatDate_(new Date()));
+    payload.is_inactive = endDate && today && endDate < today ? 'TRUE' : 'FALSE';
+  }
+  return payload;
 }
 
 function upsertScheduleData(data) {
