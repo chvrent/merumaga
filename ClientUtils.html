@@ -417,6 +417,24 @@
     return `${String(scheduleId || '').trim()}|${String(targetDate || '').trim()}`;
   }
 
+  // マスタ停止（stop_date/resume_date ベース）の判定
+  function isMasterStopped(row, dateStr) {
+    const stopDate = normalizeDateString(getValueByKeys(row || {}, ['stop_date', '停止日']));
+    if (!stopDate) return false;
+    const resumeDate = normalizeDateString(getValueByKeys(row || {}, ['resume_date', '再開日']));
+    // 停止当日は配信あり（stop_date < dateStr）、再開日から再開（dateStr < resumeDate は停止中）
+    return stopDate < dateStr && (!resumeDate || dateStr < resumeDate);
+  }
+
+  // マスタ一覧・モーダル用: 今日の時点で停止中か（停止日当日含む）
+  function isCurrentlyMasterStopped(row) {
+    const today = formatDate(new Date());
+    const stopDate = normalizeDateString(getValueByKeys(row || {}, ['stop_date', '停止日']));
+    if (!stopDate) return false;
+    const resumeDate = normalizeDateString(getValueByKeys(row || {}, ['resume_date', '再開日']));
+    return stopDate <= today && (!resumeDate || today < resumeDate);
+  }
+
   function getMoveOverrideForDate(row, targetDate) {
     const scheduleId = String(row && row.schedule_id || '').trim();
     if (!scheduleId || !targetDate) return null;

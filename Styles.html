@@ -666,6 +666,32 @@
     color: #888;
     text-decoration: line-through;
   }
+  .delivery-row.is-master-stopped {
+    background: #f9fafb !important;
+    opacity: 0.6;
+    cursor: default;
+  }
+  .delivery-row.is-master-stopped .mail-name {
+    color: #6b7280;
+  }
+  .delivery-row.is-master-stopped .col-count,
+  .delivery-row.is-master-stopped .col-setter,
+  .delivery-row.is-master-stopped .col-checker {
+    color: #9ca3af;
+  }
+  .master-stopped-badge-cal {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    padding: 1px 5px;
+    border: 1px solid #d1d5db;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-size: 10px;
+    font-weight: 700;
+    vertical-align: middle;
+  }
   .col-name {
     flex: 1;
     min-width: 220px;
@@ -978,9 +1004,20 @@
   }
   .master-stopped-badge {
     display: inline-block;
-    background: #fef2f2;
-    border: 1px solid #fca5a5;
-    color: #b42318;
+    background: #fff7ed;
+    border: 1px solid #fdba74;
+    color: #9a3412;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    white-space: nowrap;
+  }
+  .master-ended-badge {
+    display: inline-block;
+    background: #f3f4f6;
+    border: 1px solid #d1d5db;
+    color: #6b7280;
     border-radius: 4px;
     font-size: 10px;
     font-weight: 700;

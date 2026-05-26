@@ -283,18 +283,14 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
   if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
 
   if (safeSheetName === SCHEDULE_SHEET_NAME) {
-    // app_schedule: end_date = today で翌日以降をカレンダーから除外
+    // app_schedule: stop_date = today を書き込む。resume_date はクリア。end_date/is_inactive は変更しない。
     const lastCol = sheet.getLastColumn();
     const headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
     const headerMap = buildHeaderMap_(headers);
-    let endDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.end_date);
-    if (endDateIndex == null) {
-      endDateIndex = lastCol;
-      sheet.getRange(1, endDateIndex + 1).setValue('end_date');
-    }
-    sheet.getRange(targetRow, endDateIndex + 1).setValue(formatDate_(new Date()));
-    const inactiveIndex = getOrCreateInactiveColumn_(sheet, SCHEDULE_FIELD_ALIASES.is_inactive, '\u914d\u4fe1\u7d42\u4e86');
-    sheet.getRange(targetRow, inactiveIndex + 1).setValue(true);
+    const stopDateIndex = getOrCreateColumn_(sheet, headerMap, SCHEDULE_FIELD_ALIASES.stop_date, 'stop_date');
+    sheet.getRange(targetRow, stopDateIndex + 1).setValue(formatDate_(new Date()));
+    const resumeDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.resume_date);
+    if (resumeDateIndex != null) sheet.getRange(targetRow, resumeDateIndex + 1).clearContent();
   } else {
     // app_pr 等: 従来通り is_inactive フラグ
     stopMasterRow_(sheet, safeSheetName, targetRow);
@@ -340,16 +336,12 @@ function resumeMasterDataUnlocked_(sheetName, rowNumber) {
   if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
 
   if (safeSheetName === SCHEDULE_SHEET_NAME) {
-    // app_schedule: end_date をクリア、start_date = 再開日
+    // app_schedule: resume_date = today を書き込む。stop_date は保持（停止期間の記録）。
     const lastCol = sheet.getLastColumn();
     const headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
     const headerMap = buildHeaderMap_(headers);
-    const endDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.end_date);
-    if (endDateIndex != null) sheet.getRange(targetRow, endDateIndex + 1).clearContent();
-    const inactiveIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.is_inactive);
-    if (inactiveIndex != null) sheet.getRange(targetRow, inactiveIndex + 1).clearContent();
-    const startDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.start_date);
-    if (startDateIndex != null) sheet.getRange(targetRow, startDateIndex + 1).setValue(formatDate_(new Date()));
+    const resumeDateIndex = getOrCreateColumn_(sheet, headerMap, SCHEDULE_FIELD_ALIASES.resume_date, 'resume_date');
+    sheet.getRange(targetRow, resumeDateIndex + 1).setValue(formatDate_(new Date()));
   } else {
     resumeMasterRow_(sheet, safeSheetName, targetRow);
   }
@@ -398,6 +390,14 @@ function getOrCreateInactiveColumn_(sheet, aliases, headerName) {
 
   const nextColumn = lastColumn + 1;
   sheet.getRange(1, nextColumn).setValue(headerName || 'is_inactive');
+  return nextColumn - 1;
+}
+
+function getOrCreateColumn_(sheet, headerMap, aliases, headerName) {
+  const existing = firstExistingHeaderIndex_(headerMap, aliases);
+  if (existing != null) return existing;
+  const nextColumn = sheet.getLastColumn() + 1;
+  sheet.getRange(1, nextColumn).setValue(headerName);
   return nextColumn - 1;
 }
 
