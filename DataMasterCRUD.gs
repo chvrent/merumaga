@@ -30,7 +30,9 @@ function getMasterData(sheetName) {
         if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
         obj[header || `column_${columnIndex + 1}`] = normalizeCell_(row[columnIndex]);
       });
-      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
+      // NOTE: addCanonicalMasterFields_ は呼ばない。
+      // クライアントはヘッダー名で直接 row[header] アクセスするため正規キーの重複追加は不要。
+      // 両方格納するとJSONサイズが2倍になりレスポンスが重くなる。
       return obj;
     })
     .filter(row => Object.keys(row).some(key => key !== '__rowNumber' && row[key] !== ''));

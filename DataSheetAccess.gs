@@ -19,6 +19,16 @@ function getSheetHeaders_(ss, sheetName) {
 }
 
 function getInputControlRows_() {
+  const cacheKey = 'initialData:inputControls';
+  const cached = getJsonCache_(cacheKey);
+  if (Array.isArray(cached)) return cached;
+
+  const rows = getInputControlRowsUncached_();
+  putJsonCache_(cacheKey, rows, INITIAL_DATA_CACHE_TTL_SECONDS);
+  return rows;
+}
+
+function getInputControlRowsUncached_() {
   const ss = getSourceSpreadsheet_();
   const sheetNames = ['入力制御', 'input_control', 'app_input_control'];
   let sheet = null;
