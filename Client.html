@@ -56,8 +56,11 @@
   let SORTABLES = [];
   let DATA_STATIC_READY = false;
   let DATA_LOAD_IN_FLIGHT_KEY = '';
+  let LAST_SUCCESSFUL_LOAD_AT = 0;
+  let RESUME_REFRESH_TIMER = null;
   const WEEK_DATA_CACHE = {};
-  const WEEK_DATA_CACHE_TTL_MS = 5 * 60 * 1000;
+  const WEEK_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
+  const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
   let MASTER_SUBCATEGORY_FILTER = '__all__';
@@ -200,12 +203,64 @@
     return { start, rangeStart, rangeEnd, cacheKey: `${rangeStart}|${rangeEnd}` };
   }
 
-  function applyLoadedData_(data, cacheKey, cacheable) {
+  function invalidatePrLookupIndex_() {
+    if (APP_DATA) APP_DATA._prLookup = null;
+  }
+
+  function ensurePrLookupIndex_() {
+    if (APP_DATA && APP_DATA._prLookup) return APP_DATA._prLookup;
+
+    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr.filter(prRow => !isInactive(prRow) && !isDraft(prRow)) : [];
+    const prById = new Map();
+    const prsByScheduleId = new Map();
+    const prsByMailName = new Map();
+
+    prRows.forEach(prRow => {
+      const prId = getPrLinkIdFromMasterRow_(prRow);
+      if (prId) prById.set(normalizeIdKey(prId), prRow);
+      String(getValueByKeys(prRow, ['target_ids', '紐付けID']) || '')
+        .split(',')
+        .map(part => normalizeIdKey(part.trim()))
+        .filter(Boolean)
+        .forEach(scheduleId => {
+          if (!prsByScheduleId.has(scheduleId)) prsByScheduleId.set(scheduleId, []);
+          prsByScheduleId.get(scheduleId).push(prRow);
+        });
+      ['mail_name', 'メルマガ名', 'target_mail_name', '対象メルマガ'].forEach(key => {
+        const mailName = prRow[key] ? normalizeText(String(prRow[key])) : '';
+        if (!mailName) return;
+        if (!prsByMailName.has(mailName)) prsByMailName.set(mailName, []);
+        prsByMailName.get(mailName).push(prRow);
+      });
+    });
+
+    const prTargets = Array.isArray(APP_DATA.prTargets)
+      ? APP_DATA.prTargets.filter(target => !isInactive(target) && !isDraft(target))
+      : [];
+    const targetsByMailName = new Map();
+    prTargets.forEach(target => {
+      const mailName = getPrTargetMailName_(target) ||
+        normalizeText(getValueByKeys(target, ['mail_name', 'メルマガ内容', 'target_mail_name', '対象メルマガ']));
+      if (!mailName) return;
+      if (!targetsByMailName.has(mailName)) targetsByMailName.set(mailName, []);
+      targetsByMailName.get(mailName).push(target);
+    });
+
+    APP_DATA._prLookup = { prById, prsByScheduleId, prsByMailName, targetsByMailName, prRows };
+    return APP_DATA._prLookup;
+  }
+
+  function applyLoadedData_(data, cacheKey, cacheable, options) {
+    const applyOptions = options || {};
     const nextData = data || {};
     APP_DATA = DATA_STATIC_READY
       ? Object.assign({}, APP_DATA, nextData)
       : nextData;
     DATA_STATIC_READY = true;
+    LAST_SUCCESSFUL_LOAD_AT = Date.now();
+    if (Object.prototype.hasOwnProperty.call(nextData, 'pr') || Object.prototype.hasOwnProperty.call(nextData, 'prTargets')) {
+      invalidatePrLookupIndex_();
+    }
     if (cacheable && cacheKey) {
       WEEK_DATA_CACHE[cacheKey] = {
         cachedAt: Date.now(),
@@ -216,6 +271,7 @@
         checkStatuses: APP_DATA.checkStatuses || {}
       };
     }
+    if (applyOptions.skipRender) return;
     loadPendingCheckStatuses();
     renderScheduleGrid();
     updatePendingCheckSaveButton();
@@ -254,8 +310,13 @@
 
     const cachedWeekData = !loadOptions.force ? getFreshWeekDataCache_(cacheKey) : null;
     if (DATA_STATIC_READY && cachedWeekData) {
+      if (loadOptions.resumeOnly) return;
       applyLoadedData_(cachedWeekData, cacheKey, false);
       return;
+    }
+    if (loadOptions.resumeOnly && DATA_STATIC_READY) {
+      const age = Date.now() - LAST_SUCCESSFUL_LOAD_AT;
+      if (age < RESUME_REFRESH_COOLDOWN_MS) return;
     }
 
     if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) return;
@@ -801,19 +862,29 @@
 
   function findMasterHeaderByAliases_(aliases) {
     const headers = MASTER_DATA.headers || [];
+    const normalizedAliases = aliases.map(alias => String(alias || '').trim()).filter(Boolean);
     const found = headers.find(header => {
       const h = String(header || '').trim();
-      if (aliases.includes(h)) return true;
-      return h.includes('/') && h.split('/').some(seg => aliases.includes(seg.trim()));
+      if (normalizedAliases.includes(h)) return true;
+      if (h.includes('/')) {
+        return h.split('/').map(seg => seg.trim()).some(seg => normalizedAliases.includes(seg));
+      }
+      return false;
     });
     if (!found) return '';
     const h = String(found).trim();
-    // 日本語/英語 形式の場合は正規（英語）セグメントを返す。
-    // getMasterData が正規キーで格納するため row[canonical] で直接アクセスできる。
     if (h.includes('/')) {
-      const segs = h.split('/').map(s => s.trim());
-      const matched = segs.find(s => aliases.includes(s));
-      return matched || segs[segs.length - 1];
+      const segments = h.split('/').map(seg => seg.trim());
+      for (let i = 0; i < normalizedAliases.length; i++) {
+        const alias = normalizedAliases[i];
+        if (segments.includes(alias)) return alias;
+      }
+      const englishSegment = segments.find(seg => /^[a-z][a-z0-9_]*$/i.test(seg));
+      return englishSegment || segments[segments.length - 1];
+    }
+    if (normalizedAliases.includes(h)) {
+      const englishKey = normalizedAliases.find(alias => /^[a-z][a-z0-9_]*$/i.test(alias));
+      return englishKey || h;
     }
     return h;
   }
@@ -829,15 +900,16 @@
     return '';
   }
 
-  function getMasterFilterLabel_(header, fallback) {
-    return escapeHtml(getDisplayName(header) || fallback);
+  function getMasterFilterLabel_(canonicalKey, fallback) {
+    const key = String(canonicalKey || '').trim();
+    return escapeHtml(DISPLAY_NAMES[key] || fallback);
   }
 
   function getUniqueMasterColumnValues_(header) {
     if (!header) return [];
     const set = new Set();
     (MASTER_DATA.rows || []).forEach(row => {
-      const v = String((row && row[header]) || '').trim();
+      const v = String(getCellByHeader_(row, header) || '').trim();
       if (v) set.add(v);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
@@ -951,19 +1023,19 @@
         return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER !== '__all__' && subCategoryHeader) {
-        if (String(row[subCategoryHeader] || '').trim() !== MASTER_SUBCATEGORY_FILTER) return false;
+        if (String(getCellByHeader_(row, subCategoryHeader) || '').trim() !== MASTER_SUBCATEGORY_FILTER) return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_FORMAT_FILTER !== '__all__' && formatHeader) {
-        if (String(row[formatHeader] || '').trim() !== MASTER_FORMAT_FILTER) return false;
+        if (String(getCellByHeader_(row, formatHeader) || '').trim() !== MASTER_FORMAT_FILTER) return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
-        if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
+        if (String(getCellByHeader_(row, mailTypeHeader) || '').trim() !== MASTER_CATEGORY_FILTER) return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && isNewHeader) {
-        if (!isTruthyValue(row[isNewHeader])) return false;
+        if (!isTruthyValue(getCellByHeader_(row, isNewHeader))) return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_VERIFYING_ONLY && verifyingHeader) {
-        if (!isTruthyValue(row[verifyingHeader])) return false;
+        if (!isTruthyValue(getCellByHeader_(row, verifyingHeader))) return false;
       }
       return true;
     });
@@ -1038,6 +1110,10 @@
       .withSuccessHandler(rows => {
         APP_DATA.adminMaster = Array.isArray(rows) ? rows : [];
         refreshAdminSelects_();
+        const editModal = document.getElementById('editModal');
+        if (editModal && editModal.getAttribute('aria-hidden') === 'false' && typeof scheduleEditModalHighlights_ === 'function') {
+          scheduleEditModalHighlights_(editModal);
+        }
       })
       .withFailureHandler(() => {
         refreshAdminSelects_();
@@ -1433,44 +1509,49 @@
     return Array.from(byPrId.values());
   }
 
-  function getPrRecordsForSchedule(row) {
-    if (!row) return [];
-
-    const scheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
-    const mailName = normalizeText(getValueByKeys(row, ['mail_name', 'メルマガ名']));
-    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr.filter(prRow => !isInactive(prRow) && !isDraft(prRow)) : [];
-
-    // 1. target_ids (schedule_id) での紐付け (新方式)
-    const matchedPrs = prRows.filter(prRow => {
-      const targetIds = String(getValueByKeys(prRow, ['target_ids', '紐付けID']) || '').split(',').map(s => s.trim());
-      if (scheduleId && targetIds.includes(scheduleId)) return true;
-
-      // 互換性: メルマガ名での検索（メルマガ名系フィールドのみ対象）
-      if (mailName) {
-        const nlKeys = ['mail_name', 'メルマガ名', 'target_mail_name', '対象メルマガ'];
-        return nlKeys.some(k => prRow[k] && normalizeText(String(prRow[k])) === mailName);
-      }
-      return false;
-    });
-
-    const records = matchedPrs.map(prRow => ({
+  function mapPrRowsToRecords_(prRows) {
+    return (prRows || []).map(prRow => ({
       pr_id: getPrLinkIdFromMasterRow_(prRow),
       pr_title: getPrTitle_(prRow),
       pr_text: getPrText_(prRow),
       start_date: getPrStartDate_(prRow),
       end_date: getPrEndDate_(prRow)
     })).filter(record => record.pr_id);
+  }
 
-    // 2. app_pr_targets からの紐付け (旧方式・互換性)
-    const prTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets.filter(target => !isInactive(target) && !isDraft(target)) : [];
-    const prById = new Map(prRows.map(prRow => [getPrLinkIdFromMasterRow_(prRow), prRow]).filter(([prId]) => prId));
+  function getPrRecordsForSchedule(row) {
+    if (!row) return [];
 
-    const targetRecords = mailName ? prTargets
-      .filter(target => normalizeText(getValueByKeys(target, ['mail_name', 'メルマガ内容', 'target_mail_name', '対象メルマガ'])) === mailName)
-      .map(target => buildPrRecordFromTarget_(target, prById))
-      .filter(Boolean) : [];
+    const scheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
+    const mailName = normalizeText(getValueByKeys(row, ['mail_name', 'メルマガ名']));
+    const lookup = ensurePrLookupIndex_();
+    const seenPrRows = new Set();
 
-    // 3. schedule シートの直書き PR 列 (互換性)
+    const matchedPrs = [];
+    if (scheduleId && lookup.prsByScheduleId.has(scheduleId)) {
+      lookup.prsByScheduleId.get(scheduleId).forEach(prRow => {
+        if (!seenPrRows.has(prRow)) {
+          seenPrRows.add(prRow);
+          matchedPrs.push(prRow);
+        }
+      });
+    }
+    if (mailName && lookup.prsByMailName.has(mailName)) {
+      lookup.prsByMailName.get(mailName).forEach(prRow => {
+        if (!seenPrRows.has(prRow)) {
+          seenPrRows.add(prRow);
+          matchedPrs.push(prRow);
+        }
+      });
+    }
+
+    const records = mapPrRowsToRecords_(matchedPrs);
+    const prById = lookup.prById;
+
+    const targetRecords = mailName && lookup.targetsByMailName.has(mailName)
+      ? lookup.targetsByMailName.get(mailName).map(target => buildPrRecordFromTarget_(target, prById)).filter(Boolean)
+      : [];
+
     const directPrId = normalizeIdKey(getValueByKeys(row, ['pr', 'PR', 'PR ID', 'pr_id', 'PR_ID']));
     const directPrRow = directPrId ? (prById.get(normalizeIdKey(directPrId)) || {}) : {};
     const directRecord = directPrId ? [{
@@ -1481,12 +1562,7 @@
       end_date: getPrEndDate_(row)
     }] : [];
 
-    const normalizedTargetRecords = mailName ? prTargets
-      .filter(target => getPrTargetMailName_(target) === mailName)
-      .map(target => buildPrRecordFromTarget_(target, prById))
-      .filter(Boolean) : [];
-
-    return dedupePrRecords_(records.concat(targetRecords, normalizedTargetRecords, directRecord));
+    return dedupePrRecords_(records.concat(targetRecords, directRecord));
   }
 
   function getPrTargetMailName_(target) {
@@ -1812,17 +1888,24 @@
     saveCheckStatusImmediately(cell, itemId, field);
   }
 
+  function scheduleResumeDataRefresh_() {
+    if (!DATA_STATIC_READY || isAnyModalOpen_()) return;
+    if (RESUME_REFRESH_TIMER) clearTimeout(RESUME_REFRESH_TIMER);
+    RESUME_REFRESH_TIMER = setTimeout(() => {
+      RESUME_REFRESH_TIMER = null;
+      if (document.visibilityState !== 'visible') return;
+      if (!DATA_STATIC_READY || isAnyModalOpen_()) return;
+      loadData({ silent: true, resumeOnly: true });
+    }, 500);
+  }
+
   function wireEvents() {
     renderScheduleLegend();
     document.addEventListener('click', handleActionClick);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && DATA_STATIC_READY && !isAnyModalOpen_()) {
-        loadData({ silent: true });
-      }
+      if (document.visibilityState === 'visible') scheduleResumeDataRefresh_();
     });
-    window.addEventListener('focus', () => {
-      if (DATA_STATIC_READY && !isAnyModalOpen_()) loadData({ silent: true });
-    });
+    window.addEventListener('focus', scheduleResumeDataRefresh_);
     document.querySelectorAll('.tab-button').forEach(button => {
       button.addEventListener('click', () => switchTab(button.dataset.tab));
     });

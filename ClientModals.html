@@ -1035,7 +1035,11 @@
 
   function openModal(encodedEntry) {
     const entry = JSON.parse(decodeURIComponent(encodedEntry));
-    const scheduleRow = (APP_DATA.schedule || []).find(row => String(row && row.schedule_id || '').trim() === String(entry && entry.schedule_id || '').trim());
+    const targetScheduleId = normalizeIdKey(getValueByKeys(entry, ['schedule_id', 'ID', 'id']));
+    const scheduleRow = (APP_DATA.schedule || []).find(row => {
+      const rowScheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
+      return rowScheduleId && rowScheduleId === targetScheduleId;
+    });
     const baseEntry = scheduleRow ? Object.assign({}, scheduleRow) : Object.assign({}, entry);
     baseEntry.target_date = entry.target_date;
     if (entry.original_date) baseEntry.original_date = entry.original_date;
