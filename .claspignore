@@ -11,6 +11,7 @@
 !DataConstants.gs
 !DataExceptionService.gs
 !DataMaintenance.gs
+!DataMasterCRUD.gs
 !DataService.gs
 !DataSheetAccess.gs
 !DataUtils.gs
