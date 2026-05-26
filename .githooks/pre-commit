@@ -1,0 +1,20 @@
+#!/bin/sh
+
+branch="$(git branch --show-current)"
+
+case "$branch" in
+  codex/*|claude/*|gemini/*|antigravity/*)
+    exit 0
+    ;;
+  main|master)
+    echo "Refusing commit on $branch. Create an AI work branch first." >&2
+    echo "Use scripts/ai-start.ps1 -Agent Codex -Task your-task, or the matching agent name." >&2
+    exit 1
+    ;;
+  *)
+    echo "Refusing commit on non-AI branch '$branch'." >&2
+    echo "Allowed prefixes: codex/, claude/, gemini/, antigravity/." >&2
+    exit 1
+    ;;
+esac
+

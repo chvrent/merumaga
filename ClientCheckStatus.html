@@ -52,7 +52,8 @@
   function renderCheckStatusCell(itemId, field, value, className, row) {
     const active = isCheckStatusActive(itemId, field);
     const archived = isArchivedDate(row.target_date);
-    const emptyChecker = field === 'checker' && String(value == null ? '' : value).trim() === '';
+    const displayValue = normalizePersonDisplayValue_(value);
+    const emptyChecker = field === 'checker' && displayValue === '';
     const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
     const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
 
@@ -69,8 +70,13 @@
         ${actionAttr}
         style="cursor: ${cursor}"
         title="${archived ? '過去14日以上前のデータは編集できません' : 'クリックで赤塗りを切り替え'}"
-      >${escapeHtml(value)}</div>
+      >${escapeHtml(displayValue)}</div>
     `;
+  }
+
+  function normalizePersonDisplayValue_(value) {
+    const text = String(value == null ? '' : value).trim();
+    return ['TRUE', 'FALSE'].includes(text.toUpperCase()) ? '' : text;
   }
 
   function toggleCheckStatus(event, encodedItemId, field) {
@@ -88,8 +94,8 @@
       delivery_date: row && row.target_date,
       hour: row && row.hour,
       mail_name: row && row.mail_name,
-      assignee: row && row.assignee,
-      reviewer: row && row.reviewer,
+      assignee: normalizePersonDisplayValue_(row && row.assignee),
+      reviewer: normalizePersonDisplayValue_(row && row.reviewer),
       job_url: row && row.job_url,
       current_job_count: row && row.current_job_count
     };

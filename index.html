@@ -81,6 +81,9 @@
           <h2>配信編集</h2>
           <button type="button" class="icon-button" data-action="close-modal" aria-label="閉じる">×</button>
         </div>
+        <div class="modal-impact-note delivery-impact-note">
+          この配信だけが修正されます。繰り返し設定のメルマガはマスタから編集してください。
+        </div>
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
           <div class="modal-tab" data-format="抽出">抽出</div>
@@ -135,7 +138,6 @@
 
           <section class="exception-panel" aria-label="配信停止・再開">
             <div id="delivery-status-pill" class="delivery-status-pill" aria-live="polite"></div>
-            <div id="job-alert-guidance" class="job-alert-guidance" style="display:none;"></div>
             <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
             <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
           </section>
@@ -153,6 +155,9 @@
         <div class="modal-header">
           <h2 id="masterModalTitle">マスタ編集</h2>
           <button type="button" class="icon-button" data-action="close-master-modal" aria-label="閉じる">×</button>
+        </div>
+        <div id="masterImpactNote" class="modal-impact-note master-impact-note" hidden>
+          確定済・確認済みではない同じメルマガ予定がすべて変更されます。
         </div>
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>

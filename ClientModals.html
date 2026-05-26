@@ -55,6 +55,10 @@
       modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
       modal.dataset.mode = mode;
       modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
+      const impactNote = modal.querySelector('#masterImpactNote');
+      if (impactNote) {
+        impactNote.hidden = isPrMaster || mode !== 'edit';
+      }
     }
 
     // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
@@ -63,9 +67,8 @@
 
       const key = normalizeScheduleEditKey_(header);
       if (isPrMaster && isHiddenPrMasterInputKey_(key, header)) return '';
-      if (key === 'format') return '';
       const value = row[key] != null ? row[key] : row[header];
-      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition'].includes(key);
+      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword'].includes(key);
       const input = renderMasterFieldInput_(header, key, value, mode);
       if (input === '') return '';
 
@@ -85,6 +88,7 @@
     populateModalFields(form, row, getModalFieldAliases_('masterModal'));
     refreshAdminSelects_();
     bindFormatSelects_(modal);
+    bindCycleButtons_(modal);
     bindSingleDeliveryDateSync_(modal);
 
     if (modal) {
@@ -210,7 +214,9 @@
         setter: ['setter', 'assignee', '設定者'],
         checker: ['checker', 'reviewer', '確認者'],
         is_new: ['is_new', 'new_flag', '新規'],
+        is_verifying: ['is_verifying', 'verifying_flag', '検証中'],
         user_other_condition: ['user_other_condition', 'USER_その他条件'],
+        parameter: ['parameter', 'parameters', 'パラメータ'],
         auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件']
       };
     }
@@ -227,7 +233,9 @@
       setter: ['setter', 'assignee', '設定者'],
       checker: ['checker', 'reviewer', '確認者'],
       is_new: ['is_new', 'new_flag', '新規'],
+      is_verifying: ['is_verifying', 'verifying_flag', '検証中'],
       user_other_condition: ['user_other_condition', 'USER_その他条件'],
+      parameter: ['parameter', 'parameters', 'パラメータ'],
       auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件']
     };
   }
@@ -310,6 +318,9 @@
       '希望職種': 'user_desired_job',
       'USER_希望職種': 'user_desired_job',
       'USER_その他条件': 'user_other_condition',
+      'パラメータ': 'parameter',
+      'parameters': 'parameter',
+      'parameter': 'parameter',
       'JOB_勤務地': 'job_location',
       'JOB_職種': 'job_type',
       'フリーワード': 'job_keyword',
@@ -317,6 +328,9 @@
       'is_new': 'is_new',
       'new_flag': 'is_new',
       '新規': 'is_new',
+      'is_verifying': 'is_verifying',
+      'verifying_flag': 'is_verifying',
+      '検証中': 'is_verifying',
       '自動求人特集_求人数': 'current_job_count',
       '自動求人特集_その他条件': 'auto_job_other_condition',
       '確定済': 'is_fixed',
@@ -345,6 +359,8 @@
       '対象順': 'target_index'
     };
     if (map[key]) return map[key];
+    if (key === getDisplayName('is_draft')) return 'is_draft';
+    if (key === getDisplayName('is_fixed')) return 'is_fixed';
     if ([
       'schedule_id',
       'pr_id',
@@ -374,10 +390,13 @@
       'user_desired_location',
       'user_experience_job',
       'user_desired_job',
+      'parameter',
       'job_location',
       'job_type',
       'job_keyword',
       'is_new',
+      'is_verifying',
+      'is_draft',
       'is_fixed',
       'current_job_count',
       'cycle',
@@ -399,14 +418,17 @@
     // マスタ全ヘッダーを取得し、モーダル用に整理
     return (APP_DATA.scheduleHeaders || []).filter(header => {
       const key = normalizeScheduleEditKey_(header);
-      return !['schedule_id', 'id', 'source_sheet', 'source_row', 'is_inactive', 'is_fixed'].includes(key) &&
+      return !['source_sheet', 'source_row'].includes(key) &&
         !isDeprecatedScheduleHeader(header);
     });
   }
 
   function renderEditInput_(header, key, value) {
-    if (key === 'is_new' || key === 'new_flag') {
-      return `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_('is_new') ? 'disabled' : ''}>`;
+    if (['is_new', 'new_flag', 'is_verifying', 'verifying_flag', 'is_draft', 'is_fixed', 'is_inactive'].includes(key)) {
+      const name = key === 'is_verifying' || key === 'verifying_flag'
+        ? 'is_verifying'
+        : (key === 'is_draft' ? 'is_draft' : (key === 'is_fixed' ? 'is_fixed' : (key === 'is_inactive' ? 'is_inactive' : 'is_new')));
+      return `<input type="checkbox" name="${escapeAttribute(name)}" aria-label="${escapeAttribute(getDisplayName(name))}" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_(name) ? 'disabled' : ''}>`;
     }
     return renderMasterFieldInput_(header, key, value, 'edit');
   }
@@ -425,8 +447,6 @@
     if (!container) return;
 
     const excludedKeys = new Set([
-      'schedule_id',
-      'format',
       'mail_name',
       'assignee',
       'reviewer'
@@ -438,13 +458,18 @@
     }).map(header => {
       const key = normalizeScheduleEditKey_(header);
       const value = getEntryFieldValue_(entry, header, key);
-      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition'].includes(key);
+      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword'].includes(key);
       const input = renderEditInput_(header, key, value);
       if (input === '') return '';
+      const jobAlert = key === 'current_job_count' && typeof getJobCountAlert === 'function'
+        ? getJobCountAlert(entry)
+        : null;
+      const jobAlertText = jobAlert ? `<div class="job-count-alert-message">${escapeHtml(jobAlert.message)}</div>` : '';
       return `
-        <div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}">
+        <div class="form-group ${isFullWidth ? 'full-width' : ''} ${jobAlert ? 'has-job-count-alert' : ''}" data-field="${escapeAttribute(key)}">
           <label>${escapeHtml(getModalFieldLabel_(header, key))}</label>
           ${input}
+          ${jobAlertText}
         </div>
       `;
     }).join('');
@@ -482,7 +507,7 @@
     const includeHidden = new Set(options.includeHidden || []);
     form.querySelectorAll('[name]').forEach(input => {
       if (!input.name || exclude.has(input.name)) return;
-      if (input.type === 'hidden' && !includeHidden.has(input.name)) return;
+      if (input.type === 'hidden' && input.dataset.includeValue !== 'true' && !includeHidden.has(input.name)) return;
       if (input.disabled) return;
       values[input.name] = input.type === 'checkbox' ? input.checked : input.value;
     });
@@ -514,33 +539,73 @@
       payload.is_new = payload.new_flag ? 'TRUE' : 'FALSE';
       delete payload.new_flag;
     }
+    if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) {
+      payload.is_verifying = payload.is_verifying ? 'TRUE' : 'FALSE';
+      delete payload.verifying_flag;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'verifying_flag') && !Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) {
+      payload.is_verifying = payload.verifying_flag ? 'TRUE' : 'FALSE';
+      delete payload.verifying_flag;
+    }
+    if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) {
+      payload.is_draft = payload.is_draft ? 'TRUE' : 'FALSE';
+    }
+    ['is_fixed', 'is_inactive'].forEach(key => {
+      if (Object.prototype.hasOwnProperty.call(payload, key)) {
+        payload[key] = payload[key] ? 'TRUE' : 'FALSE';
+      }
+    });
     return payload;
   }
 
   function bindEditModalInteractions_(modal) {
     if (!modal) return;
     bindCopyField_(modal, '[name="mail_name"]');
+    bindCycleButtons_(modal);
     bindChangeField_(modal, '[name="setter"]', () => {
       syncReviewerLock_();
       updateEditChangeHighlights_(modal);
     });
-    ['mail_type', 'category', 'sub_category'].forEach(name => {
-      bindChangeField_(modal, `[name="${name}"]`, () => applyValidationCycleControls_(modal));
+    ['mail_type', 'category', 'sub_category', 'cycle'].forEach(name => {
+      bindChangeField_(modal, `[name="${name}"]`, () => {
+        applyValidationCycleControls_(modal);
+        applyCycleInputControlMatrix_(modal);
+        syncSingleDeliveryEndDate_(modal);
+      });
     });
     bindEditChangeHighlights_(modal);
+    bindSingleDeliveryDateSync_(modal);
     updateEditChangeHighlights_(modal);
     syncReviewerLock_();
+  }
+
+  function bindCycleButtons_(root) {
+    if (!root || root.dataset.cycleButtonsBound === 'true') return;
+    root.dataset.cycleButtonsBound = 'true';
+    root.addEventListener('click', event => {
+      const button = event.target.closest('.cycle-option-button');
+      if (!button || !root.contains(button) || button.disabled) return;
+      const group = button.closest('.form-group');
+      const input = group ? group.querySelector('[name="cycle"]') : root.querySelector('[name="cycle"]');
+      if (!input) return;
+      input.value = button.dataset.cycleValue || '';
+      (group || root).querySelectorAll('.cycle-option-button').forEach(item => {
+        item.classList.toggle('active', item === button);
+      });
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    });
   }
 
   function getEditComparisonKey_(name) {
     if (name === 'setter') return 'assignee';
     if (name === 'checker') return 'reviewer';
     if (name === 'new_flag') return 'is_new';
+    if (name === 'verifying_flag') return 'is_verifying';
     return name;
   }
 
   function normalizeComparableModalValue_(value, key) {
-    if (key === 'is_new') return isTruthyValue(value) ? 'TRUE' : 'FALSE';
+    if (['is_new', 'is_verifying', 'is_draft', 'is_fixed', 'is_inactive'].includes(key)) return isTruthyValue(value) ? 'TRUE' : 'FALSE';
     if (key === 'hour') return normalizeMasterHourValue(value);
     if (key === 'weekday') return normalizeWeekdayLabel(value);
     if (key === 'start_date' || key === 'end_date' || key === 'delivery_date' || key === 'original_date') {
@@ -565,6 +630,19 @@
     if (!group) return;
     const changed = getFieldCurrentComparableValue_(field, key) !== getBaseComparableValue_(key);
     group.classList.toggle('is-overridden', changed);
+
+    let prevEl = group.querySelector('.previous-value');
+    if (changed) {
+      const baseVal = getBaseComparableValue_(key);
+      if (!prevEl) {
+        prevEl = document.createElement('span');
+        prevEl.className = 'previous-value';
+        group.appendChild(prevEl);
+      }
+      prevEl.textContent = '変更前: ' + (baseVal || '（空）');
+    } else if (prevEl) {
+      prevEl.remove();
+    }
   }
 
   function updateEditChangeHighlights_(modal) {
@@ -608,9 +686,40 @@
     const startInput = modal.querySelector('[name="start_date"]');
     const endInput = modal.querySelector('[name="end_date"]');
     if (!cycleInput || !startInput || !endInput) return;
-    if (isSingleCycleValue_(cycleInput.value) && startInput.value) {
-      endInput.value = startInput.value;
+    if (isMonthEndCycleValue_(cycleInput.value) && modal.dataset.mode === 'master') {
+      const range = getMonthEndDeliveryWindow_(startInput.value || endInput.value || formatDate(new Date()));
+      if (range) {
+        startInput.value = range.start;
+        endInput.value = range.end;
+      }
     }
+    const isSingle = isSingleCycleValue_(cycleInput.value);
+    if (isSingle && startInput.value) endInput.value = startInput.value;
+    const isMonthEnd = isMonthEndCycleValue_(cycleInput.value) && modal.dataset.mode === 'master';
+    [startInput, endInput].forEach(input => {
+      const locked = isMonthEnd || (input === endInput && isSingle);
+      input.readOnly = locked;
+      input.disabled = false;
+      input.closest('.form-group')?.classList.toggle('disabled', locked);
+    });
+  }
+
+  function isMonthEndCycleValue_(value) {
+    const text = normalizeCycleLabel(value);
+    return text === '月末' || text === '月末配信' || text === '月末増発';
+  }
+
+  function getMonthEndDeliveryWindow_(dateValue) {
+    const baseDate = normalizeDateString(dateValue) || formatDate(new Date());
+    const date = new Date(`${baseDate}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return null;
+    const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0);
+    const start = new Date(monthEnd);
+    start.setDate(monthEnd.getDate() - 7);
+    return {
+      start: formatDate(start),
+      end: formatDate(monthEnd)
+    };
   }
 
   function bindSingleDeliveryDateSync_(modal) {
@@ -619,7 +728,10 @@
       const field = modal.querySelector(`[name="${name}"]`);
       if (!field || field.dataset.singleSyncBound === 'true') return;
       field.dataset.singleSyncBound = 'true';
-      field.addEventListener('change', () => syncSingleDeliveryEndDate_(modal));
+      field.addEventListener('change', () => {
+        applyCycleInputControlMatrix_(modal);
+        syncSingleDeliveryEndDate_(modal);
+      });
     });
     syncSingleDeliveryEndDate_(modal);
   }
@@ -653,7 +765,11 @@
       )
     );
     payload.format = document.getElementById('masterModal').dataset.format || 'フリー';
-    payload.is_draft = asDraft ? 'TRUE' : 'FALSE';
+    if (asDraft) {
+      payload.is_draft = 'TRUE';
+    } else if (!Object.prototype.hasOwnProperty.call(payload, 'is_draft')) {
+      payload.is_draft = 'FALSE';
+    }
     applySingleDeliveryPayloadRule_(payload);
 
     // PR管理の場合のみ、target_ids (PRが入るメルマガ) を取得して savePRData を呼ぶ
@@ -916,7 +1032,7 @@
       group.hidden = false;
       group.style.display = '';
       group.classList.remove('disabled');
-      group.querySelectorAll('input, select, textarea').forEach(input => {
+      group.querySelectorAll('input, select, textarea, button').forEach(input => {
         input.disabled = false;
         if ('readOnly' in input) input.readOnly = false;
       });
@@ -927,7 +1043,7 @@
     const group = modal.querySelector(`[data-field="${key}"]`);
     if (!group) return;
     group.classList.toggle('disabled', !enabled);
-    group.querySelectorAll('input, select, textarea').forEach(input => {
+    group.querySelectorAll('input, select, textarea, button').forEach(input => {
       input.disabled = !enabled;
     });
   }
@@ -936,12 +1052,12 @@
     const group = modal.querySelector(`[data-field="${key}"]`);
     if (!group) return;
     const normalizedState = String(state || '表示').trim();
-    const hidden = normalizedState === '非表示';
-    const locked = normalizedState === 'ロック';
+    const hidden = normalizedState.indexOf('非表示') === 0;
+    const locked = normalizedState.indexOf('ロック') === 0;
     group.hidden = hidden;
     group.style.display = hidden ? 'none' : '';
     group.classList.toggle('disabled', hidden || locked);
-    group.querySelectorAll('input, select, textarea').forEach(input => {
+    group.querySelectorAll('input, select, textarea, button').forEach(input => {
       input.disabled = hidden || locked;
       if ('readOnly' in input) input.readOnly = locked;
     });
@@ -957,6 +1073,8 @@
 
   function getInputControlModalKey_(modal) {
     if (!modal) return '';
+    if (modal.dataset.modalType === 'pr-master' && modal.dataset.mode === 'edit') return 'prMasterEdit';
+    if (modal.dataset.modalType === 'pr-master') return 'prMasterNew';
     if (modal.id === 'editModal') return 'deliveryEdit';
     if (modal.id === 'masterModal' && modal.dataset.mode === 'edit') return 'masterEdit';
     if (modal.id === 'masterModal') return 'masterNew';
@@ -973,16 +1091,225 @@
     if (formatKey === 'free' || formatKey === 'extract') autoJobKeys.forEach(key => hidden.add(key));
     if (formatKey === 'auto') jobKeys.forEach(key => hidden.add(key));
 
-    if (modalKey === 'masterNew') ['is_fixed', 'is_inactive'].forEach(key => hidden.add(key));
-    if ((modalKey === 'deliveryEdit' || modalKey === 'masterEdit') && formatKey === 'auto') hidden.add('is_fixed');
-    if (modalKey === 'deliveryEdit' && ['free', 'extract'].includes(formatKey)) hidden.add('is_fixed');
+    // is_fixed・is_inactive・is_draft はボタン/外部フローで管理するため、全モーダルでフォーム入力欄を非表示
+    ['is_fixed', 'is_inactive', 'is_draft'].forEach(key => hidden.add(key));
+    // マスタ新規追加モーダルでは形式はタブで管理するため、フォーム項目として非表示
+    if (modalKey === 'masterNew') hidden.add('format');
     return hidden;
   }
 
+  function getInputControlSectionRows_(sectionKeyword) {
+    const rows = Array.isArray(APP_DATA.inputControls) ? APP_DATA.inputControls : [];
+    const keyword = String(sectionKeyword || '').trim();
+    if (!keyword) return rows;
+    return rows.filter(row => {
+      const section = String(row && row.__section ? row.__section : '').trim();
+      return !section || section.includes(keyword);
+    });
+  }
+
+  function normalizeInputControlState_(value) {
+    const text = String(value == null ? '' : value).trim();
+    if (!text) return '';
+    if (text.indexOf('非表示') === 0 || ['hidden', 'hide', 'none'].includes(text)) return '非表示';
+    if (text.indexOf('ロック') === 0 || ['lock', 'locked', 'readonly', '不可', '編集不可'].includes(text)) return 'ロック';
+    if (text.indexOf('表示') === 0 || ['show', 'editable', '可', '編集可'].includes(text)) return '表示';
+    return text;
+  }
+
+  function getInputControlValueByAliases_(row, aliases) {
+    for (const alias of aliases) {
+      if (Object.prototype.hasOwnProperty.call(row, alias)) {
+        const value = String(row[alias] == null ? '' : row[alias]).trim();
+        if (value) return value;
+      }
+    }
+    return '';
+  }
+
+  function getInputControlStateFromSheet_(key, modalKey, formatKey) {
+    const rows = getInputControlSectionRows_(String(modalKey || '').indexOf('prMaster') === 0 ? 'PR管理専用' : 'タブ別');
+    if (!rows.length) return '';
+
+    const modalLabels = {
+      masterNew: ['masterNew', 'マスタ新規', 'マスタ新規追加モーダル'],
+      masterEdit: ['masterEdit', 'マスタ編集', 'マスタ編集モーダル'],
+      deliveryEdit: ['deliveryEdit', '配信編集', '配信編集モーダル'],
+      prMasterNew: ['prMasterNew', 'PR管理', 'マスタ新規', 'マスタ新規追加モーダル'],
+      prMasterEdit: ['prMasterEdit', 'PR管理', 'マスタ編集', 'マスタ編集モーダル']
+    }[modalKey] || [modalKey];
+    const formatLabels = {
+      free: ['free', 'フリー'],
+      extract: ['extract', '抽出'],
+      auto: ['auto', '自動求人特集', '自動求人'],
+      other: ['other', 'その他']
+    }[formatKey] || [formatKey];
+    const stateAliases = ['制御', '状態', '入力制御', '表示状態', 'state', 'control'];
+    const keyAliases = ['内部キー', 'key', 'field', '項目キー', '項目名', '項目'];
+    const formatAliases = ['タブ', '形式', 'format'];
+    const normalize = value => String(value == null ? '' : value).trim();
+    const keyLabels = {
+      schedule_id: ['ID', 'schedule_id', 'id'],
+      weekday: ['曜日', 'weekday'],
+      hour: ['時間', 'hour'],
+      start_date: ['開始日', '開始', 'start_date'],
+      end_date: ['終了日', '終了', 'end_date'],
+      mail_name: ['メルマガ名', 'mail_name'],
+      delivery_count: ['通数', 'delivery_count'],
+      mail_type: ['種別', 'mail_type', 'category'],
+      category: ['種別', 'mail_type', 'category'],
+      cycle: ['サイクル', 'cycle'],
+      format: ['形式', 'format'],
+      sub_category: ['担当部署', 'サブカテゴリ', 'sub_category'],
+      mail_content_extract: ['メルマガ内容(抽出)', 'mail_content_extract'],
+      mail_content_free: ['メルマガ内容(フリー)', 'mail_content_free'],
+      notes: ['備考', 'notes'],
+      is_new: ['新規', 'is_new', 'new_flag'],
+      is_verifying: ['検証中', 'is_verifying', 'verifying_flag'],
+      assignee: ['設定者', '設定', 'assignee'],
+      reviewer: ['確認者', '確認', 'reviewer'],
+      target_age: ['USER_年齢', 'target_age'],
+      target_address: ['USER_現住所', 'target_address'],
+      user_desired_location: ['USER_希望勤務地', 'user_desired_location'],
+      user_experience_job: ['USER_経験職種', 'user_experience_job'],
+      user_desired_job: ['USER_希望職種', 'user_desired_job'],
+      user_other_condition: ['USER_その他条件', 'user_other_condition'],
+      parameter: ['パラメータ', 'parameter', 'parameters'],
+      job_location: ['JOB_勤務地', 'job_location'],
+      job_type: ['JOB_職種', 'job_type'],
+      job_keyword: ['JOB_フリーワード', 'job_keyword'],
+      auto_job_feature_id: ['自動求人特集_ID', 'auto_job_feature_id'],
+      job_url: ['自動求人特集_URL', 'job_url'],
+      current_job_count: ['自動求人特集_求人数', 'current_job_count'],
+      auto_job_other_condition: ['自動求人特集_その他条件', 'auto_job_other_condition'],
+      is_fixed: ['確定済', 'is_fixed'],
+      is_inactive: ['配信停止', '配信終了', 'is_inactive'],
+      is_draft: ['下書き', 'is_draft'],
+      pr_id: ['PR ID', 'pr_id'],
+      name: ['PRタイトル', 'PRタイトル', 'タイトル', 'name'],
+      pr_text: ['PR本文', '本文', 'pr_text'],
+      target_ids: ['PRが入るメルマガを選択', '紐づいたメルマガ', 'target_ids']
+    };
+
+    for (const row of rows) {
+      const rowKey = normalizeScheduleEditKey_(getInputControlValueByAliases_(row, keyAliases));
+      if (rowKey && rowKey !== key) continue;
+      // シートは「画面」列と「モーダル」列が別々のため、「モーダル」列を優先して照合する
+      const rowModal = normalize(row['モーダル'] || '') || normalize(row['画面'] || '');
+      const rowFormat = getInputControlValueByAliases_(row, formatAliases);
+      const modalMatches = !rowModal || modalLabels.some(label => rowModal.includes(label));
+      const formatMatches = !rowFormat || formatLabels.some(label => rowFormat.includes(label));
+      if (modalMatches && formatMatches) {
+        const labels = Array.from(new Set([].concat(keyLabels[key] || [], [getDisplayName(key), key]).filter(Boolean)));
+        for (const label of labels) {
+          if (Object.prototype.hasOwnProperty.call(row, label)) {
+            const state = normalizeInputControlState_(row[label]);
+            if (state) return state;
+          }
+        }
+      }
+      if (modalMatches && formatMatches) {
+        const directState = normalizeInputControlState_(getInputControlValueByAliases_(row, stateAliases));
+        if (directState) return directState;
+      }
+      for (const modalLabel of modalLabels) {
+        for (const formatLabel of formatLabels) {
+          for (const candidateKey of [`${modalLabel}_${formatLabel}`, `${modalLabel}:${formatLabel}`, `${modalLabel}/${formatLabel}`, `${modalLabel}${formatLabel}`]) {
+            if (Object.prototype.hasOwnProperty.call(row, candidateKey)) {
+              const state = normalizeInputControlState_(row[candidateKey]);
+              if (state) return state;
+            }
+          }
+        }
+      }
+      for (const candidateKey of formatLabels.concat(modalLabels)) {
+        if (Object.prototype.hasOwnProperty.call(row, candidateKey)) {
+          const state = normalizeInputControlState_(row[candidateKey]);
+          if (state) return state;
+        }
+      }
+    }
+    return '';
+  }
+
+  function applyNormalizedInputControlState_(modal, key, state) {
+    const group = modal.querySelector(`[data-field="${key}"]`);
+    if (!group) return;
+    const text = String(state || '').trim();
+    if (!text) return;
+    const visible = text.indexOf('表示') === 0 || ['show', 'editable', '可', '編集可'].includes(text);
+    const hidden = text.indexOf('非表示') === 0 || ['hidden', 'hide', 'none'].includes(text);
+    const locked = text.indexOf('ロック') === 0 || ['ロック', 'locked', 'lock', 'readonly', '不可', '編集不可'].includes(text);
+    if (!visible && !hidden && !locked) return;
+    group.hidden = hidden;
+    group.style.display = hidden ? 'none' : '';
+    group.classList.toggle('disabled', hidden || locked);
+    group.querySelectorAll('input, select, textarea, button').forEach(input => {
+      input.disabled = hidden || locked;
+      if ('readOnly' in input) input.readOnly = locked;
+    });
+  }
+
+  function getInputControlCycleStateFromSheet_(key, modalKey, cycleValue) {
+    const rows = getInputControlSectionRows_('サイクル別');
+    if (!rows.length || !cycleValue) return '';
+    const normalize = value => String(value == null ? '' : value).trim();
+    const modalLabels = {
+      masterNew: ['masterNew', 'マスタ新規', 'マスタ新規追加モーダル'],
+      masterEdit: ['masterEdit', 'マスタ編集', 'マスタ編集モーダル'],
+      deliveryEdit: ['deliveryEdit', '配信編集', '配信編集モーダル']
+    }[modalKey] || [modalKey];
+    const cycleAliases = ['サイクル', 'cycle'];
+    const keyLabels = {
+      weekday: ['曜日', 'weekday'],
+      hour: ['時間', 'hour'],
+      start_date: ['開始日', '開始', 'start_date'],
+      end_date: ['終了日', '終了', 'end_date']
+    };
+    const normalizedCycle = normalize(cycleValue);
+    for (const row of rows) {
+      const rowCycle = getInputControlValueByAliases_(row, cycleAliases);
+      if (!rowCycle || rowCycle !== normalizedCycle) continue;
+      // シートは「画面」列と「モーダル」列が別々のため、「モーダル」列を優先して照合する
+      const rowModal = normalize(row['モーダル'] || '') || normalize(row['画面'] || '');
+      if (rowModal && !modalLabels.some(label => rowModal.includes(label))) continue;
+      for (const label of (keyLabels[key] || [key])) {
+        if (Object.prototype.hasOwnProperty.call(row, label)) {
+          const state = normalizeInputControlState_(row[label]);
+          if (state) return state;
+        }
+      }
+    }
+    return '';
+  }
+
+  function applyCycleInputControlMatrix_(modal) {
+    if (!modal || modal.dataset.modalType === 'pr-master') return;
+    const modalKey = getInputControlModalKey_(modal);
+    const cycleField = modal.querySelector('[name="cycle"]');
+    const cycleValue = cycleField ? cycleField.value : '';
+    ['weekday', 'hour', 'start_date', 'end_date'].forEach(key => {
+      const state = getInputControlCycleStateFromSheet_(key, modalKey, cycleValue);
+      if (state) applyNormalizedInputControlState_(modal, key, state);
+    });
+  }
+
   function applyInputControlMatrix_(modal, format) {
-    if (!modal || modal.dataset.modalType === 'pr-master') {
-      applyPrMasterControls_(modal);
+    if (!modal) {
       return;
+    }
+
+    if (modal.id === 'editModal') {
+      const staticFieldMap = {
+        mail_name: '[name="mail_name"]',
+        assignee: '[name="setter"]',
+        reviewer: '[name="checker"]'
+      };
+      Object.keys(staticFieldMap).forEach(key => {
+        const field = modal.querySelector(staticFieldMap[key]);
+        const group = field ? field.closest('.form-group') : null;
+        if (group) group.dataset.field = key;
+      });
     }
 
     const modalKey = getInputControlModalKey_(modal);
@@ -991,9 +1318,9 @@
     const lockedKeys = new Set(['schedule_id']);
 
     if (modalKey === 'deliveryEdit') {
-      ['start_date', 'end_date', 'mail_name', 'mail_type', 'cycle', 'format', 'sub_category', 'is_new'].forEach(key => lockedKeys.add(key));
+      // シート「入力制御」の配信編集モーダル行に従い、全フォーマットでロック
+      ['start_date', 'end_date', 'mail_name', 'mail_type', 'cycle', 'format', 'sub_category', 'is_new', 'weekday', 'is_verifying'].forEach(key => lockedKeys.add(key));
     }
-    if (modalKey === 'masterEdit') lockedKeys.add('is_new');
     if (formatKey === 'auto') lockedKeys.add('current_job_count');
 
     modal.querySelectorAll('.form-group[data-field]').forEach(group => {
@@ -1005,6 +1332,8 @@
       } else {
         setFieldGroupControlState_(modal, key, '表示');
       }
+      const sheetState = getInputControlStateFromSheet_(key, modalKey, formatKey);
+      if (sheetState) applyNormalizedInputControlState_(modal, key, sheetState);
     });
   }
 
@@ -1082,7 +1411,9 @@
 
     applyCurrentJobCountControls_(modal, isAutoJob);
     applyValidationCycleControls_(modal);
+    applyCycleInputControlMatrix_(modal);
     applyPrMasterControls_(modal);
+    syncSingleDeliveryEndDate_(modal);
   }
 
   function openAndInitModalWithTab(format, modalId) {
@@ -1090,7 +1421,7 @@
     if (!modal) return;
     setModalFormatState(modal, format);
   }
-  function saveEdit() {
+  async function saveEdit() {
     if (CURRENT_ENTRY && isFixed(CURRENT_ENTRY)) {
       alert('確定済みの配信は編集できません');
       return;
@@ -1122,8 +1453,9 @@
     const nextWeekday = Object.prototype.hasOwnProperty.call(nextValues, 'weekday')
       ? nextValues.weekday
       : CURRENT_ENTRY.weekday;
+    // 移動済み発生分の場合も正しい週から日付を計算するため、target_date（移動後の日付）を基準にする
     const nextDeliveryDate = nextWeekday
-      ? getDateForWeekdayInCalendarWeek(occurrenceDate, nextWeekday)
+      ? getDateForWeekdayInCalendarWeek(CURRENT_ENTRY.target_date, nextWeekday)
       : CURRENT_ENTRY.target_date;
     const nextHour = Object.prototype.hasOwnProperty.call(nextValues, 'hour')
       ? nextValues.hour
@@ -1148,8 +1480,15 @@
       }
     });
     payload.override_fields = overrideFields.join(',');
+    // 移動済み発生分は移動日を start_date/end_date として記録（単発扱い、マスタは変更しない）
+    if (CURRENT_ENTRY.original_date && CURRENT_ENTRY.original_date !== CURRENT_ENTRY.target_date) {
+      const movedDate = CURRENT_ENTRY.target_date;
+      if (!overrideFields.includes('start_date')) { overrideFields.push('start_date'); payload.start_date = movedDate; }
+      if (!overrideFields.includes('end_date')) { overrideFields.push('end_date'); payload.end_date = movedDate; }
+      payload.override_fields = overrideFields.join(',');
+    }
     applySingleDeliveryPayloadRule_(payload);
-    const saveScope = chooseScheduleEditScope_(overrideFields);
+    const saveScope = await chooseScheduleEditScope_(overrideFields);
     if (!saveScope) return;
 
     showBusy('配信内容を保存中...');
@@ -1176,10 +1515,67 @@
   }
 
   function chooseScheduleEditScope_(overrideFields) {
-    if (!overrideFields || !overrideFields.length) return 'single';
-    const input = window.prompt('変更範囲を選択してください。\n1: この日だけ変更\n2: この日以降を変更', '1');
-    if (input == null) return '';
-    return String(input).trim() === '2' ? 'future' : 'single';
+    if (!overrideFields || !overrideFields.length) return Promise.resolve('single');
+    return openScheduleEditScopeModal_();
+  }
+
+  function ensureScheduleEditScopeModal_() {
+    let modal = document.getElementById('scheduleEditScopeModal');
+    if (modal) return modal;
+    modal = document.createElement('div');
+    modal.id = 'scheduleEditScopeModal';
+    modal.className = 'modal schedule-scope-modal';
+    modal.setAttribute('aria-hidden', 'true');
+    modal.style.display = 'none';
+    modal.innerHTML = `
+      <div class="modal-card schedule-scope-card" role="dialog" aria-modal="true" aria-labelledby="scheduleEditScopeTitle">
+        <div class="modal-header">
+          <h2 id="scheduleEditScopeTitle">変更範囲を選択</h2>
+          <button type="button" class="icon-button" data-scope-choice="" aria-label="閉じる">×</button>
+        </div>
+        <div class="scope-choice-body">
+          <p>この変更をどの範囲に反映しますか？</p>
+          <div class="scope-choice-actions">
+            <button type="button" class="primary-button" data-scope-choice="single">この日だけ変更</button>
+            <button type="button" class="secondary-button" data-scope-choice="future">この日以降を変更</button>
+            <button type="button" class="secondary-button" data-scope-choice="">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openScheduleEditScopeModal_() {
+    return new Promise(resolve => {
+      const modal = ensureScheduleEditScopeModal_();
+      let resolved = false;
+      const finish = choice => {
+        if (resolved) return;
+        resolved = true;
+        modal.removeEventListener('click', handleClick);
+        document.removeEventListener('keydown', handleKeydown);
+        setModalVisible_(modal, false);
+        resolve(choice || '');
+      };
+      const handleClick = event => {
+        const choiceButton = event.target.closest('[data-scope-choice]');
+        if (choiceButton) {
+          finish(choiceButton.dataset.scopeChoice || '');
+          return;
+        }
+        if (event.target === modal) finish('');
+      };
+      const handleKeydown = event => {
+        if (event.key === 'Escape') finish('');
+      };
+      modal.addEventListener('click', handleClick);
+      document.addEventListener('keydown', handleKeydown);
+      setModalVisible_(modal, true);
+      const firstButton = modal.querySelector('[data-scope-choice="single"]');
+      if (firstButton) firstButton.focus();
+    });
   }
 
   function stopCurrentDelivery() {

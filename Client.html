@@ -65,19 +65,12 @@
   let MASTER_CATEGORY_FILTER = '__all__';
   let MASTER_STATUS_FILTER = 'active';
   let MASTER_NEW_ONLY = false;
-  let MASTER_FILTERS = {
-    'format:自動求人特集': false,
-    'category:イレギュラー': false,
-    'category:検証': false
-  };
+  let MASTER_VERIFYING_ONLY = false;
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
-    weekly: '#FFFFFF',
-    special: '#E6E6FA',
-    monthly: '#ffe5a0',
-    biweeklyA: '#b7e1cd',
-    biweeklyB: '#ffe1f6',
-    ma: '#FFF8D6',
-    otherCheck: '#d9e6fc'
+    default: '#FFFFFF',
+    checkingSingle: '#d9e6fc',
+    monthEnd: '#d9d2e9',
+    product: '#d9ead3'
   });
   const SCHEDULE_CYCLE_OPTIONS = Object.freeze([
     '単発',
@@ -92,21 +85,17 @@
     '隔週配信B'
   ]);
   const SCHEDULE_LINE_COLORS = Object.freeze({
-    special: '#800080',
-    product: '#008080',
-    others: '#e6cff2'
+    biweeklyA: '#9bd283',
+    biweeklyB: '#e171c0',
+    specialCycle: '#8e7cc3'
   });
   const SCHEDULE_LEGEND_ITEMS = Object.freeze([
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.weekly, label: '毎週配信' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.special, label: '特殊サイクル1-3' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthly, label: 'サイクル:月末配信' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyA, label: '隔週配信A' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.biweeklyB, label: '隔週配信B' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.ma, label: 'MA' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.otherCheck, label: '検証・イレギュラー' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.special, label: '担当部署: 特殊' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.product, label: '担当部署: 商品' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.others, label: '担当部署: その他(他部署)' }
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.checkingSingle, label: '検証中・サイクル:単発' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthEnd, label: 'サイクル:月末配信' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.product, label: '担当部署: 商品' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyA, label: '隔週配信A' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyB, label: '隔週配信B' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.specialCycle, label: 'サイクル:特殊サイクル●' }
   ]);
   const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
   const WEEKDAY_OPTIONS = Object.freeze(['月', '火', '水', '木', '金', '土', '日']);
@@ -158,6 +147,7 @@
     user_experience_job: 'USER_経験職種',
     user_desired_job: 'USER_希望職種',
     user_other_condition: 'USER_その他条件',
+    parameter: 'パラメータ',
     job_location: 'JOB_勤務地',
     job_type: 'JOB_職種',
     job_keyword: 'JOB_フリーワード',
@@ -560,7 +550,10 @@
           let isMatch = false;
 
           if (moveOverride) {
-            const effectiveHour = String(normalizeMasterHourValue(moveOverride.hour) || moveOverride.hour || '').split(':')[0].trim();
+            // 移動済みの発生分: 発生分上書き(時間変更)があればそちらを優先
+            const overrideHasHour = occurrenceOverride && String(occurrenceOverride.override_fields || '').split(',').includes('hour');
+            const rawHour = overrideHasHour ? occurrenceOverride.hour : moveOverride.hour;
+            const effectiveHour = String(normalizeMasterHourValue(rawHour) || rawHour || '').split(':')[0].trim();
             isMatch = effectiveHour === String(hour);
           } else if (occurrenceOverride) {
             const effectiveHour = String(normalizeMasterHourValue(occurrenceOverride.hour || rowForDate.hour) || occurrenceOverride.hour || rowForDate.hour || '').split(':')[0].trim();
@@ -604,10 +597,10 @@
             const moveOverride = getMoveOverrideForDate(entry, dateStr);
             if (moveOverride) {
               if (moveOverride.hour) entryForDate.hour = moveOverride.hour;
-              if (moveOverride.weekday) entryForDate.weekday = moveOverride.weekday;
+              entryForDate.weekday = moveOverride.weekday || getWeekdayLabelForDateString(dateStr);
               if (moveOverride.original_date) entryForDate.original_date = moveOverride.original_date;
             }
-            const occurrenceOverride = getOccurrenceOverrideForDate(entry, dateStr);
+            const occurrenceOverride = getOccurrenceOverrideForDate(entryForDate, dateStr);
             if (occurrenceOverride && occurrenceOverride.original_date) {
               entryForDate.original_date = occurrenceOverride.original_date;
             }
@@ -640,6 +633,7 @@
               'user_experience_job',
               'user_desired_job',
               'user_other_condition',
+              'parameter',
               'job_location',
               'job_type',
               'job_keyword',
@@ -778,73 +772,6 @@
     }
   }
 
-  function renderMasterFilterChips() {
-    const container = document.getElementById('masterFilterChips');
-    if (!container) return;
-
-    if (MASTER_DATA.sheetName !== 'app_schedule') {
-      container.innerHTML = '';
-      container.style.display = 'none';
-      MASTER_SUBCATEGORY_FILTER = '__all__';
-      MASTER_FORMAT_FILTER = '__all__';
-      MASTER_CATEGORY_FILTER = '__all__';
-      MASTER_STATUS_FILTER = 'active';
-      MASTER_NEW_ONLY = false;
-      return;
-    }
-
-    container.style.display = 'flex';
-    const headers = MASTER_DATA.headers || [];
-    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ', '担当部署'].includes(String(h || '').trim())) || '';
-    const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
-    const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
-
-    const uniqValues = header => {
-      if (!header) return [];
-      const set = new Set();
-      (MASTER_DATA.rows || []).forEach(row => {
-        const v = String((row && row[header]) || '').trim();
-        if (v) set.add(v);
-      });
-      return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
-    };
-
-    const subCategories = uniqValues(subCategoryHeader);
-    const formats = uniqValues(formatHeader);
-    const categories = uniqValues(mailTypeHeader);
-
-    const subCategorySelect = subCategories.length ? `
-      <select id="masterSubCategorySelect" class="filter-select" onchange="setMasterSubCategoryFilter(this.value)">
-        <option value="__all__" ${MASTER_SUBCATEGORY_FILTER === '__all__' ? 'selected' : ''}>サブカテゴリ: すべて</option>
-        <option value="__contains:商品" ${MASTER_SUBCATEGORY_FILTER === '__contains:商品' ? 'selected' : ''}>サブカテゴリ: 商品</option>
-        ${subCategories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_SUBCATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
-      </select>
-    ` : '';
-    const statusSelect = `
-      <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
-        <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
-        <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
-      </select>
-    `;
-    const formatSelect = formats.length ? `
-      <select id="masterFormatSelect" class="filter-select" onchange="setMasterFormatFilter(this.value)">
-        <option value="__all__" ${MASTER_FORMAT_FILTER === '__all__' ? 'selected' : ''}>形式: すべて</option>
-        ${formats.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_FORMAT_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
-      </select>
-    ` : '';
-    const categorySelect = categories.length ? `
-      <select id="masterCategorySelect" class="filter-select" onchange="setMasterCategoryFilter(this.value)">
-        <option value="__all__" ${MASTER_CATEGORY_FILTER === '__all__' ? 'selected' : ''}>種別: すべて</option>
-        ${categories.map(v => `<option value="${escapeAttribute(v)}" ${v === MASTER_CATEGORY_FILTER ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
-      </select>
-    ` : '';
-    const newOnlyChip = `
-      <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" data-action="toggle-master-new-only">新規のみ</button>
-    `;
-
-    container.innerHTML = [statusSelect, newOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
-  }
-
   function setMasterSubCategoryFilter(value) {
     MASTER_SUBCATEGORY_FILTER = String(value || '__all__');
     renderMasterTable();
@@ -860,25 +787,115 @@
     renderMasterTable();
   }
 
-  function setMasterNewOnly(checked) {
-    MASTER_NEW_ONLY = !!checked;
-    renderMasterTable();
-  }
-
   function setMasterStatusFilter(value) {
     MASTER_STATUS_FILTER = (value === 'ended') ? 'ended' : 'active';
-    renderMasterTable();
-  }
-
-  function toggleMasterFilter(id) {
-    MASTER_FILTERS[id] = !MASTER_FILTERS[id];
-    renderMasterFilterChips();
     renderMasterTable();
   }
 
   function getActiveMasterSheetName() {
     const config = MASTER_CONFIG[ACTIVE_MASTER] || MASTER_CONFIG.schedule;
     return config.sheets[0].name;
+  }
+
+  function findMasterHeaderByAliases_(aliases) {
+    const headers = MASTER_DATA.headers || [];
+    return headers.find(header => aliases.includes(String(header || '').trim())) || '';
+  }
+
+  function getMasterFilterLabel_(header, fallback) {
+    return escapeHtml(header || fallback);
+  }
+
+  function getUniqueMasterColumnValues_(header) {
+    if (!header) return [];
+    const set = new Set();
+    (MASTER_DATA.rows || []).forEach(row => {
+      const v = String((row && row[header]) || '').trim();
+      if (v) set.add(v);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+  }
+
+  function renderMasterFilterSelect_(id, label, value, values, handlerName) {
+    if (!values.length) return '';
+    return `
+      <select id="${escapeAttribute(id)}" class="filter-select" onchange="${handlerName}(this.value)">
+        <option value="__all__" ${value === '__all__' ? 'selected' : ''}>${label}: すべて</option>
+        ${values.map(v => `<option value="${escapeAttribute(v)}" ${v === value ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+      </select>
+    `;
+  }
+
+  function renderMasterFilterChips() {
+    const container = document.getElementById('masterFilterChips');
+    if (!container) return;
+
+    if (MASTER_DATA.sheetName !== 'app_schedule') {
+      container.innerHTML = '';
+      container.style.display = 'none';
+      MASTER_SUBCATEGORY_FILTER = '__all__';
+      MASTER_FORMAT_FILTER = '__all__';
+      MASTER_CATEGORY_FILTER = '__all__';
+      MASTER_STATUS_FILTER = 'active';
+      MASTER_NEW_ONLY = false;
+      MASTER_VERIFYING_ONLY = false;
+      return;
+    }
+
+    container.style.display = 'flex';
+    const subCategoryHeader = findMasterHeaderByAliases_(['sub_category', 'サブカテゴリ', '担当部署']);
+    const formatHeader = findMasterHeaderByAliases_(['format', '形式']);
+    const mailTypeHeader = findMasterHeaderByAliases_(['mail_type', 'category', '種別']);
+    const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
+    const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
+
+    const statusSelect = `
+      <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
+        <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
+        <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
+      </select>
+    `;
+    const newOnlyChip = isNewHeader ? `
+      <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" onclick="setMasterNewOnly(!MASTER_NEW_ONLY)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
+    ` : '';
+    const verifyingOnlyChip = verifyingHeader ? `
+      <button type="button" class="filter-chip ${MASTER_VERIFYING_ONLY ? 'active' : ''}" onclick="setMasterVerifyingOnly(!MASTER_VERIFYING_ONLY)">${getMasterFilterLabel_(verifyingHeader, '検証中')}のみ</button>
+    ` : '';
+    const subCategorySelect = renderMasterFilterSelect_(
+      'masterSubCategorySelect',
+      getMasterFilterLabel_(subCategoryHeader, '担当部署'),
+      MASTER_SUBCATEGORY_FILTER,
+      getUniqueMasterColumnValues_(subCategoryHeader),
+      'setMasterSubCategoryFilter'
+    );
+    const formatSelect = renderMasterFilterSelect_(
+      'masterFormatSelect',
+      getMasterFilterLabel_(formatHeader, '形式'),
+      MASTER_FORMAT_FILTER,
+      getUniqueMasterColumnValues_(formatHeader),
+      'setMasterFormatFilter'
+    );
+    const categorySelect = renderMasterFilterSelect_(
+      'masterCategorySelect',
+      getMasterFilterLabel_(mailTypeHeader, '種別'),
+      MASTER_CATEGORY_FILTER,
+      getUniqueMasterColumnValues_(mailTypeHeader),
+      'setMasterCategoryFilter'
+    );
+
+    container.innerHTML = [statusSelect, newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+  }
+
+  function setMasterVerifyingOnly(checked) {
+    MASTER_VERIFYING_ONLY = !!checked;
+    renderMasterTable();
+    renderMasterFilterChips();
+  }
+
+  function setMasterNewOnly(checked) {
+    MASTER_NEW_ONLY = !!checked;
+    renderMasterTable();
+    renderMasterFilterChips();
   }
 
   function renderMasterTable() {
@@ -888,53 +905,41 @@
     const searchInput = document.getElementById('masterSearchInput');
     const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
 
-    const subCategoryHeader = headers.find(h => ['sub_category', 'サブカテゴリ', '担当部署'].includes(String(h || '').trim())) || '';
-    const formatHeader = headers.find(h => ['format', '形式'].includes(String(h || '').trim())) || '';
-    const mailTypeHeader = headers.find(h => ['mail_type', 'category', '種別'].includes(String(h || '').trim())) || '';
-    const endDateHeader = headers.find(h => ['end_date', '終了日'].includes(String(h || '').trim())) || '';
-    const inactiveHeader = headers.find(h => ['is_inactive', '配信停止', '配信終了'].includes(String(h || '').trim())) || '';
-    const isNewHeader = headers.find(h => ['is_new', 'new_flag', '新規'].includes(String(h || '').trim())) || '';
+    const subCategoryHeader = findMasterHeaderByAliases_(['sub_category', 'サブカテゴリ', '担当部署']);
+    const formatHeader = findMasterHeaderByAliases_(['format', '形式']);
+    const mailTypeHeader = findMasterHeaderByAliases_(['mail_type', 'category', '種別']);
+    const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日', '終了']);
+    const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信停止', '配信終了', '停止', '無効']);
+    const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
+    const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
+    const today = formatDate(new Date());
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
-      // 検索キーワードフィルター
       if (keyword && !headers.map(header => row[header] == null ? '' : String(row[header])).join(' ').toLowerCase().includes(keyword)) {
         return false;
       }
-
-      // サブカテゴリフィルター (app_schedule のみ適用)
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER !== '__all__' && subCategoryHeader) {
-        const v = String(row[subCategoryHeader] || '').trim();
-        if (MASTER_SUBCATEGORY_FILTER === '__contains:商品') {
-          if (!v.includes('商品')) return false;
-        } else if (v !== MASTER_SUBCATEGORY_FILTER) {
-          return false;
-        }
+        if (String(row[subCategoryHeader] || '').trim() !== MASTER_SUBCATEGORY_FILTER) return false;
       }
-
-      // 形式フィルター (app_schedule のみ適用)
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_FORMAT_FILTER !== '__all__' && formatHeader) {
         if (String(row[formatHeader] || '').trim() !== MASTER_FORMAT_FILTER) return false;
       }
-
-      // 種別フィルター (app_schedule のみ適用)
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
         if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
       }
-
-      // 状態フィルター (app_schedule のみ適用)
       if (MASTER_DATA.sheetName === 'app_schedule' && (endDateHeader || inactiveHeader)) {
         const endDate = normalizeDateString(row[endDateHeader]);
-        const today = formatDate(new Date());
         const isInactiveRow = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : false;
         const isEnded = isInactiveRow || (!!endDate && endDate < today);
         if (MASTER_STATUS_FILTER === 'active' && isEnded) return false;
         if (MASTER_STATUS_FILTER === 'ended' && !isEnded) return false;
       }
-
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && isNewHeader) {
         if (!isTruthyValue(row[isNewHeader])) return false;
       }
-
+      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_VERIFYING_ONLY && verifyingHeader) {
+        if (!isTruthyValue(row[verifyingHeader])) return false;
+      }
       return true;
     });
 
@@ -949,12 +954,11 @@
     let html = `
       <div class="master-result-summary">
         ${escapeHtml(String(rows.length))}件中 ${escapeHtml(String(visibleRows.length))}件を表示
-        ${isLimited ? `<span>表示を絞るには検索またはフィルタを使ってください。</span>` : ''}
+        ${isLimited ? `<span>表示を絞るには検索またはフィルターを使ってください。</span>` : ''}
       </div>
       <table class="master-table"><thead><tr><th class="actions-col">操作</th>
     `;
 
-    // PR管理画面では紐づいたメルマガを最後に1列だけ表示する。
     const tableHeaders = visibleHeaders;
     tableHeaders.forEach(header => {
       html += `<th title="${escapeAttribute(header)}">${escapeHtml(getDisplayName(header))}</th>`;
@@ -965,7 +969,7 @@
       const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
       const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
       const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
-      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < formatDate(new Date()));
+      const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < today);
       const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
         ? ''
         : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;
@@ -1033,13 +1037,17 @@
   }
 
   function refreshAdminSelects_() {
-    const optionValues = getAdminSelectOptions_();
+    const optionValues = getAdminSelectOptions_().filter(option => {
+      const value = String(option && option.value || '').trim().toUpperCase();
+      return value !== 'TRUE' && value !== 'FALSE';
+    });
     document.querySelectorAll('#masterModal select[name="setter"], #masterModal select[name="checker"], #editModal select[name="setter"], #editModal select[name="checker"]').forEach(select => {
       const pending = Object.prototype.hasOwnProperty.call(select.dataset, 'pendingValue')
         ? String(select.dataset.pendingValue || '').trim()
         : '';
       const selected = pending || String(select.value || '').trim();
-      const nextSelected = selected;
+      const sanitizedSelected = ['TRUE', 'FALSE'].includes(selected.toUpperCase()) ? '' : selected;
+      const nextSelected = sanitizedSelected;
       const placeholder = `<option value="" ${nextSelected ? '' : 'selected '}disabled hidden>-- 選択してください --</option>`;
       select.innerHTML = placeholder + optionValues.map(option => `<option value="${escapeAttribute(option.value)}" ${option.value === nextSelected ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>`).join('');
       if (nextSelected && !optionValues.some(option => option.value === nextSelected)) {
@@ -1082,21 +1090,31 @@
     return renderSelectInput(name, currentValue, options, name).replace('<select ', `<select data-select-name="${escapeAttribute(name)}" `);
   }
 
+  function renderCycleButtonInput_(currentValue) {
+    const value = normalizeCycleSelectValue_(currentValue);
+    const buttons = SCHEDULE_CYCLE_OPTIONS.map(option => `
+      <button type="button" class="cycle-option-button ${option === value ? 'active' : ''}" data-cycle-value="${escapeAttribute(option)}">${escapeHtml(option)}</button>
+    `).join('');
+    return `
+      <input type="hidden" name="cycle" value="${escapeAttribute(value)}" data-include-value="true">
+      <div class="cycle-button-group">${buttons}</div>
+    `;
+  }
+
   function getMasterSelectConfig_(header, key, value, mode) {
+    if (key === 'cycle') {
+      return null;
+    }
     if (key === 'mail_type' || key === 'category') {
       return { name: key, value, options: buildUniqueScheduleValues_('mail_type') };
     }
     if (key === 'sub_category') {
       return { name: key, value, options: buildUniqueScheduleValues_('sub_category') };
     }
-    if (key === 'cycle') {
-      return { name: key, value: normalizeCycleSelectValue_(value), options: SCHEDULE_CYCLE_OPTIONS };
-    }
     if (isWeekdayHeader(header) || key === 'weekday') {
       return { name: key, value, options: WEEKDAY_OPTIONS };
     }
     if (isFormatHeader(header) || key === 'format') {
-      if (mode === 'edit') return null;
       return { name: key, value, options: FORMAT_OPTIONS };
     }
     if (isTimeHeader(header) || key === 'hour') {
@@ -1107,7 +1125,7 @@
 
   function getMasterTextInputConfig_(header, key, value) {
     const textValue = value == null ? '' : String(value);
-    if (key === 'mail_content' || key === 'notes') {
+    if (['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'parameter', 'user_other_condition', 'job_keyword', 'auto_job_other_condition', 'pr_text', 'name', 'mail_name'].includes(key)) {
       return { type: 'textarea', name: key, value: textValue };
     }
     if (isDateTimeHeader(header)) {
@@ -1133,7 +1151,7 @@
   function getMasterSpecialFieldConfig_(key, value, mode) {
     const textValue = value == null ? '' : String(value);
     if (key === 'mail_name') {
-      return { kind: 'input', html: `<input type="text" name="mail_name" value="${escapeAttribute(textValue)}" ${mode === 'edit' ? 'readonly' : ''}>` };
+      return { kind: 'input', html: `<textarea name="mail_name" ${mode === 'edit' ? 'readonly' : ''}>${escapeHtml(textValue)}</textarea>` };
     }
     if (key === 'pr_id') {
       return { kind: 'input', html: `<input type="text" name="pr_id" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存時に自動採番">` };
@@ -1144,8 +1162,14 @@
     if (key === 'reviewer') {
       return { kind: 'input', html: renderNamedSelectInput('checker', textValue, getAdminSelectOptions_()) };
     }
-    if (key === 'is_new' || key === 'new_flag') {
-      return { kind: 'input', html: `<input type="checkbox" name="is_new" aria-label="新規" ${isTruthyValue(textValue) ? 'checked' : ''}>` };
+    if (key === 'cycle') {
+      return { kind: 'input', html: renderCycleButtonInput_(textValue) };
+    }
+    if (['is_new', 'new_flag', 'is_verifying', 'verifying_flag', 'is_draft', 'is_fixed', 'is_inactive'].includes(key)) {
+      const name = key === 'is_verifying' || key === 'verifying_flag'
+        ? 'is_verifying'
+        : (key === 'is_draft' ? 'is_draft' : (key === 'is_fixed' ? 'is_fixed' : (key === 'is_inactive' ? 'is_inactive' : 'is_new')));
+      return { kind: 'input', html: `<input type="checkbox" name="${escapeAttribute(name)}" aria-label="${escapeAttribute(getDisplayName(name))}" ${isTruthyValue(textValue) ? 'checked' : ''}>` };
     }
     if (key === 'current_job_count') {
       return { kind: 'input', html: `<input type="text" name="current_job_count" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存後に自動取得されます">` };
@@ -1153,9 +1177,6 @@
     if (key === 'pr') {
       const locked = mode === 'edit' && isEditModalLockedField_(key);
       return { kind: 'input', html: `<input type="text" name="pr" value="${escapeAttribute(textValue)}" ${locked ? 'readonly disabled' : ''}>` };
-    }
-    if (key === 'format') {
-      return { kind: 'skip' };
     }
     return null;
   }
@@ -1230,16 +1251,14 @@
     const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
     const cycle = String(row && row.cycle != null ? row.cycle : '').trim();
     const format = String(row && row.format != null ? row.format : '').trim();
-    const text = [category, cycle, format].join(' ');
+    const subCategory = String(row && row.sub_category != null ? row.sub_category : '').trim();
+    const text = [category, cycle, format, subCategory].join(' ');
     const scheduleCycleType = getScheduleCycleType(row);
 
-    if (category === 'MA') return SCHEDULE_BACKGROUND_COLORS.ma;
-    if (scheduleCycleType === 'monthly' || scheduleCycleType === 'month_end') return SCHEDULE_BACKGROUND_COLORS.monthly;
-    if (scheduleCycleType === 'single' || typeof scheduleCycleType === 'number' || text.includes('特殊') || text.includes('特段')) return SCHEDULE_BACKGROUND_COLORS.special;
-    if (scheduleCycleType === 'A') return SCHEDULE_BACKGROUND_COLORS.biweeklyA;
-    if (scheduleCycleType === 'B') return SCHEDULE_BACKGROUND_COLORS.biweeklyB;
-    if (text.includes('その他') || text.includes('検証') || text.includes('イレギュラー')) return SCHEDULE_BACKGROUND_COLORS.otherCheck;
-    return SCHEDULE_BACKGROUND_COLORS.weekly;
+    if (scheduleCycleType === 'single' || category.includes('検証') || isTruthyValue(getValueByKeys(row || {}, ['is_verifying', 'verifying_flag', '検証中']))) return SCHEDULE_BACKGROUND_COLORS.checkingSingle;
+    if (scheduleCycleType === 'month_end') return SCHEDULE_BACKGROUND_COLORS.monthEnd;
+    if (text.includes('商品')) return SCHEDULE_BACKGROUND_COLORS.product;
+    return SCHEDULE_BACKGROUND_COLORS.default;
   }
 
   function getScheduleCycleType(row) {
@@ -1267,9 +1286,9 @@
   }
 
   function renderScheduleLegend() {
-    document.documentElement.style.setProperty('--schedule-line-special', SCHEDULE_LINE_COLORS.special);
-    document.documentElement.style.setProperty('--schedule-line-product', SCHEDULE_LINE_COLORS.product);
-    document.documentElement.style.setProperty('--schedule-line-others', SCHEDULE_LINE_COLORS.others);
+    document.documentElement.style.setProperty('--schedule-line-biweekly-a', SCHEDULE_LINE_COLORS.biweeklyA);
+    document.documentElement.style.setProperty('--schedule-line-biweekly-b', SCHEDULE_LINE_COLORS.biweeklyB);
+    document.documentElement.style.setProperty('--schedule-line-special-cycle', SCHEDULE_LINE_COLORS.specialCycle);
 
     const container = document.getElementById('scheduleLegend');
     if (!container) return;
@@ -1281,15 +1300,18 @@
 
   function getSubCategoryClass(row) {
     const category = String(row && (row.mail_type != null ? row.mail_type : row.category) || '').trim();
-    if (category === 'MA') return '';
-
+    const scheduleCycleType = getScheduleCycleType(row);
     const className = String(row && row.sub_category_class != null ? row.sub_category_class : '').trim();
-    if (['is-special', 'is-product', 'is-others'].includes(className)) return className;
+    if ([
+      'is-biweekly-a',
+      'is-biweekly-b',
+      'is-special-cycle'
+    ].includes(className)) return className;
 
     const text = String(row && row.sub_category != null ? row.sub_category : '').trim();
-    if (text.includes('特殊')) return 'is-special';
-    if (text.includes('商品')) return 'is-product';
-    if (text.includes('その他') || text.includes('他部署')) return 'is-others';
+    if (scheduleCycleType === 'A') return 'is-biweekly-a';
+    if (scheduleCycleType === 'B') return 'is-biweekly-b';
+    if (typeof scheduleCycleType === 'number') return 'is-special-cycle';
     return '';
   }
 
@@ -1309,21 +1331,19 @@
     if (countText === '') return null;
 
     const count = Number(countText);
-    const hasUrl = !!String(row && row.job_url != null ? row.job_url : '').trim();
-
-    if (!hasUrl) return null;
     if (!Number.isFinite(count)) return null;
-    if (count === 0) {
+    if (count <= 10 || count >= 700) {
       return {
         level: 'critical',
         icon: '[!]',
         count,
-        message: '求人数が0件です'
+        message: count <= 10
+          ? '求人数が10件以下です。配信停止を検討してください'
+          : '求人数が700件以上です。配信停止を検討してください'
       };
     }
     return null;
   }
-
   function renderJobAlertIcon(alert) {
     if (!alert) return '';
     return `<span class="job-alert-icon job-alert-${alert.level}" title="${escapeAttribute(getJobAlertTooltip(alert))}">${escapeHtml(alert.icon)}</span>`;
@@ -1335,20 +1355,6 @@
     return `件数：${countText} / ${alert.message}`;
   }
 
-  function renderJobAlertGuidance(row) {
-    const alert = getJobCountAlert(row);
-    const panel = document.getElementById('job-alert-guidance');
-    if (!panel) return;
-    if (!alert) {
-      panel.style.display = 'none';
-      panel.textContent = '';
-      panel.className = 'job-alert-guidance';
-      return;
-    }
-    panel.className = `job-alert-guidance job-alert-guidance-${alert.level}`;
-    panel.textContent = getJobAlertTooltip(alert);
-    panel.style.display = 'block';
-  }
 
   function getPrStates(row, targetDateString) {
     const records = getPrRecordsForSchedule(row);
@@ -1374,16 +1380,16 @@
     let action = '';
     if (endMs != null && targetMs > endMs && targetMs <= endMs + 7 * DAY_MS) {
       status = 'remove';
-      action = '削除';
+      action = '\u524a\u9664';
     } else if (startMs != null && targetMs >= startMs && targetMs < startMs + 7 * DAY_MS) {
       status = 'add';
-      action = '追加';
+      action = '\u958b\u59cb';
     } else if ((startMs == null || targetMs >= startMs) && (endMs == null || targetMs <= endMs)) {
       status = 'active';
-      action = '掲出中';
+      action = '\u63b2\u51fa\u4e2d';
     }
 
-    return status ? { pr_id: prId, status, label: `└PR[${prId}]${action}` } : null;
+    return status ? { pr_id: prId, status, label: `PR${prId} ${action}` } : null;
   }
 
   function collapsePrStates_(states) {
@@ -1565,8 +1571,6 @@
     if (stopButton && resumeButton) {
       stopButton.style.display = !fixed && !stopped ? '' : 'none';
       resumeButton.style.display = !fixed && stopped ? '' : 'none';
-      const jobAlert = getJobCountAlert(CURRENT_ENTRY);
-      stopButton.classList.toggle('is-critical', !!jobAlert && jobAlert.level === 'critical');
     }
 
     const statusPill = document.getElementById('delivery-status-pill');
