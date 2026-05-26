@@ -376,7 +376,7 @@
 
   function isInactive(row) {
     const value = String(getValueByKeys(row || {}, ['is_inactive', '配信停止', '配信終了', '停止', '無効'])).trim().toLowerCase();
-    return ['true', 'yes', '1', '停止', '配信停止'].includes(value);
+    return ['true', 'yes', '1', '停止', '配信停止', '配信終了'].includes(value);
   }
 
   function isDraft(row) {

@@ -196,6 +196,14 @@ function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload)
   if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) optionalHeaders.push('is_verifying');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_inactive')) optionalHeaders.push('is_inactive');
   optionalHeaders.forEach(header => {
+    const headerMap = buildHeaderMap_(headers);
+    if (header === 'is_inactive') {
+      if (firstExistingHeaderIndex_(headerMap, getInactiveAliasesForMasterSheet_(sheetName)) != null) return;
+      const headerName = getInactiveHeaderNameForMasterSheet_(sheetName);
+      headers.push(headerName);
+      sheet.getRange(1, headers.length).setValue(headerName);
+      return;
+    }
     if (headers.indexOf(header) >= 0) return;
     headers.push(header);
     sheet.getRange(1, headers.length).setValue(header);
@@ -285,7 +293,7 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
       sheet.getRange(1, endDateIndex + 1).setValue('end_date');
     }
     sheet.getRange(targetRow, endDateIndex + 1).setValue(formatDate_(new Date()));
-    const inactiveIndex = getOrCreateInactiveColumn_(sheet, SCHEDULE_FIELD_ALIASES.is_inactive);
+    const inactiveIndex = getOrCreateInactiveColumn_(sheet, SCHEDULE_FIELD_ALIASES.is_inactive, '\u914d\u4fe1\u7d42\u4e86');
     sheet.getRange(targetRow, inactiveIndex + 1).setValue(true);
   } else {
     // app_pr 等: 従来通り is_inactive フラグ
@@ -369,7 +377,7 @@ function deletePrTargetRowsByPrId_(ss, prId) {
 }
 
 function stopMasterRow_(sheet, sheetName, rowNumber) {
-  const inactiveIndex = getOrCreateInactiveColumn_(sheet, getInactiveAliasesForMasterSheet_(sheetName));
+  const inactiveIndex = getOrCreateInactiveColumn_(sheet, getInactiveAliasesForMasterSheet_(sheetName), getInactiveHeaderNameForMasterSheet_(sheetName));
   sheet.getRange(rowNumber, inactiveIndex + 1).setValue(true);
 }
 
@@ -382,15 +390,25 @@ function resumeMasterRow_(sheet, sheetName, rowNumber) {
   sheet.getRange(rowNumber, inactiveIndex + 1).clearContent();
 }
 
-function getOrCreateInactiveColumn_(sheet, aliases) {
+function getOrCreateInactiveColumn_(sheet, aliases, headerName) {
   const lastColumn = Math.max(sheet.getLastColumn(), 1);
   const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(h => String(h || '').trim());
   const inactiveIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), aliases);
   if (inactiveIndex != null) return inactiveIndex;
 
   const nextColumn = lastColumn + 1;
-  sheet.getRange(1, nextColumn).setValue('配信停止');
+  sheet.getRange(1, nextColumn).setValue(headerName || 'is_inactive');
   return nextColumn - 1;
+}
+
+function getInactiveHeaderNameForMasterSheet_(sheetName) {
+  switch (String(sheetName || '').trim()) {
+    case SCHEDULE_SHEET_NAME:
+    case 'app_pr':
+      return '\u914d\u4fe1\u7d42\u4e86';
+    default:
+      return 'is_inactive';
+  }
 }
 
 function getInactiveAliasesForMasterSheet_(sheetName) {
