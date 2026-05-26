@@ -140,6 +140,9 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     }
   });
   applySingleDeliveryPayloadRule_(normalizedPayload);
+  if (safeSheetName === SCHEDULE_SHEET_NAME) {
+    normalizeScheduleEndStatePayload_(normalizedPayload);
+  }
 
   const ss = getSourceSpreadsheet_();
   const sheet = ss.getSheetByName(safeSheetName);
@@ -205,6 +208,14 @@ function applySingleDeliveryPayloadRule_(payload) {
   if (cycle !== '単発') return;
   const startDate = normalizeCommentTargetDate_(payload.start_date);
   if (startDate) payload.end_date = startDate;
+}
+
+function normalizeScheduleEndStatePayload_(payload) {
+  if (!payload || typeof payload !== 'object') return;
+  if (!SCHEDULE_FIELD_ALIASES.end_date.some(key => Object.prototype.hasOwnProperty.call(payload, key))) return;
+  const endDate = parseScheduleDate_(getObjectFieldByAliases_(payload, SCHEDULE_FIELD_ALIASES.end_date));
+  const today = parseScheduleDate_(formatDate_(new Date()));
+  payload.is_inactive = endDate && today && endDate <= today ? 'TRUE' : 'FALSE';
 }
 
 function deleteMasterData(sheetName, rowNumber) {
@@ -274,6 +285,8 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
       sheet.getRange(1, endDateIndex + 1).setValue('end_date');
     }
     sheet.getRange(targetRow, endDateIndex + 1).setValue(formatDate_(new Date()));
+    const inactiveIndex = getOrCreateInactiveColumn_(sheet, SCHEDULE_FIELD_ALIASES.is_inactive);
+    sheet.getRange(targetRow, inactiveIndex + 1).setValue(true);
   } else {
     // app_pr 等: 従来通り is_inactive フラグ
     stopMasterRow_(sheet, safeSheetName, targetRow);
@@ -325,6 +338,8 @@ function resumeMasterDataUnlocked_(sheetName, rowNumber) {
     const headerMap = buildHeaderMap_(headers);
     const endDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.end_date);
     if (endDateIndex != null) sheet.getRange(targetRow, endDateIndex + 1).clearContent();
+    const inactiveIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.is_inactive);
+    if (inactiveIndex != null) sheet.getRange(targetRow, inactiveIndex + 1).clearContent();
     const startDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.start_date);
     if (startDateIndex != null) sheet.getRange(targetRow, startDateIndex + 1).setValue(formatDate_(new Date()));
   } else {
