@@ -28,7 +28,7 @@ function getInitialData(options) {
     holidays: getSheetObjectsCached_('app_holidays', true),
     japaneseHolidays: getJapaneseHolidays_(),
     readme: getSheetObjectsCached_('app_readme', true),
-    adminMaster: getSheetObjectsCached_('app_admin_master', true),
+    adminMaster: getAdminList(),
     inputControls: getInputControlRows_()
   }, getOperationalDataForRange_(dateRange));
 }
@@ -66,12 +66,12 @@ function getAdminList() {
       return true;
     })
     .map(row => {
-      const name = normalizeCell_(row.name || row['氏名'] || row['名前'] || row.initial || row['略称']);
+      const name = normalizeCell_(row.name || row['氏名'] || row['名前'] || row.initial || row['略称'] || row.abbreviation || row['Abbreviation']);
       if (!name) return null;
       return {
         name,
         full_name: normalizeCell_(row.full_name || row.fullName || row['氏名'] || row['名前'] || name),
-        initial: normalizeCell_(row.initial || row['略称'] || name)
+        initial: normalizeCell_(row.abbreviation || row['Abbreviation'] || row.initial || row['略称'] || name)
       };
     })
     .filter(Boolean)
