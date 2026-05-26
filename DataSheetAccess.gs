@@ -37,12 +37,13 @@ function getInputControlRows_() {
       section = row[0];
       continue;
     }
-    if (row[0] !== '画面' || row[1] !== 'モーダル') continue;
+    const matchesSeg_ = (val, target) => val === target || (val.includes('/') && val.split('/').map(s => s.trim()).includes(target));
+    if (!matchesSeg_(row[0], '画面') || !matchesSeg_(row[1], 'モーダル')) continue;
     const headers = row;
     for (let dataIndex = rowIndex + 1; dataIndex < values.length; dataIndex++) {
       const dataRow = values[dataIndex].map(value => String(value || '').trim());
       if (!dataRow.some(Boolean)) break;
-      if (dataRow[0] === '画面' && dataRow[1] === 'モーダル') break;
+      if (matchesSeg_(dataRow[0], '画面') && matchesSeg_(dataRow[1], 'モーダル')) break;
       const obj = {};
       obj.__section = section;
       headers.forEach((header, columnIndex) => {
@@ -161,7 +162,7 @@ function isDateInOperationalRange_(value, dateRange) {
 }
 
 function ensureHeader_(sheet, headers, headerName) {
-  const index = headers.indexOf(headerName);
+  const index = findHeaderIndex_(headers, headerName);
   if (index >= 0) return index;
 
   const newIndex = headers.length;
@@ -171,7 +172,7 @@ function ensureHeader_(sheet, headers, headerName) {
 }
 
 function ensureHeaderAtMinColumn_(sheet, headers, headerName, preferredIndex) {
-  const index = headers.indexOf(headerName);
+  const index = findHeaderIndex_(headers, headerName);
   if (index >= 0) return index;
 
   const preferredHeader = normalizeCell_(headers[preferredIndex]);

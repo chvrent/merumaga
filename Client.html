@@ -801,7 +801,11 @@
 
   function findMasterHeaderByAliases_(aliases) {
     const headers = MASTER_DATA.headers || [];
-    return headers.find(header => aliases.includes(String(header || '').trim())) || '';
+    return headers.find(header => {
+      const h = String(header || '').trim();
+      if (aliases.includes(h)) return true;
+      return h.includes('/') && h.split('/').some(seg => aliases.includes(seg.trim()));
+    }) || '';
   }
 
   function getMasterFilterLabel_(header, fallback) {
@@ -860,7 +864,7 @@
     const formatHeader = findMasterHeaderByAliases_(['format', '形式']);
     const mailTypeHeader = findMasterHeaderByAliases_(['mail_type', 'category', '種別']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
-    const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
+    const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
 
     const newOnlyChip = isNewHeader ? `
       <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" onclick="setMasterNewOnly(!MASTER_NEW_ONLY)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
@@ -918,7 +922,7 @@
     const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日', '終了']);
     const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止', '停止', '無効']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
-    const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
+    const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
     const today = formatDate(new Date());
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
@@ -1161,10 +1165,13 @@
     if (key === 'cycle') {
       return { kind: 'input', html: renderCycleButtonInput_(textValue) };
     }
-    if (['is_new', 'new_flag', 'is_verifying', 'verifying_flag', 'is_draft', 'is_fixed', 'is_inactive'].includes(key)) {
-      const name = key === 'is_verifying' || key === 'verifying_flag'
+    if (['is_new', 'new_flag', '新規/is_new', 'is_verifying', 'verifying_flag', '検証中/is_verifying', 'is_draft', '下書き/is_draft', 'is_fixed', '確定済/is_fixed', 'is_inactive', '配信終了/is_inactive'].includes(key)) {
+      const name = (key === 'is_verifying' || key === 'verifying_flag' || key === '検証中/is_verifying')
         ? 'is_verifying'
-        : (key === 'is_draft' ? 'is_draft' : (key === 'is_fixed' ? 'is_fixed' : (key === 'is_inactive' ? 'is_inactive' : 'is_new')));
+        : (key === 'is_draft' || key === '下書き/is_draft') ? 'is_draft'
+        : (key === 'is_fixed' || key === '確定済/is_fixed') ? 'is_fixed'
+        : (key === 'is_inactive' || key === '配信終了/is_inactive') ? 'is_inactive'
+        : 'is_new';
       return { kind: 'input', html: `<input type="checkbox" name="${escapeAttribute(name)}" aria-label="${escapeAttribute(getDisplayName(name))}" ${isTruthyValue(textValue) ? 'checked' : ''}>` };
     }
     if (key === 'current_job_count') {
@@ -1251,7 +1258,7 @@
     const text = [category, cycle, format, subCategory].join(' ');
     const scheduleCycleType = getScheduleCycleType(row);
 
-    if (scheduleCycleType === 'single' || category.includes('検証') || isTruthyValue(getValueByKeys(row || {}, ['is_verifying', 'verifying_flag', '検証中']))) return SCHEDULE_BACKGROUND_COLORS.checkingSingle;
+    if (scheduleCycleType === 'single' || category.includes('検証') || isTruthyValue(getValueByKeys(row || {}, ['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']))) return SCHEDULE_BACKGROUND_COLORS.checkingSingle;
     if (scheduleCycleType === 'month_end') return SCHEDULE_BACKGROUND_COLORS.monthEnd;
     if (text.includes('商品')) return SCHEDULE_BACKGROUND_COLORS.product;
     return SCHEDULE_BACKGROUND_COLORS.default;

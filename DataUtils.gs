@@ -106,9 +106,28 @@ function buildHeaderMap_(headers) {
   return new Map(headers.map((header, index) => [String(header).trim(), index]));
 }
 
+function findHeaderIndex_(headers, alias) {
+  const exact = headers.indexOf(alias);
+  if (exact >= 0) return exact;
+  return headers.findIndex(h => String(h).includes('/') && String(h).split('/').map(s => s.trim()).includes(alias));
+}
+
+function headerExists_(headers, alias) {
+  return findHeaderIndex_(headers, alias) >= 0;
+}
+
+function resolveHeaderIndex_(headerMap, alias) {
+  const exact = headerMap.get(alias);
+  if (exact != null) return exact;
+  for (const [header, index] of headerMap) {
+    if (header.includes('/') && header.split('/').map(s => s.trim()).includes(alias)) return index;
+  }
+  return null;
+}
+
 function firstExistingHeaderIndex_(headerMap, aliases) {
   for (const alias of toAliasList_(aliases)) {
-    const index = headerMap.get(alias);
+    const index = resolveHeaderIndex_(headerMap, alias);
     if (index != null) return index;
   }
   return null;
@@ -116,7 +135,10 @@ function firstExistingHeaderIndex_(headerMap, aliases) {
 
 function getFieldByAliases_(headers, row, aliases) {
   for (const alias of toAliasList_(aliases)) {
-    const index = headers.indexOf(alias);
+    let index = headers.indexOf(alias);
+    if (index < 0) {
+      index = headers.findIndex(h => String(h).includes('/') && String(h).split('/').map(s => s.trim()).includes(alias));
+    }
     if (index >= 0) {
       const value = normalizeCell_(row[index]);
       if (value !== '') return value;
@@ -127,7 +149,10 @@ function getFieldByAliases_(headers, row, aliases) {
 
 function getPersonFieldByAliases_(headers, row, aliases) {
   for (const alias of toAliasList_(aliases)) {
-    const index = headers.indexOf(alias);
+    let index = headers.indexOf(alias);
+    if (index < 0) {
+      index = headers.findIndex(h => String(h).includes('/') && String(h).split('/').map(s => s.trim()).includes(alias));
+    }
     if (index < 0) continue;
     const value = normalizeCell_(row[index]);
     if (value !== '' && !isBooleanText_(value)) return value;
@@ -160,13 +185,7 @@ function getMasterFieldAliases_(sheetName) {
 }
 
 function getCanonicalKeyForHeader_(sheetName, header) {
-  const aliasesByKey = getMasterFieldAliases_(sheetName);
-  const safeHeader = String(header || '').trim();
-  if (!aliasesByKey || !safeHeader) return '';
-  for (const key in aliasesByKey) {
-    if (toAliasList_(aliasesByKey[key]).indexOf(safeHeader) !== -1) return key;
-  }
-  return '';
+  return getCanonicalKeyFromAliases_(getMasterFieldAliases_(sheetName), header);
 }
 
 function getCanonicalKeyFromAliases_(aliasesByKey, header) {
@@ -174,6 +193,12 @@ function getCanonicalKeyFromAliases_(aliasesByKey, header) {
   if (!aliasesByKey || !safeHeader) return '';
   for (const key in aliasesByKey) {
     if (toAliasList_(aliasesByKey[key]).indexOf(safeHeader) !== -1) return key;
+  }
+  if (safeHeader.includes('/')) {
+    const segments = safeHeader.split('/').map(s => s.trim());
+    for (const key in aliasesByKey) {
+      if (segments.some(seg => toAliasList_(aliasesByKey[key]).indexOf(seg) !== -1)) return key;
+    }
   }
   return '';
 }

@@ -180,7 +180,8 @@ function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload)
   if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) optionalHeaders.push('is_draft');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) optionalHeaders.push('is_verifying');
   optionalHeaders.forEach(header => {
-    if (headers.indexOf(header) >= 0) return;
+    const exists = headers.some(h => h === header || (h.includes('/') && h.split('/').map(s => s.trim()).includes(header)));
+    if (exists) return;
     headers.push(header);
     sheet.getRange(1, headers.length).setValue(header);
   });

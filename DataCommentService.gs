@@ -75,11 +75,11 @@ function getCommentsByScheduleId(scheduleId, targetDate) {
   if (values.length < 2) return [];
 
   const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = headers.indexOf('schedule_id');
-  const dateIndex = headers.indexOf('target_date');
-  const timestampIndex = headers.indexOf('timestamp');
-  const userIndex = headers.indexOf('user');
-  const textIndex = headers.indexOf('comment_text');
+  const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
+  const dateIndex = findHeaderIndex_(headers, 'target_date');
+  const timestampIndex = findHeaderIndex_(headers, 'timestamp');
+  const userIndex = findHeaderIndex_(headers, 'user');
+  const textIndex = findHeaderIndex_(headers, 'comment_text');
   if (scheduleIndex < 0 || dateIndex < 0) return [];
 
   const results = [];
@@ -127,8 +127,8 @@ function getCommentCounts_(dateRange) {
   if (values.length < 2) return counts;
 
   const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = headers.indexOf('schedule_id');
-  const dateIndex = headers.indexOf('target_date');
+  const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
+  const dateIndex = findHeaderIndex_(headers, 'target_date');
   if (scheduleIndex < 0 || dateIndex < 0) return counts;
 
   values.slice(1).forEach(row => {
@@ -169,7 +169,7 @@ function getCommentHeaders_(sheet) {
   }
 
   requiredHeaders.forEach(header => {
-    if (headers.indexOf(header) !== -1) return;
+    if (headerExists_(headers, header)) return;
     headers.push(header);
     sheet.getRange(1, headers.length).setValue(header);
   });

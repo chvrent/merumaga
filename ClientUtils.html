@@ -4,6 +4,13 @@
     for (const key of keyList) {
       if (obj && obj[key] != null && String(obj[key]).trim() !== '') return obj[key];
     }
+    if (obj) {
+      const objKeys = Object.keys(obj);
+      for (const key of keyList) {
+        const match = objKeys.find(k => k.includes('/') && k.split('/').map(s => s.trim()).includes(key));
+        if (match && obj[match] != null && String(obj[match]).trim() !== '') return obj[match];
+      }
+    }
     return '';
   }
 
@@ -24,6 +31,10 @@
 
   function getDisplayName(key) {
     const text = String(key == null ? '' : key).trim();
+    if (text.includes('/')) {
+      const jpPart = text.split('/')[0].trim();
+      if (jpPart) return jpPart;
+    }
     return DISPLAY_NAMES[text] || DISPLAY_NAMES[text.toLowerCase()] || text;
   }
 

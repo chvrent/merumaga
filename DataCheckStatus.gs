@@ -216,8 +216,8 @@ function saveCheckStatusUnlocked_(itemId, field, active, payload) {
   const sheet = getCheckStatusSheet_();
   const headers = getCheckStatusHeaders_(sheet);
   const values = sheet.getDataRange().getValues();
-  const itemIdIndex = headers.indexOf('item_id');
-  const fieldIndex = headers.indexOf('field');
+  const itemIdIndex = findHeaderIndex_(headers, 'item_id');
+  const fieldIndex = findHeaderIndex_(headers, 'field');
   const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
   const activeValue = active === true || String(active).toLowerCase() === 'true';
   if (!activeValue && (safeField === 'move_override' || safeField === 'occurrence_override')) {
@@ -429,8 +429,8 @@ function autoConfirmOccurrences_(pairs) {
   const sheet = getCheckStatusSheet_();
   const headers = getCheckStatusHeaders_(sheet);
   const values = sheet.getDataRange().getValues();
-  const itemIdIndex = headers.indexOf('item_id');
-  const fieldIndex = headers.indexOf('field');
+  const itemIdIndex = findHeaderIndex_(headers, 'item_id');
+  const fieldIndex = findHeaderIndex_(headers, 'field');
 
   // 既存行をキーで引けるマップ
   const existingMap = {};
@@ -485,8 +485,8 @@ function clearOccurrenceCheckStatus_(scheduleId, targetDate) {
   if (values.length < 2) return;
 
   const headers = values[0].map(h => String(h || '').trim());
-  const itemIdIndex = headers.indexOf('item_id');
-  const fieldIndex = headers.indexOf('field');
+  const itemIdIndex = findHeaderIndex_(headers, 'item_id');
+  const fieldIndex = findHeaderIndex_(headers, 'field');
   if (itemIdIndex < 0 || fieldIndex < 0) return;
 
   for (let i = values.length - 1; i >= 1; i--) {
