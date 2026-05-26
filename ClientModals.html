@@ -1515,8 +1515,7 @@
   }
 
   function chooseScheduleEditScope_(overrideFields) {
-    if (!overrideFields || !overrideFields.length) return Promise.resolve('single');
-    return openScheduleEditScopeModal_();
+    return Promise.resolve('single');
   }
 
   function ensureScheduleEditScopeModal_() {
@@ -1537,7 +1536,6 @@
           <p>この変更をどの範囲に反映しますか？</p>
           <div class="scope-choice-actions">
             <button type="button" class="primary-button" data-scope-choice="single">この日だけ変更</button>
-            <button type="button" class="secondary-button" data-scope-choice="future">この日以降を変更</button>
             <button type="button" class="secondary-button" data-scope-choice="">キャンセル</button>
           </div>
         </div>

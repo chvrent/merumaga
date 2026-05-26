@@ -192,7 +192,7 @@
 
   function getWeekRangeForLoad_() {
     const startInput = document.getElementById('startInput');
-    const start = startInput && startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(new Date());
+    const start = startInput && startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(getEffectiveToday());
     const rangeStart = formatDate(start);
     const rangeEndDate = new Date(start);
     rangeEndDate.setDate(start.getDate() + 6);
@@ -432,7 +432,7 @@
     const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
     const startInput = document.getElementById('startInput');
     const searchInput = document.getElementById('searchInput');
-    const start = startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(new Date());
+    const start = startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(getEffectiveToday());
     const keyword = String(searchInput.value || '').trim().toLowerCase();
     const dates = buildDates(start, 7);
     const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
@@ -645,7 +645,7 @@
             const checkerChanged = isOccurrenceFieldOverridden(entryForDate, ['reviewer']);
             const subCategoryClass = getSubCategoryClass(effectiveEntry);
             const itemBg = getBgColor(effectiveEntry);
-            const fixed = isFixed(entry, dateStr);
+            const fixed = isFixed(entry, dateStr) || isCheckStatusActive(checkItemId, 'setter') || isCheckStatusActive(checkItemId, 'checker');
             const stopped = !fixed && isStopped(entryForDate);
             const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
             const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
@@ -1420,9 +1420,10 @@
       const targetIds = String(getValueByKeys(prRow, ['target_ids', '紐付けID']) || '').split(',').map(s => s.trim());
       if (scheduleId && targetIds.includes(scheduleId)) return true;
 
-      // 互換性: メルマガ名での検索
+      // 互換性: メルマガ名での検索（メルマガ名系フィールドのみ対象）
       if (mailName) {
-        return Object.keys(prRow).some(key => normalizeText(prRow[key]) === mailName);
+        const nlKeys = ['mail_name', 'メルマガ名', 'target_mail_name', '対象メルマガ'];
+        return nlKeys.some(k => prRow[k] && normalizeText(String(prRow[k])) === mailName);
       }
       return false;
     });

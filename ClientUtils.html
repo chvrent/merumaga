@@ -156,9 +156,15 @@
     return set;
   }
 
+  function getEffectiveToday() {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d;
+  }
+
   function jumpToCurrentWeek() {
     const startInput = document.getElementById('startInput');
-    startInput.value = formatDateForInput(getTuesdayWeekStart(new Date()));
+    startInput.value = formatDateForInput(getTuesdayWeekStart(getEffectiveToday()));
     loadData();
   }
 
@@ -167,7 +173,7 @@
     const offset = Number(offsetWeeks);
     const current = startInput && startInput.value
       ? parseScheduleDate_(startInput.value)
-      : getTuesdayWeekStart(new Date());
+      : getTuesdayWeekStart(getEffectiveToday());
     const base = getTuesdayWeekStart(current);
     base.setDate(base.getDate() + (Number.isFinite(offset) ? offset : 0) * 7);
     startInput.value = formatDateForInput(base);
