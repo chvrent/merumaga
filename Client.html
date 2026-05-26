@@ -848,21 +848,12 @@
       return;
     }
     if (isPrMasterSheet) {
-      // PR管理一覧: 状態フィルターのみ表示
-      container.style.display = 'flex';
+      container.style.display = 'none';
       MASTER_SUBCATEGORY_FILTER = '__all__';
       MASTER_FORMAT_FILTER = '__all__';
       MASTER_CATEGORY_FILTER = '__all__';
       MASTER_NEW_ONLY = false;
       MASTER_VERIFYING_ONLY = false;
-      const statusSelect = `
-        <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
-          <option value="__all__" ${MASTER_STATUS_FILTER === '__all__' ? 'selected' : ''}>状態: すべて</option>
-          <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
-          <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
-        </select>
-      `;
-      container.innerHTML = statusSelect;
       return;
     }
 
@@ -873,12 +864,6 @@
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中']);
 
-    const statusSelect = `
-      <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
-        <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
-        <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
-      </select>
-    `;
     const newOnlyChip = isNewHeader ? `
       <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" onclick="setMasterNewOnly(!MASTER_NEW_ONLY)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
     ` : '';
@@ -907,7 +892,7 @@
       'setMasterCategoryFilter'
     );
 
-    container.innerHTML = [statusSelect, newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterVerifyingOnly(checked) {
@@ -950,15 +935,6 @@
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
         if (String(row[mailTypeHeader] || '').trim() !== MASTER_CATEGORY_FILTER) return false;
-      }
-      const isScheduleOrPr = MASTER_DATA.sheetName === 'app_schedule' || MASTER_DATA.sheetName === 'app_pr';
-      if (isScheduleOrPr) {
-        const endDate = normalizeDateString(row[endDateHeader]);
-        const isInactiveRow = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : false;
-        const isEnded = (!!endDate && endDate < today) || (isInactiveRow && !row['stop_date'] && !row['停止日']);
-        const isMasterStoppedRow = MASTER_DATA.sheetName === 'app_schedule' && isCurrentlyMasterStopped(row);
-        if (MASTER_STATUS_FILTER === 'active' && (isEnded || isMasterStoppedRow)) return false;
-        if (MASTER_STATUS_FILTER === 'ended' && !isEnded && !isMasterStoppedRow) return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && isNewHeader) {
         if (!isTruthyValue(row[isNewHeader])) return false;
