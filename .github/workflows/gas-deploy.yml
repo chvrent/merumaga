@@ -53,19 +53,19 @@ jobs:
         uses: slackapi/slack-github-action@v1.26.0
         if: always() && steps.slack_webhook.outputs.enabled == 'true'
         env:
-                SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-                COMMIT_MSG: ${{ github.event.head_commit.message }}
-              with:
-                payload: |
-                  {
-                    "text": "${{ job.status == 'success' && '✅ デプロイ成功!' || '❌ デプロイ失敗...' }}",
-                    "blocks": [
-                      {
-                        "type": "section",
-                        "text": {
-                          "type": "mrkdwn",
-                          "text": "*${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}*\nリポジトリ: ${{ github.repository }}\nコミット: ${{ env.COMMIT_MSG }}"
-                        }
-                      }
-                    ]
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        with:
+          payload: |
+            {
+              "text": "${{ job.status == 'success' && '✅ デプロイ成功!' || '❌ デプロイ失敗...' }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}*\nリポジトリ: ${{ github.repository }}\nコミット: ${{ env.COMMIT_MSG }}"
                   }
+                }
+              ]
+            }
