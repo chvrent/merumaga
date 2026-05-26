@@ -973,7 +973,7 @@
       const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
         ? ''
         : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">停止</button>`;
-      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowInactive
+      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowEnded
         ? `<button type="button" class="table-action-button resume" data-action="resume-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">再開</button>`
         : '';
       const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}">削除</button>`;

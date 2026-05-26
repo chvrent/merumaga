@@ -112,8 +112,11 @@
     const hasExistingRow = !!(row && row.__rowNumber);
     const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
     const inactive = row ? isInactive(row) : false;
-    if (stopButton) stopButton.style.display = hasExistingRow && !isPrMaster && !inactive ? '' : 'none';
-    if (resumeButton) resumeButton.style.display = hasExistingRow && !isPrMaster && inactive ? '' : 'none';
+    const endDate = row ? normalizeDateString(getValueByKeys(row, ['end_date', '終了日', '終了'])) : '';
+    const today = formatDate(new Date());
+    const ended = inactive || (!!endDate && endDate <= today);
+    if (stopButton) stopButton.style.display = hasExistingRow && !isPrMaster && !ended ? '' : 'none';
+    if (resumeButton) resumeButton.style.display = hasExistingRow && !isPrMaster && ended ? '' : 'none';
     if (deleteButton) deleteButton.style.display = hasExistingRow ? '' : 'none';
     if (draftButton) draftButton.style.display = hasExistingRow ? 'none' : '';
   }
@@ -827,7 +830,7 @@
   }
 
   function stopMasterRow(rowNumber) {
-    const message = 'この行を停止扱いにします。シートの行は残りますが、通常の一覧や利用対象からは外れます。よろしいですか？';
+    const message = '終了日を今日の日付に設定します。明日以降のカレンダーから消えます。過去の配信実績はそのまま残ります。よろしいですか？';
     if (!rowNumber || !confirm(message)) return;
 
     showBusy('停止を保存中...');
@@ -846,6 +849,7 @@
 
   function resumeMasterRow(rowNumber) {
     if (!rowNumber) return;
+    if (!confirm('終了日をクリアし、開始日を今日に設定して配信を再開します。よろしいですか？')) return;
 
     showBusy('再開を保存中...');
     google.script.run

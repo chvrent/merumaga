@@ -250,27 +250,39 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
   if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
   if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
 
-  stopMasterRow_(sheet, safeSheetName, targetRow);
-
-  if (safeSheetName === 'app_pr') {
+  if (safeSheetName === SCHEDULE_SHEET_NAME) {
+    // app_schedule: end_date = today で翌日以降をカレンダーから除外
     const lastCol = sheet.getLastColumn();
-    const prHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
-    const prIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(prHeaders), PR_FIELD_ALIASES.pr_id);
-    const prId = prIdIndex == null ? '' : normalizeCell_(sheet.getRange(targetRow, prIdIndex + 1).getDisplayValue());
-
-    if (prId) {
-      const targetsSheet = ss.getSheetByName('app_pr_targets');
-      if (targetsSheet) {
-        const targetInactiveIndex = getOrCreateInactiveColumn_(targetsSheet, PR_TARGET_FIELD_ALIASES.is_inactive);
-        const targetValues = targetsSheet.getDataRange().getDisplayValues();
-        if (targetValues.length >= 2) {
-          const targetHeaders = targetValues[0].map(h => String(h || '').trim());
-          const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_TARGET_FIELD_ALIASES.pr_id);
-          if (targetPrIdIndex != null) {
-            for (let r = 2; r <= targetValues.length; r++) {
-              const rowPrId = normalizeCell_(targetValues[r - 1][targetPrIdIndex]);
-              if (rowPrId && normalizeIdKey_(rowPrId) === normalizeIdKey_(prId)) {
-                targetsSheet.getRange(r, targetInactiveIndex + 1).setValue(true);
+    const headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
+    const headerMap = buildHeaderMap_(headers);
+    let endDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.end_date);
+    if (endDateIndex == null) {
+      endDateIndex = lastCol;
+      sheet.getRange(1, endDateIndex + 1).setValue('end_date');
+    }
+    sheet.getRange(targetRow, endDateIndex + 1).setValue(formatDate_(new Date()));
+  } else {
+    // app_pr 等: 従来通り is_inactive フラグ
+    stopMasterRow_(sheet, safeSheetName, targetRow);
+    if (safeSheetName === 'app_pr') {
+      const lastCol = sheet.getLastColumn();
+      const prHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
+      const prIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(prHeaders), PR_FIELD_ALIASES.pr_id);
+      const prId = prIdIndex == null ? '' : normalizeCell_(sheet.getRange(targetRow, prIdIndex + 1).getDisplayValue());
+      if (prId) {
+        const targetsSheet = ss.getSheetByName('app_pr_targets');
+        if (targetsSheet) {
+          const targetInactiveIndex = getOrCreateInactiveColumn_(targetsSheet, PR_TARGET_FIELD_ALIASES.is_inactive);
+          const targetValues = targetsSheet.getDataRange().getDisplayValues();
+          if (targetValues.length >= 2) {
+            const targetHeaders = targetValues[0].map(h => String(h || '').trim());
+            const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_TARGET_FIELD_ALIASES.pr_id);
+            if (targetPrIdIndex != null) {
+              for (let r = 2; r <= targetValues.length; r++) {
+                const rowPrId = normalizeCell_(targetValues[r - 1][targetPrIdIndex]);
+                if (rowPrId && normalizeIdKey_(rowPrId) === normalizeIdKey_(prId)) {
+                  targetsSheet.getRange(r, targetInactiveIndex + 1).setValue(true);
+                }
               }
             }
           }
@@ -293,7 +305,19 @@ function resumeMasterDataUnlocked_(sheetName, rowNumber) {
   if (!sheet) throw new Error(`Sheet not found: ${safeSheetName}`);
   if (targetRow > sheet.getLastRow()) throw new Error('Row not found');
 
-  resumeMasterRow_(sheet, safeSheetName, targetRow);
+  if (safeSheetName === SCHEDULE_SHEET_NAME) {
+    // app_schedule: end_date をクリア、start_date = 再開日
+    const lastCol = sheet.getLastColumn();
+    const headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
+    const headerMap = buildHeaderMap_(headers);
+    const endDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.end_date);
+    if (endDateIndex != null) sheet.getRange(targetRow, endDateIndex + 1).clearContent();
+    const startDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.start_date);
+    if (startDateIndex != null) sheet.getRange(targetRow, startDateIndex + 1).setValue(formatDate_(new Date()));
+  } else {
+    resumeMasterRow_(sheet, safeSheetName, targetRow);
+  }
+
   invalidateInitialDataCaches_([safeSheetName]);
   return { success: true, action: 'resume', rowNumber: targetRow };
 }
