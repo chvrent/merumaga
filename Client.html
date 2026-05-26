@@ -801,11 +801,32 @@
 
   function findMasterHeaderByAliases_(aliases) {
     const headers = MASTER_DATA.headers || [];
-    return headers.find(header => {
+    const found = headers.find(header => {
       const h = String(header || '').trim();
       if (aliases.includes(h)) return true;
       return h.includes('/') && h.split('/').some(seg => aliases.includes(seg.trim()));
-    }) || '';
+    });
+    if (!found) return '';
+    const h = String(found).trim();
+    // 日本語/英語 形式の場合は正規（英語）セグメントを返す。
+    // getMasterData が正規キーで格納するため row[canonical] で直接アクセスできる。
+    if (h.includes('/')) {
+      const segs = h.split('/').map(s => s.trim());
+      const matched = segs.find(s => aliases.includes(s));
+      return matched || segs[segs.length - 1];
+    }
+    return h;
+  }
+
+  // テーブルセルを rawHeader（日本語/英語形式）または正規キーのどちらでも取得するヘルパー
+  function getCellByHeader_(row, header) {
+    const h = String(header || '');
+    if (row[h] != null) return String(row[h]);
+    if (h.includes('/')) {
+      const segs = h.split('/').map(s => s.trim());
+      for (const s of segs) { if (row[s] != null) return String(row[s]); }
+    }
+    return '';
   }
 
   function getMasterFilterLabel_(header, fallback) {
@@ -926,7 +947,7 @@
     const today = formatDate(new Date());
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
-      if (keyword && !headers.map(header => row[header] == null ? '' : String(row[header])).join(' ').toLowerCase().includes(keyword)) {
+      if (keyword && !Object.values(row).map(v => v == null ? '' : String(v)).join(' ').toLowerCase().includes(keyword)) {
         return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER !== '__all__' && subCategoryHeader) {
@@ -982,10 +1003,11 @@
     `;
 
       tableHeaders.forEach(h => {
-        let cellValue = row[h] == null ? '' : String(row[h]);
+        let cellValue = getCellByHeader_(row, h);
         // 配信終了列: end_date が今日より前なら自動で TRUE 表示
-        if (h === inactiveHeader && inactiveHeader) {
-          const rowEndDate = endDateHeader ? normalizeDateString(row[endDateHeader]) : '';
+        if (inactiveHeader && (h === inactiveHeader ||
+            (h.includes('/') && h.split('/').map(s => s.trim()).includes(inactiveHeader)))) {
+          const rowEndDate = endDateHeader ? normalizeDateString(getCellByHeader_(row, endDateHeader)) : '';
           if (!isTruthyValue(cellValue) && !!rowEndDate && rowEndDate < today) {
             cellValue = 'TRUE';
           }

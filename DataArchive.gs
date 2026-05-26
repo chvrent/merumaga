@@ -146,6 +146,14 @@ function getArchivedOccurrenceRows_(dateRange) {
     }
   });
 
+  // normalizeScheduleRow_ の新シグネチャ用にインデックスマップをループ外で1回だけ構築する
+  const scheduleHeaderMap = buildHeaderMap_(scheduleHeaders);
+  const archiveFieldIdx = {};
+  Object.keys(SCHEDULE_FIELD_ALIASES).forEach(key => {
+    const idx = firstExistingHeaderIndex_(scheduleHeaderMap, SCHEDULE_FIELD_ALIASES[key]);
+    archiveFieldIdx[key] = idx != null ? idx : -1;
+  });
+
   values.slice(1).forEach(row => {
     const sourceRow = normalizeCell_(row[sourceRowIndex]);
     const start = parseScheduleDate_(row[weekStartIndex]);
@@ -159,7 +167,7 @@ function getArchivedOccurrenceRows_(dateRange) {
       const dateStr = formatDate_(date);
       if (!isDateInOperationalRange_(dateStr, dateRange)) continue;
       if (!isSingleDayArchive && !isScheduleRowActiveOnDate_(scheduleHeaders, scheduleRow, date)) continue;
-      const record = normalizeScheduleRow_(SCHEDULE_SHEET_NAME, Number(sourceRow), scheduleHeaders, scheduleRow);
+      const record = normalizeScheduleRow_(SCHEDULE_SHEET_NAME, Number(sourceRow), scheduleRow, archiveFieldIdx);
       if (!record) continue;
       record.source_row = sourceRow;
       record.target_date = dateStr;

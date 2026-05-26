@@ -28,11 +28,14 @@ function getMasterData(sheetName) {
       const obj = { __rowNumber: String(index + 2) };
       headers.forEach((header, columnIndex) => {
         if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
-        obj[header || `column_${columnIndex + 1}`] = normalizeCell_(row[columnIndex]);
+        // 正規キーで格納することでJSONを軽量化。
+        // エイリアスにない列は生ヘッダー名にフォールバック。
+        const canonicalKey = getCanonicalKeyForHeader_(safeSheetName, header);
+        obj[canonicalKey || header || `column_${columnIndex + 1}`] = normalizeCell_(row[columnIndex]);
       });
-      // NOTE: addCanonicalMasterFields_ は呼ばない。
-      // クライアントはヘッダー名で直接 row[header] アクセスするため正規キーの重複追加は不要。
-      // 両方格納するとJSONサイズが2倍になりレスポンスが重くなる。
+      // 正規キーはすでに格納済みなので addCanonicalMasterFields_ は実質ノーオペレーションだが、
+      // getPRData 等のサーバー側利用 (getObjectFieldByAliases_) のために残す。
+      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
       return obj;
     })
     .filter(row => Object.keys(row).some(key => key !== '__rowNumber' && row[key] !== ''));
