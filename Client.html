@@ -971,13 +971,7 @@
       const rowInactive = inactiveHeader ? isTruthyValue(row[inactiveHeader]) : isInactive(row);
       const rowEnded = rowInactive || (!!rowEndDate && rowEndDate < today);
       const stoppedBadge = rowEnded && MASTER_DATA.sheetName === 'app_schedule'
-        ? '<span class="master-stopped-badge">停止中</span>'
-        : '';
-      const stopButton = MASTER_DATA.sheetName === 'app_pr' || rowEnded
-        ? ''
-        : `<button type="button" class="table-action-button danger" data-action="stop-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="終了日を今日に設定します。明日からカレンダーに表示されなくなります。">停止</button>`;
-      const resumeButton = MASTER_DATA.sheetName === 'app_schedule' && rowEnded
-        ? `<button type="button" class="table-action-button resume" data-action="resume-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="終了日をクリアし、開始日を今日に更新して配信を再開します。">再開</button>`
+        ? '<span class="master-stopped-badge">終了済</span>'
         : '';
       const deleteButton = `<button type="button" class="table-action-button danger" data-action="delete-master-row" data-row-number="${escapeAttribute(row.__rowNumber)}" title="シートからこの行を完全に削除します。取り消せません。">削除</button>`;
 
@@ -986,8 +980,6 @@
       <td class="actions-col">
         <button type="button" class="table-action-button" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
         ${stoppedBadge}
-        ${stopButton}
-        ${resumeButton}
         ${deleteButton}
       </td>
     `;
@@ -1678,14 +1670,7 @@
       return;
     }
 
-    if (action === 'stop-master-row') {
-      stopMasterRow(actionElement.dataset.rowNumber || '');
-      return;
-    }
-    if (action === 'resume-master-row') {
-      resumeMasterRow(actionElement.dataset.rowNumber || '');
-      return;
-    }
+
     if (action === 'delete-master-row') {
       deleteMasterRow(actionElement.dataset.rowNumber || '');
       return;
