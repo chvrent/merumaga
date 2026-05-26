@@ -57,8 +57,8 @@ function getPRData() {
     }
   });
 
-  prMaster.rows = prMaster.rows.filter(row => !isMasterObjectInactive_(row, PR_FIELD_ALIASES.is_inactive));
   prMaster.rows.forEach(row => {
+    markPrEndedByEndDate_(row);
     const prId = getPrLinkIdFromMasterRow_(row);
     const mailNames = Array.from(new Set((targetMap[prId] || []).filter(Boolean)));
     row.target_mails = mailNames.length > 0 ? mailNames.join(', ') : '(未設定)';
@@ -67,12 +67,24 @@ function getPRData() {
   if (!prMaster.headers.includes('target_mails')) {
     prMaster.headers.push('target_mails');
   }
+  if (!prMaster.headers.some(header => PR_FIELD_ALIASES.is_inactive.indexOf(String(header || '').trim()) !== -1)) {
+    prMaster.headers.push('is_inactive');
+  }
 
   return prMaster;
 }
 
 function getPrLinkIdFromMasterRow_(row) {
   return normalizeIdKey_(getObjectFieldByAliases_(row, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR', 'ID', 'id']));
+}
+
+function markPrEndedByEndDate_(row) {
+  const endDate = parseScheduleDate_(getObjectFieldByAliases_(row, PR_FIELD_ALIASES.end_date));
+  if (!endDate) return;
+  const today = parseScheduleDate_(formatDate_(new Date()));
+  if (!today || endDate >= today) return;
+  const inactiveKey = Object.keys(row).find(key => PR_FIELD_ALIASES.is_inactive.indexOf(key) !== -1) || 'is_inactive';
+  row[inactiveKey] = 'TRUE';
 }
 
 function getPrLinkIdFromTargetRow_(row) {
@@ -179,6 +191,7 @@ function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload)
   const optionalHeaders = [];
   if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) optionalHeaders.push('is_draft');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) optionalHeaders.push('is_verifying');
+  if (Object.prototype.hasOwnProperty.call(payload, 'is_inactive')) optionalHeaders.push('is_inactive');
   optionalHeaders.forEach(header => {
     if (headers.indexOf(header) >= 0) return;
     headers.push(header);

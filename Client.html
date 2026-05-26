@@ -748,6 +748,7 @@
         MASTER_DATA = data || { sheetName, headers: [], rows: [] };
         if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
         if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
+        if (MASTER_DATA.sheetName === 'app_pr') MASTER_STATUS_FILTER = '__all__';
         renderMasterFilterChips();
         renderMasterTable();
       } catch (error) {
@@ -788,7 +789,7 @@
   }
 
   function setMasterStatusFilter(value) {
-    MASTER_STATUS_FILTER = (value === 'ended') ? 'ended' : 'active';
+    MASTER_STATUS_FILTER = value === '__all__' ? '__all__' : ((value === 'ended') ? 'ended' : 'active');
     renderMasterTable();
   }
 
@@ -852,6 +853,7 @@
       MASTER_VERIFYING_ONLY = false;
       const statusSelect = `
         <select id="masterStatusSelect" class="filter-select" onchange="setMasterStatusFilter(this.value)">
+          <option value="__all__" ${MASTER_STATUS_FILTER === '__all__' ? 'selected' : ''}>状態: すべて</option>
           <option value="active" ${MASTER_STATUS_FILTER === 'active' ? 'selected' : ''}>状態: 配信中</option>
           <option value="ended" ${MASTER_STATUS_FILTER === 'ended' ? 'selected' : ''}>状態: 終了</option>
         </select>
