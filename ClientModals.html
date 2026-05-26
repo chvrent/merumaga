@@ -115,7 +115,8 @@
     const inactive = row ? isInactive(row) : false;
     const endDate = row ? normalizeDateString(getValueByKeys(row, ['end_date', '終了日', '終了'])) : '';
     const today = formatDate(new Date());
-    const ended = inactive || (!!endDate && endDate <= today);
+    // 停止当日は配信あり → 翌日以降が停止中。end_dateなしのis_inactive(旧データ)は即停止扱い
+    const ended = (!!endDate && endDate < today) || (inactive && !endDate);
 
     if (stopButton) {
       stopButton.style.display = hasExistingRow && !isPrMaster && !ended ? '' : 'none';

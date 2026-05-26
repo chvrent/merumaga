@@ -542,7 +542,8 @@
           const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
 
           if (isDraft(rowForDate)) return false;
-          if (isInactive(rowForDate)) return false;
+          // end_dateがある場合はisWithinScheduleRangeに委ねる（停止当日は配信あり）
+          if (isInactive(rowForDate) && !endDate) return false;
           if (!isWithinScheduleRange) return false;
 
           // この日付/時間における「有効」な状態

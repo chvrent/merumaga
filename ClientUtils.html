@@ -31,7 +31,6 @@
     const visible = headers.filter(header => {
       const h = String(header).trim();
       if (['source_sheet', 'source_row', 'schedule_action'].includes(h)) return false;
-      if (MASTER_DATA.sheetName === 'app_schedule' && ['is_inactive', '配信停止', '配信終了', 'is_draft', '下書き'].includes(h)) return false;
       return true;
     });
     if (MASTER_DATA.sheetName === 'app_pr' && !visible.some(header => ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID'].includes(String(header || '').trim()))) {
