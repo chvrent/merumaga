@@ -25,25 +25,18 @@ const MASTER_ID_CONFIG = {
 };
 
 const PR_FIELD_ALIASES = {
-  pr_id: ['pr_id', 'PR ID', 'PR', 'ID', 'id'],
-  name: ['name', '名称', 'タイトル', '見出し', 'PRタイトル'],
-  pr_text: ['pr_text', 'PR本文', '本文'],
-  start_date: ['start_date', '開始日', '開始'],
-  end_date: ['end_date', '終了日', '終了'],
-  notes: ['notes', '備考'],
-  target_ids: ['target_ids', '紐付けID', '対象ID', 'PRが入るメルマガ', '紐付けメルマガ'],
-  is_inactive: ['is_inactive', '配信停止', '配信終了', '停止', '無効'],
-  is_draft: ['is_draft', '下書き']
+  pr_id: ['PR ID/pr_id', 'ID/pr_id', 'ID', 'pr_id'],
+  name: ['PRタイトル/name', '名称/name', '名称', 'name'],
+  start_date: ['開始日/start_date', '開始日', 'start_date'],
+  end_date: ['終了日/end_date', '終了日', 'end_date'],
+  pr_text: ['PR本文/pr_text', 'PR本文', 'pr_text'],
+  notes: ['備考/notes', '備考', 'notes'],
+  is_inactive: ['配信終了/is_inactive', '配信終了', 'is_inactive']
 };
 
 const PR_TARGET_FIELD_ALIASES = {
-  pr_target_id: ['pr_target_id', '紐付けID', 'ID', 'id'],
-  pr_id: ['pr_id', 'PR ID', 'PR', 'ID', 'id'],
-  schedule_id: ['schedule_id', 'スケジュールID', '配信ID'],
-  mail_name: ['mail_name', 'メルマガ名', '対象メルマガ'],
-  source_row: ['source_row', '元行', '元の行'],
-  target_index: ['target_index', '表示順', '対象順'],
-  is_inactive: ['is_inactive', '配信停止', '配信終了', '停止', '無効']
+  pr_id: ['ID/pr_id', 'ID', 'pr_id'],
+  mail_name: ['メルマガ名/mail_name', 'メルマガ名', 'mail_name']
 };
 
 // SCHEDULE_FIELD_ALIASES / CHECK_STATUS_FIELD_ALIASES 共通フィールド
@@ -103,17 +96,26 @@ const CHECK_STATUS_FIELD_ALIASES = Object.assign({}, SHARED_FIELD_ALIASES_, {
   start_date: ['開始日', 'start_date', '開始', '開始日/start_date'],
   end_date: ['終了日', 'end_date', '終了', '終了日/end_date'],
   is_new: ['is_new', '新規', 'new_flag', '新規/is_new'],
-  delivery_count: ['delivery_count', '通数'],
-  assignee: ['assignee', '設定者'],
-  reviewer: ['reviewer', '確認者'],
-  notes: ['notes', '備考'],
-  category: ['category', 'mail_type', '種別'],
-  sub_category: ['sub_category', 'サブカテゴリ', '担当部署'],
-  format: ['format', '形式'],
+  delivery_count: ['delivery_count', '通数', '通数/delivery_count'],
+  assignee: ['assignee', '設定者', '設定', '設定者/assignee', '設定/assignee'],
+  reviewer: ['reviewer', '確認者', '確認', '確認者/reviewer', '確認/reviewer'],
+  notes: ['notes', '備考', '備考/notes'],
+  category: ['category', 'mail_type', '種別', '種別/mail_type'],
+  sub_category: ['sub_category', 'サブカテゴリ', '担当部署', '担当部署/sub_category'],
+  format: ['format', '形式', '形式/format'],
   pr: ['pr', 'PR', 'PR ID', 'pr_id'],
   override_fields: ['override_fields'],
-  confirmed_by: ['confirmed_by'],
-  confirmed_at: ['confirmed_at'],
+  is_inactive: ['is_inactive', '配信終了', '配信停止', '配信終了/is_inactive'],
+  is_draft: ['is_draft', '下書き', '下書き/is_draft'],
+  is_fixed: ['is_fixed', '確定済', '確定済/is_fixed'],
 });
+
+const COMMENTS_FIELD_ALIASES = {
+  schedule_id: ['schedule_id', 'ID', 'id', 'ID/schedule_id'],
+  timestamp: ['timestamp', '投稿日時', '更新日時', '日時', '投稿日時/timestamp'],
+  user: ['user', '投稿者', 'ユーザー', '投稿者/user'],
+  comment_text: ['comment_text', 'コメント', '本文', 'コメント本文', 'コメント/comment_text'],
+  target_date: ['target_date', '対象日', '配信日', '対象日/target_date']
+};
 
 const DEPRECATED_SCHEDULE_HEADERS = ['job_count_updated_at', '求人数最終取得日時'];

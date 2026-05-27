@@ -99,6 +99,10 @@ function getMasterFieldAliases_(sheetName) {
   switch (String(sheetName || '').trim()) {
     case SCHEDULE_SHEET_NAME:
       return SCHEDULE_FIELD_ALIASES;
+    case CHECK_STATUS_SHEET_NAME:
+      return CHECK_STATUS_FIELD_ALIASES;
+    case COMMENTS_SHEET_NAME:
+      return COMMENTS_FIELD_ALIASES;
     case 'app_pr':
       return PR_FIELD_ALIASES;
     case 'app_pr_targets':
@@ -218,7 +222,7 @@ function addCanonicalObjectFields_(aliasesByKey, obj) {
   Object.keys(aliasesByKey).forEach(key => {
     const aliases = aliasesByKey[key];
     if (Array.isArray(aliases)) {
-      const value = getObjectFieldByAliases_(obj, aliases);
+      const value = getObjectFieldByAliasesSegment_(obj, aliases);
       if (value !== '' && (!Object.prototype.hasOwnProperty.call(obj, key) || normalizeCell_(obj[key]) === '')) {
         obj[key] = value;
       }

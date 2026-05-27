@@ -246,9 +246,6 @@ function saveCheckStatusUnlocked_(itemId, field, active, payload) {
 
 function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp) {
   const safePayload = payload && typeof payload === 'object' ? payload : {};
-  const isCheckerConfirmation = field === 'checker' && active;
-  const confirmedBy = isCheckerConfirmation ? getCurrentUserLabel_() : '';
-  const confirmedAt = isCheckerConfirmation ? timestamp : '';
 
   return headers.map(header => {
     const key = getCheckStatusCanonicalKey_(header);
@@ -292,8 +289,6 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
       case 'sub_category': return normalizeCell_(safePayload.sub_category);
       case 'format': return normalizeCell_(safePayload.format);
       case 'pr': return normalizeCell_(safePayload.pr);
-      case 'confirmed_by': return confirmedBy;
-      case 'confirmed_at': return confirmedAt;
       default:
         return Object.prototype.hasOwnProperty.call(safePayload, header)
           ? normalizeCell_(safePayload[header])
@@ -303,11 +298,37 @@ function buildCheckStatusRow_(headers, itemId, field, active, payload, timestamp
 }
 
 function mergeCheckStatusRow_(headers, existingRow, nextRow) {
+  const existingOverrideFields = new Set();
+  const nextOverrideFields = new Set();
+  const overrideFieldsIndex = findHeaderIndex_(headers, 'override_fields');
+
+  if (overrideFieldsIndex >= 0) {
+    normalizeCell_(existingRow[overrideFieldsIndex]).split(',').forEach(f => {
+      const field = f.trim();
+      if (field) existingOverrideFields.add(field);
+    });
+    normalizeCell_(nextRow[overrideFieldsIndex]).split(',').forEach(f => {
+      const field = f.trim();
+      if (field) nextOverrideFields.add(field);
+    });
+  }
+
+  const mergedOverrideFields = new Set([...existingOverrideFields, ...nextOverrideFields]);
+
   return headers.map((header, index) => {
     const key = getCheckStatusCanonicalKey_(header);
-    if ((key === 'confirmed_by' || key === 'confirmed_at') && !nextRow[index]) {
-      return existingRow[index] || '';
+
+    // override_fields はマージしたものを返す
+    if (key === 'override_fields') {
+      return Array.from(mergedOverrideFields).join(',');
     }
+
+    // 発生分上書き対象のフィールド
+    // 新しい値があればそれを使い、なければ（今回の編集対象外で）既存の上書き値があれば維持する
+    if (mergedOverrideFields.has(key)) {
+      return normalizeCell_(nextRow[index]) || existingRow[index] || '';
+    }
+
     return nextRow[index];
   });
 }
@@ -379,14 +400,19 @@ function getCheckStatusSheet_() {
 }
 
 function getCheckStatusHeaders_(sheet) {
-  const baseRequiredHeaders = [
-    'item_id', 'field', 'is_active', 'updated_at', 'ID', 'original_date', 'delivery_date',
-    'hour', 'weekday', '開始日', '終了日', 'cycle', 'mail_name', 'job_url', 'auto_job_feature_id',
-    'target_age', 'target_address', 'user_desired_location', 'user_experience_job', 'user_desired_job',
-    'job_location', 'job_type', 'job_keyword', 'is_new', 'current_job_count', 'override_fields',
-    'delivery_count', 'assignee', 'reviewer', 'notes', 'category', 'sub_category', '担当部署',
-    'format', 'pr', 'confirmed_by', 'confirmed_at'
+  // システムメタデータ列（固定順・日本語/英語形式）
+  const systemHeaders = [
+    '項目ID/item_id',
+    'ID/schedule_id',
+    'フィールド/field',
+    '有効/is_active',
+    '更新日時/updated_at',
+    '元の日付/original_date',
+    '配信日/delivery_date',
+    '上書きフィールド/override_fields'
   ];
+
+  // app_schedule の全ヘッダーを取得（メタデータと重複するID系やアーカイブ固有列、廃止列は除外）
   const scheduleHeaders = getSheetHeaders_(getSourceSpreadsheet_(), SCHEDULE_SHEET_NAME)
     .filter(header => {
       const key = getCanonicalKeyFromAliases_(SCHEDULE_FIELD_ALIASES, header) || String(header || '').trim();
@@ -394,21 +420,40 @@ function getCheckStatusHeaders_(sheet) {
         ['schedule_id', 'id', 'source_sheet', 'source_row', 'is_fixed'].indexOf(key) === -1 &&
         !isDeprecatedScheduleHeader_(SCHEDULE_SHEET_NAME, header);
     });
-  const requiredHeaders = baseRequiredHeaders.concat(scheduleHeaders);
-  const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
-  let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(header => String(header || '').trim());
 
-  if (!headers.some(Boolean)) {
-    sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
+  // 常にシステム列を先頭に、その後にマスタ列を並べる
+  const requiredHeaders = systemHeaders.concat(scheduleHeaders);
+
+  // 現在のシートのヘッダーを取得
+  const lastCol = sheet.getLastColumn();
+  let headers = [];
+  if (lastCol > 0) {
+    headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
+  }
+
+  // 【重要】末尾の空要素（空列）を削除して、無駄な右側への挿入を防ぐ
+  while (headers.length > 0 && headers[headers.length - 1] === '') {
+    headers.pop();
+  }
+
+  // シートが空なら初期設定
+  if (headers.length === 0) {
+    if (requiredHeaders.length > 0) {
+      sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
+    }
     return requiredHeaders;
   }
 
+  // 足りないヘッダーを順次追加
   requiredHeaders.forEach(header => {
     const canonicalKey = getCheckStatusCanonicalKey_(header);
+    // すでに同じ意味の列が存在するか（内部キーで照合）
     const alreadyExists = headers.some(current => getCheckStatusCanonicalKey_(current) === canonicalKey);
-    if (alreadyExists) return;
-    headers.push(header);
-    sheet.getRange(1, headers.length).setValue(header);
+    
+    if (!alreadyExists) {
+      headers.push(header);
+      sheet.getRange(1, headers.length).setValue(header);
+    }
   });
 
   return headers;

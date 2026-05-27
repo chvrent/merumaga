@@ -169,12 +169,28 @@ function saveMasterDataUnlocked_(sheetName, payload) {
 
 function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload) {
   if (!payload || typeof payload !== 'object') return;
-  const optionalHeaders = [];
-  if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) optionalHeaders.push('is_draft');
-  if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) optionalHeaders.push('is_verifying');
-  optionalHeaders.forEach(header => {
-    const exists = headers.some(h => h === header || (h.includes('/') && h.split('/').map(s => s.trim()).includes(header)));
+
+  // 末尾の空要素（空列）を削除
+  while (headers.length > 0 && headers[headers.length - 1] === '') {
+    headers.pop();
+  }
+
+  // シートごとに必要なオプションヘッダーを定義
+  const optionalHeadersMap = {
+    [SCHEDULE_SHEET_NAME]: ['is_draft', 'is_verifying']
+  };
+
+  const allowedOptional = optionalHeadersMap[sheetName] || [];
+  
+  allowedOptional.forEach(header => {
+    if (!Object.prototype.hasOwnProperty.call(payload, header)) return;
+    
+    const exists = headers.some(h => {
+        const canonicalKey = getCanonicalKeyForHeader_(sheetName, h) || String(h || '').trim();
+        return canonicalKey === header;
+    });
     if (exists) return;
+    
     headers.push(header);
     sheet.getRange(1, headers.length).setValue(header);
   });

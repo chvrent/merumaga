@@ -24,8 +24,10 @@ function saveCommentUnlocked_(scheduleId, commentText, targetDate, user) {
   const headers = getCommentHeaders_(sheet);
   const timestamp = new Date();
   const commenter = normalizeCell_(user) || getCurrentUserLabel_();
+  
   const row = headers.map(header => {
-    switch (header) {
+    const key = getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, header) || String(header || '').trim();
+    switch (key) {
       case 'schedule_id':
         return safeScheduleId;
       case 'timestamp':
@@ -159,19 +161,45 @@ function getCommentsSheet_() {
 }
 
 function getCommentHeaders_(sheet) {
-  const requiredHeaders = ['schedule_id', 'timestamp', 'user', 'comment_text', 'target_date'];
-  const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
-  let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(header => String(header || '').trim());
+  // システムメタデータ列（固定順・日本語/英語形式）
+  const requiredHeaders = [
+    'ID/schedule_id',
+    '投稿日時/timestamp',
+    '投稿者/user',
+    'コメント/comment_text',
+    '対象日/target_date'
+  ];
 
-  if (!headers.some(Boolean)) {
+  // 現在のシートのヘッダーを取得
+  const lastCol = sheet.getLastColumn();
+  let headers = [];
+  if (lastCol > 0) {
+    headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
+  }
+
+  // 【重要】末尾の空要素（空列）を削除して、無駄な右側への挿入を防ぐ
+  while (headers.length > 0 && headers[headers.length - 1] === '') {
+    headers.pop();
+  }
+
+  // シートが空なら初期設定
+  if (headers.length === 0) {
     sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
     return requiredHeaders;
   }
 
+  // 足りないヘッダーを順次追加（内部キーで照合）
   requiredHeaders.forEach(header => {
-    if (headerExists_(headers, header)) return;
-    headers.push(header);
-    sheet.getRange(1, headers.length).setValue(header);
+    const canonicalKey = getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, header) || header;
+    const alreadyExists = headers.some(current => {
+      const currentKey = getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, current) || current;
+      return currentKey === canonicalKey;
+    });
+    
+    if (!alreadyExists) {
+      headers.push(header);
+      sheet.getRange(1, headers.length).setValue(header);
+    }
   });
 
   return headers;
