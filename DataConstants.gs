@@ -46,14 +46,34 @@ const PR_TARGET_FIELD_ALIASES = {
   is_inactive: ['is_inactive', '配信停止', '配信終了', '停止', '無効']
 };
 
-const SCHEDULE_FIELD_ALIASES = {
-  schedule_id: ['schedule_id', 'ID', 'id', 'ID/schedule_id'],
+// SCHEDULE_FIELD_ALIASES / CHECK_STATUS_FIELD_ALIASES 共通フィールド
+const SHARED_FIELD_ALIASES_ = {
+  hour: ['hour', '時間', '時間/hour'],
+  weekday: ['weekday', '曜日', '曜日/weekday'],
+  cycle: ['cycle', 'サイクル', 'サイクル/cycle'],
   mail_name: ['mail_name', 'メルマガ名', 'メルマガ名/mail_name'],
-  mail_content: ['mail_content', 'メルマガ内容', 'メルマガ詳細内容'],
   mail_content_extract: ['mail_content_extract', 'メルマガ内容(抽出)', 'メルマガ内容(抽出)/mail_content_extract'],
   mail_content_free: ['mail_content_free', 'メルマガ内容(フリー)', 'メルマガ内容(フリー)/mail_content_free'],
-  weekday: ['weekday', '曜日', '曜日/weekday'],
-  hour: ['hour', '時間', '時間/hour'],
+  job_url: ['job_url', '自動求人特集URL', '自動求人特集_URL', '求人URL', 'URL', '自動求人特集_URL/job_url'],
+  auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID', '自動求人特集_ID', '自動求人特集_ID/auto_job_feature_id'],
+  target_age: ['target_age', '対象年齢', 'USER_年齢', 'USER_年齢/target_age'],
+  target_address: ['target_address', '対象現住所', 'USER_現住所', 'USER_現住所/target_address'],
+  user_desired_location: ['user_desired_location', 'USER_希望勤務地', '希望勤務地', 'USER_希望勤務地/user_desired_location'],
+  user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種', 'USER_経験職種/user_experience_job'],
+  user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種', 'USER_希望職種/user_desired_job'],
+  user_other_condition: ['user_other_condition', 'USER_その他条件', 'USER_その他条件/user_other_condition'],
+  parameter: ['parameter', 'parameters', 'パラメータ', 'パラメータ/parameter'],
+  job_location: ['job_location', 'JOB_勤務地', 'JOB_勤務地/job_location'],
+  job_type: ['job_type', 'JOB_職種', 'JOB_職種/job_type'],
+  job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード', 'JOB_フリーワード/job_keyword'],
+  is_verifying: ['is_verifying', '検証中', '検証中/is_verifying', 'verifying_flag'],
+  current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数', '自動求人特集_求人数/current_job_count'],
+  auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件', '自動求人特集_その他条件/auto_job_other_condition'],
+};
+
+const SCHEDULE_FIELD_ALIASES = Object.assign({}, SHARED_FIELD_ALIASES_, {
+  schedule_id: ['schedule_id', 'ID', 'id', 'ID/schedule_id'],
+  mail_content: ['mail_content', 'メルマガ内容', 'メルマガ詳細内容'],
   mail_type: ['mail_type', 'category', '種別', '種別/mail_type'],
   sub_category: ['sub_category', 'サブカテゴリ', '担当部署', '担当部署/sub_category'],
   format: ['format', '形式', '形式/format'],
@@ -64,31 +84,15 @@ const SCHEDULE_FIELD_ALIASES = {
   end_date: ['end_date', '終了日', '終了', '終了日/end_date'],
   pr: ['pr', 'PR'],
   notes: ['notes', '備考', '備考/notes'],
-  job_url: ['job_url', '自動求人特集URL', '自動求人特集_URL', '求人URL', 'URL', '自動求人特集_URL/job_url'],
-  auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID', '自動求人特集_ID', '自動求人特集_ID/auto_job_feature_id'],
-  target_age: ['target_age', '対象年齢', 'USER_年齢', 'USER_年齢/target_age'],
-  target_address: ['target_address', '対象現住所', 'USER_現住所', 'USER_現住所/target_address'],
-  user_desired_location: ['user_desired_location', 'USER_希望勤務地', '希望勤務地', 'USER_希望勤務地/user_desired_location'],
-  user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種', 'USER_経験職種/user_experience_job'],
-  user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種', 'USER_希望職種/user_desired_job'],
-  user_other_condition: ['user_other_condition', 'USER_その他条件', 'USER_その他条件/user_other_condition'],
-  parameter: ['parameter', 'parameters', 'パラメータ', 'パラメータ/parameter'],
-  job_location: ['job_location', 'JOB_勤務地', 'JOB_勤務地/job_location'],
-  job_type: ['job_type', 'JOB_職種', 'JOB_職種/job_type'],
-  job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード', 'JOB_フリーワード/job_keyword'],
   is_new: ['is_new', 'new_flag', '新規', '新規/is_new'],
-  is_verifying: ['is_verifying', '検証中', '検証中/is_verifying', 'verifying_flag'],
-  current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数', '自動求人特集_求人数/current_job_count'],
-  auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件', '自動求人特集_その他条件/auto_job_other_condition'],
-  cycle: ['cycle', 'サイクル', 'サイクル/cycle'],
   current_week_cycle: ['current_week_cycle', '今週サイクル(内部)', '今週サイクル(内部)/current_week_cycle'],
   current_week_inactive: ['current_week_inactive', '今週非配信(内部)', '今週非配信(内部)/current_week_inactive'],
   is_inactive: ['is_inactive', '配信終了', '配信停止', '配信終了/is_inactive'],
   is_draft: ['is_draft', '下書き', '下書き/is_draft'],
-  is_fixed: ['is_fixed', '確定済', '確定済/is_fixed']
-};
+  is_fixed: ['is_fixed', '確定済', '確定済/is_fixed'],
+});
 
-const CHECK_STATUS_FIELD_ALIASES = {
+const CHECK_STATUS_FIELD_ALIASES = Object.assign({}, SHARED_FIELD_ALIASES_, {
   item_id: ['item_id'],
   field: ['field'],
   is_active: ['is_active'],
@@ -96,31 +100,9 @@ const CHECK_STATUS_FIELD_ALIASES = {
   schedule_id: ['ID', 'schedule_id', 'id', 'ID/schedule_id'],
   original_date: ['original_date'],
   delivery_date: ['delivery_date'],
-  hour: ['hour', '時間', '時間/hour'],
-  weekday: ['weekday', '曜日', '曜日/weekday'],
   start_date: ['開始日', 'start_date', '開始', '開始日/start_date'],
   end_date: ['終了日', 'end_date', '終了', '終了日/end_date'],
-  cycle: ['cycle', 'サイクル', 'サイクル/cycle'],
-  mail_name: ['mail_name', 'メルマガ名', 'メルマガ名/mail_name'],
-  mail_content_extract: ['mail_content_extract', 'メルマガ内容(抽出)', 'メルマガ内容(抽出)/mail_content_extract'],
-  mail_content_free: ['mail_content_free', 'メルマガ内容(フリー)', 'メルマガ内容(フリー)/mail_content_free'],
-  job_url: ['job_url', '自動求人特集URL', '自動求人特集_URL', '求人URL', 'URL', '自動求人特集_URL/job_url'],
-  auto_job_feature_id: ['auto_job_feature_id', '自動求人特集ID', '自動求人特集_ID', '自動求人特集_ID/auto_job_feature_id'],
-  target_age: ['target_age', '対象年齢', 'USER_年齢', 'USER_年齢/target_age'],
-  target_address: ['target_address', '対象現住所', 'USER_現住所', 'USER_現住所/target_address'],
-  user_desired_location: ['user_desired_location', 'USER_希望勤務地', '希望勤務地', 'USER_希望勤務地/user_desired_location'],
-  user_experience_job: ['user_experience_job', 'USER_経験職種', '経験職種', 'USER_経験職種/user_experience_job'],
-  user_desired_job: ['user_desired_job', 'USER_希望職種', '希望職種', 'USER_希望職種/user_desired_job'],
-  user_other_condition: ['user_other_condition', 'USER_その他条件', 'USER_その他条件/user_other_condition'],
-  parameter: ['parameter', 'parameters', 'パラメータ', 'パラメータ/parameter'],
-  job_location: ['job_location', 'JOB_勤務地', 'JOB_勤務地/job_location'],
-  job_type: ['job_type', 'JOB_職種', 'JOB_職種/job_type'],
-  job_keyword: ['job_keyword', 'JOB_フリーワード', 'フリーワード', 'JOB_フリーワード/job_keyword'],
   is_new: ['is_new', '新規', 'new_flag', '新規/is_new'],
-  is_verifying: ['is_verifying', '検証中', '検証中/is_verifying', 'verifying_flag'],
-  current_job_count: ['current_job_count', '現在求人数', '最新求人数', '求人数', '自動求人特集_求人数', '自動求人特集_求人数/current_job_count'],
-  auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件', '自動求人特集_その他条件/auto_job_other_condition'],
-  override_fields: ['override_fields'],
   delivery_count: ['delivery_count', '通数'],
   assignee: ['assignee', '設定者'],
   reviewer: ['reviewer', '確認者'],
@@ -129,8 +111,9 @@ const CHECK_STATUS_FIELD_ALIASES = {
   sub_category: ['sub_category', 'サブカテゴリ', '担当部署'],
   format: ['format', '形式'],
   pr: ['pr', 'PR', 'PR ID', 'pr_id'],
+  override_fields: ['override_fields'],
   confirmed_by: ['confirmed_by'],
-  confirmed_at: ['confirmed_at']
-};
+  confirmed_at: ['confirmed_at'],
+});
 
 const DEPRECATED_SCHEDULE_HEADERS = ['job_count_updated_at', '求人数最終取得日時'];
