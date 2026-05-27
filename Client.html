@@ -707,7 +707,9 @@
             const checkerChanged = isOccurrenceFieldOverridden(entryForDate, ['reviewer']);
             const subCategoryClass = getSubCategoryClass(effectiveEntry);
             const itemBg = getBgColor(effectiveEntry);
-            const fixed = isFixed(entry, dateStr) || isCheckStatusActive(checkItemId, 'setter') || isCheckStatusActive(checkItemId, 'checker');
+            const assigneeForFixed = String((effectiveEntry && effectiveEntry.assignee) || '').trim();
+            const fixed = isFixed(entry, dateStr) ||
+              (assigneeForFixed === 'R' ? isCheckStatusActive(checkItemId, 'setter') : isCheckStatusActive(checkItemId, 'checker'));
             const stopped = !fixed && isStopped(entryForDate);
             const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
             const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
