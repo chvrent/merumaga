@@ -56,6 +56,7 @@
   let SORTABLES = [];
   let DATA_STATIC_READY = false;
   let DATA_LOAD_IN_FLIGHT_KEY = '';
+  let DATA_LOAD_GENERATION = 0;
   let LAST_SUCCESSFUL_LOAD_AT = 0;
   let RESUME_REFRESH_TIMER = null;
   let RENDER_GRID_FRAME = null;
@@ -315,16 +316,22 @@
       if (age < RESUME_REFRESH_COOLDOWN_MS) return;
     }
 
-    if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) return;
+    if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) {
+      if (!loadOptions.force) return;
+      DATA_LOAD_GENERATION++;
+    }
     DATA_LOAD_IN_FLIGHT_KEY = cacheKey;
+    const myGen = DATA_LOAD_GENERATION;
     if (!loadOptions.silent) showBusy('データを読み込み中...');
     const runner = google.script.run
       .withSuccessHandler(data => {
+        if (DATA_LOAD_GENERATION !== myGen) { if (!loadOptions.silent) hideBusy(); return; }
         applyLoadedData_(data, cacheKey, true);
         if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) DATA_LOAD_IN_FLIGHT_KEY = '';
         if (!loadOptions.silent) hideBusy();
       })
       .withFailureHandler(err => {
+        if (DATA_LOAD_GENERATION !== myGen) { if (!loadOptions.silent) hideBusy(); return; }
         if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) DATA_LOAD_IN_FLIGHT_KEY = '';
         document.getElementById('tableContainer').innerHTML =
           '<div class="empty-state">データの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
