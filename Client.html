@@ -58,6 +58,7 @@
   let DATA_LOAD_IN_FLIGHT_KEY = '';
   let LAST_SUCCESSFUL_LOAD_AT = 0;
   let RESUME_REFRESH_TIMER = null;
+  let RENDER_GRID_FRAME = null;
   const WEEK_DATA_CACHE = {};
   const WEEK_DATA_CACHE_TTL_MS = 10 * 60 * 1000;
   const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
@@ -488,7 +489,16 @@
     SORTABLES = [];
   }
 
+  // rAF ラッパー: 同一フレーム内の連続呼び出しを1回に間引く
   function renderScheduleGrid() {
+    if (RENDER_GRID_FRAME) cancelAnimationFrame(RENDER_GRID_FRAME);
+    RENDER_GRID_FRAME = requestAnimationFrame(() => {
+      RENDER_GRID_FRAME = null;
+      renderScheduleGridNow_();
+    });
+  }
+
+  function renderScheduleGridNow_() {
     const container = document.getElementById('tableContainer');
     const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
     const startInput = document.getElementById('startInput');
@@ -520,6 +530,10 @@
         .join(' ')
         .includes(keyword);
     });
+
+    // スロットマップを事前構築: O(7N + A) で済む（従来は O(98N + 98A)）
+    const scheduleSlotMap = buildScheduleSlotMap_(filtered, dates, weekdays);
+    const archivedSlotMap = buildArchivedSlotMap_(keyword);
 
     let html = '<table><thead><tr><th class="time-col" rowspan="2">時間</th>';
     const todayStr = formatDate(new Date());
@@ -588,68 +602,8 @@
         const isToday = dateStr === todayStr;
         const dayLabel = weekdays[date.getDay()];
         const monthEndInfo = getMonthEndInfo(date);
-        const entries = filtered.filter(row => {
-          const occurrenceOverride = getOccurrenceOverrideForDate(row, dateStr);
-          const rowForDate = applyOccurrenceOverrideObjectToEntry(
-            applyMoveOverrideToEntry(Object.assign({}, row, { target_date: dateStr })),
-            occurrenceOverride
-          );
-          const rowHour = String(normalizeMasterHourValue(rowForDate.hour) || rowForDate.hour || '').split(':')[0].trim();
-          const startDate = normalizeDateString(row.start_date);
-          const endDate = normalizeDateString(row.end_date);
-          const prStates = getPrStates(rowForDate, dateStr);
-          const weekday = normalizeWeekdayLabel(row.weekday);
-          const scheduleCycleType = getScheduleCycleType(row);
-          const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
-
-          if (isDraft(rowForDate)) return false;
-          // end_dateがある場合はisWithinScheduleRangeに委ねる（停止当日は配信あり）
-          if (isInactive(rowForDate) && !endDate) return false;
-          if (!isWithinScheduleRange) return false;
-
-          // この日付/時間における「有効」な状態
-          const moveOverride = getMoveOverrideForDate(row, dateStr);
-          let isMatch = false;
-
-          if (moveOverride) {
-            // 移動済みの発生分: 発生分上書き(時間変更)があればそちらを優先
-            const overrideHasHour = occurrenceOverride && String(occurrenceOverride.override_fields || '').split(',').includes('hour');
-            const rawHour = overrideHasHour ? occurrenceOverride.hour : moveOverride.hour;
-            const effectiveHour = String(normalizeMasterHourValue(rawHour) || rawHour || '').split(':')[0].trim();
-            isMatch = effectiveHour === String(hour);
-          } else if (occurrenceOverride) {
-            const effectiveHour = String(normalizeMasterHourValue(occurrenceOverride.hour || rowForDate.hour) || occurrenceOverride.hour || rowForDate.hour || '').split(':')[0].trim();
-            isMatch = effectiveHour === String(hour);
-          } else {
-            // 移動先ではない場合、元のスケジュール通りか確認
-            // ただし、もし他の日時に移動されている場合はこの枠には出さない
-            if (isMovedOriginalOccurrence(row, dateStr) || isOccurrenceOverrideOriginal(row, dateStr)) return false;
-
-            isMatch = rowHour === String(hour);
-
-            // サイクル判定も本来の日程で行う
-            if (isMatch) {
-              if (scheduleCycleType === 'single') {
-                isMatch = !!startDate && startDate === dateStr;
-              } else if (scheduleCycleType === 'daily') {
-                isMatch = true;
-              } else if (scheduleCycleType === 'monthly') {
-                isMatch = isMonthlyCycleDate_(startDate, date);
-              } else if (scheduleCycleType === 'month_end') {
-                isMatch = monthEndInfo.isInWindow && weekday === dayLabel;
-              } else if (scheduleCycleType === 'A' || scheduleCycleType === 'B') {
-                isMatch = weekday === dayLabel && scheduleCycleType === getCycleForRow(row, date);
-              } else if (typeof scheduleCycleType === 'number') {
-                const expectedCycle = getCycleForRow(row, date);
-                isMatch = weekday === dayLabel && typeof expectedCycle === 'number' && cycleContains(row.cycle, expectedCycle);
-              } else {
-                isMatch = weekday === dayLabel;
-              }
-            }
-          }
-          return isMatch;
-        });
-        const archivedSlotEntries = getArchivedOccurrencesForSlot(dateStr, hour, keyword);
+        const entries = scheduleSlotMap[`${dateStr}|${hour}`] || [];
+        const archivedSlotEntries = archivedSlotMap[`${dateStr}|${hour}`] || [];
         const slotEntries = dedupeSlotEntries_(archivedSlotEntries.concat(entries), dateStr, hour);
         html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
         if (slotEntries.length) {
@@ -759,6 +713,118 @@
 
     html += '</tbody></table>';
     container.innerHTML = html;
+  }
+
+  /**
+   * エントリーが指定日に表示される時間帯（時 string）を返す。
+   * 表示されない場合は null。renderScheduleGridNow_ のフィルタロジックを抽出。
+   */
+  function getEntryEffectiveHour_(row, date, dateStr, dayLabel, monthEndInfo) {
+    const occurrenceOverride = getOccurrenceOverrideForDate(row, dateStr);
+    const rowForDate = applyOccurrenceOverrideObjectToEntry(
+      applyMoveOverrideToEntry(Object.assign({}, row, { target_date: dateStr })),
+      occurrenceOverride
+    );
+
+    if (isDraft(rowForDate)) return null;
+
+    const startDate = normalizeDateString(row.start_date);
+    const endDate = normalizeDateString(row.end_date);
+    const isWithinScheduleRange = (!startDate || startDate <= dateStr) && (!endDate || endDate >= dateStr);
+
+    // end_dateがある場合はisWithinScheduleRangeに委ねる（停止当日は配信あり）
+    if (isInactive(rowForDate) && !endDate) return null;
+    if (!isWithinScheduleRange) return null;
+
+    const moveOverride = getMoveOverrideForDate(row, dateStr);
+
+    if (moveOverride) {
+      // 移動済みの発生分: 発生分上書き(時間変更)があればそちらを優先
+      const overrideHasHour = occurrenceOverride && String(occurrenceOverride.override_fields || '').split(',').includes('hour');
+      const rawHour = overrideHasHour ? occurrenceOverride.hour : moveOverride.hour;
+      return String(normalizeMasterHourValue(rawHour) || rawHour || '').split(':')[0].trim() || null;
+    }
+
+    if (occurrenceOverride) {
+      return String(normalizeMasterHourValue(occurrenceOverride.hour || rowForDate.hour) || occurrenceOverride.hour || rowForDate.hour || '').split(':')[0].trim() || null;
+    }
+
+    // 移動先ではない場合、元のスケジュール通りか確認
+    // ただし、もし他の日時に移動されている場合はこの枠には出さない
+    if (isMovedOriginalOccurrence(row, dateStr) || isOccurrenceOverrideOriginal(row, dateStr)) return null;
+
+    const rowHour = String(normalizeMasterHourValue(rowForDate.hour) || rowForDate.hour || '').split(':')[0].trim();
+    if (!rowHour) return null;
+
+    const weekday = normalizeWeekdayLabel(row.weekday);
+    const scheduleCycleType = getScheduleCycleType(row);
+    let cycleMatch = false;
+
+    if (scheduleCycleType === 'single') {
+      cycleMatch = !!startDate && startDate === dateStr;
+    } else if (scheduleCycleType === 'daily') {
+      cycleMatch = true;
+    } else if (scheduleCycleType === 'monthly') {
+      cycleMatch = isMonthlyCycleDate_(startDate, date);
+    } else if (scheduleCycleType === 'month_end') {
+      cycleMatch = monthEndInfo.isInWindow && weekday === dayLabel;
+    } else if (scheduleCycleType === 'A' || scheduleCycleType === 'B') {
+      cycleMatch = weekday === dayLabel && scheduleCycleType === getCycleForRow(row, date);
+    } else if (typeof scheduleCycleType === 'number') {
+      const expectedCycle = getCycleForRow(row, date);
+      cycleMatch = weekday === dayLabel && typeof expectedCycle === 'number' && cycleContains(row.cycle, expectedCycle);
+    } else {
+      cycleMatch = weekday === dayLabel;
+    }
+
+    return cycleMatch ? rowHour : null;
+  }
+
+  /**
+   * スケジュールエントリーを「dateStr|hour」キーで事前グループ化。
+   * O(7N) で構築し、レンダリング時は O(1) で参照できる。
+   */
+  function buildScheduleSlotMap_(filtered, dates, weekdays) {
+    const map = {};
+    dates.forEach(date => {
+      const dateStr = formatDate(date);
+      const dayLabel = weekdays[date.getDay()];
+      const monthEndInfo = getMonthEndInfo(date);
+      filtered.forEach(row => {
+        const hour = getEntryEffectiveHour_(row, date, dateStr, dayLabel, monthEndInfo);
+        if (!hour) return;
+        const key = `${dateStr}|${hour}`;
+        if (!map[key]) map[key] = [];
+        map[key].push(row);
+      });
+    });
+    return map;
+  }
+
+  /**
+   * アーカイブ済み発生分を「dateStr|hour」キーで事前グループ化。
+   * O(A) で構築し、レンダリング時は O(1) で参照できる。
+   */
+  function buildArchivedSlotMap_(keyword) {
+    const map = {};
+    Object.values(APP_DATA.archivedOccurrences || {}).forEach(row => {
+      const dateStr = normalizeDateString(row && row.target_date);
+      const rawHour = normalizeMasterHourValue(row && row.hour) || (row && row.hour) || '';
+      const hour = String(rawHour).split(':')[0].trim();
+      if (!dateStr || !hour) return;
+      if (keyword) {
+        const text = [
+          row.mail_name, row.weekday, row.hour,
+          row.mail_type || row.category, row.cycle, row.format,
+          row.assignee, row.reviewer, row.source_sheet
+        ].map(v => String(v || '').toLowerCase()).join(' ');
+        if (!text.includes(keyword)) return;
+      }
+      const key = `${dateStr}|${hour}`;
+      if (!map[key]) map[key] = [];
+      map[key].push(row);
+    });
+    return map;
   }
 
   function dedupeSlotEntries_(entries, dateStr, hour) {
