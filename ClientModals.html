@@ -218,7 +218,7 @@
         setter: ['setter', 'assignee', '設定者'],
         checker: ['checker', 'reviewer', '確認者'],
         is_new: ['is_new', 'new_flag', '新規'],
-        is_verifying: ['is_verifying', 'verifying_flag', '検証中'],
+        is_verifying: ['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying'],
         user_other_condition: ['user_other_condition', 'USER_その他条件'],
         parameter: ['parameter', 'parameters', 'パラメータ'],
         auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件']
@@ -237,7 +237,7 @@
       setter: ['setter', 'assignee', '設定者'],
       checker: ['checker', 'reviewer', '確認者'],
       is_new: ['is_new', 'new_flag', '新規'],
-      is_verifying: ['is_verifying', 'verifying_flag', '検証中'],
+      is_verifying: ['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying'],
       user_other_condition: ['user_other_condition', 'USER_その他条件'],
       parameter: ['parameter', 'parameters', 'パラメータ'],
       auto_job_other_condition: ['auto_job_other_condition', '自動求人特集_その他条件']
@@ -286,6 +286,12 @@
 
   function normalizeScheduleEditKey_(header) {
     const key = String(header == null ? '' : header).trim();
+    // 日本語/英語 形式: 末尾の英語セグメントで再帰解決
+    if (key.includes('/')) {
+      const parts = key.split('/').map(s => s.trim());
+      const lastPart = parts[parts.length - 1];
+      if (lastPart && lastPart !== key) return normalizeScheduleEditKey_(lastPart);
+    }
     const lower = key.toLowerCase();
     const map = {
       'メルマガ内容': 'mail_content',
@@ -335,6 +341,16 @@
       'is_verifying': 'is_verifying',
       'verifying_flag': 'is_verifying',
       '検証中': 'is_verifying',
+      '検証中/is_verifying': 'is_verifying',
+      'new_flag': 'is_new',
+      '新規': 'is_new',
+      '新規/is_new': 'is_new',
+      '下書き': 'is_draft',
+      '下書き/is_draft': 'is_draft',
+      '確定済': 'is_fixed',
+      '確定済/is_fixed': 'is_fixed',
+      '配信終了': 'is_inactive',
+      '配信終了/is_inactive': 'is_inactive',
       '自動求人特集_求人数': 'current_job_count',
       '自動求人特集_その他条件': 'auto_job_other_condition',
       '確定済': 'is_fixed',
@@ -412,8 +428,9 @@
 
   function getModalFieldLabel_(header, key) {
     const rawHeader = String(header == null ? '' : header).trim();
-    if (rawHeader && rawHeader !== key && !/^[a-z][a-z0-9_]*$/i.test(rawHeader)) {
-      return rawHeader;
+    const displayHeader = rawHeader.includes('/') ? rawHeader.split('/')[0].trim() : rawHeader;
+    if (displayHeader && displayHeader !== key && !/^[a-z][a-z0-9_]*$/i.test(displayHeader)) {
+      return displayHeader;
     }
     return getDisplayName(key);
   }
@@ -428,10 +445,13 @@
   }
 
   function renderEditInput_(header, key, value) {
-    if (['is_new', 'new_flag', 'is_verifying', 'verifying_flag', 'is_draft', 'is_fixed', 'is_inactive'].includes(key)) {
-      const name = key === 'is_verifying' || key === 'verifying_flag'
+    if (['is_new', 'new_flag', '新規/is_new', 'is_verifying', 'verifying_flag', '検証中/is_verifying', 'is_draft', '下書き/is_draft', 'is_fixed', '確定済/is_fixed', 'is_inactive', '配信終了/is_inactive'].includes(key)) {
+      const name = (key === 'is_verifying' || key === 'verifying_flag' || key === '検証中/is_verifying')
         ? 'is_verifying'
-        : (key === 'is_draft' ? 'is_draft' : (key === 'is_fixed' ? 'is_fixed' : (key === 'is_inactive' ? 'is_inactive' : 'is_new')));
+        : (key === 'is_draft' || key === '下書き/is_draft') ? 'is_draft'
+        : (key === 'is_fixed' || key === '確定済/is_fixed') ? 'is_fixed'
+        : (key === 'is_inactive' || key === '配信終了/is_inactive') ? 'is_inactive'
+        : 'is_new';
       return `<input type="checkbox" name="${escapeAttribute(name)}" aria-label="${escapeAttribute(getDisplayName(name))}" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_(name) ? 'disabled' : ''}>`;
     }
     return renderMasterFieldInput_(header, key, value, 'edit');
@@ -579,7 +599,6 @@
     });
     bindEditChangeHighlights_(modal);
     bindSingleDeliveryDateSync_(modal);
-    updateEditChangeHighlights_(modal);
     syncReviewerLock_();
   }
 
@@ -604,7 +623,11 @@
     if (name === 'setter') return 'assignee';
     if (name === 'checker') return 'reviewer';
     if (name === 'new_flag') return 'is_new';
-    if (name === 'verifying_flag') return 'is_verifying';
+    if (name === 'verifying_flag' || name === '検証中/is_verifying' || name === '検証中') return 'is_verifying';
+    if (name === '新規/is_new' || name === '新規') return 'is_new';
+    if (name === '下書き/is_draft' || name === '下書き') return 'is_draft';
+    if (name === '確定済/is_fixed' || name === '確定済') return 'is_fixed';
+    if (name === '配信終了/is_inactive' || name === '配信終了') return 'is_inactive';
     return name;
   }
 
@@ -618,13 +641,74 @@
     return String(value == null ? '' : value);
   }
 
+  function isAdminMasterReady_() {
+    return Array.isArray(APP_DATA.adminMaster) && APP_DATA.adminMaster.length > 0;
+  }
+
+  function resolvePersonFieldComparableValue_(value) {
+    const text = normalizePersonDisplayValue_(value);
+    if (!text) return '';
+    const options = typeof getAdminOptionValues === 'function' ? getAdminOptionValues() : [];
+    for (const option of options) {
+      const optValue = String(option && option.value || '').trim();
+      const optLabel = String(option && option.label || '').trim();
+      if (!optValue) continue;
+      if (optValue === text || optLabel === text) return optValue;
+      const labelMatch = optLabel.match(/^(.+?)\s*\((.+)\)\s*$/);
+      if (labelMatch) {
+        const abbrev = labelMatch[1].trim();
+        const fullName = labelMatch[2].trim();
+        if (text === abbrev || text === fullName) return optValue;
+      }
+    }
+    const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
+    for (const row of rows) {
+      const initial = String(row.initial || getValueByKeys(row, ['initial', '略称', 'abbreviation', 'Abbreviation']) || '').trim();
+      const fullName = String(row.full_name || row.fullName || row.name || getValueByKeys(row, ['full_name', 'fullName', 'name', '氏名', '名前']) || '').trim();
+      if (initial && (text === initial || text === fullName)) return initial;
+      if (fullName && text === fullName && initial) return initial;
+    }
+    return text;
+  }
+
+  function getEntryFieldComparableValue_(entry, key) {
+    if (!entry) return normalizeComparableModalValue_('', key);
+    if (key === 'assignee') {
+      return normalizeComparableModalValue_(
+        resolvePersonFieldComparableValue_(getValueByKeys(entry, ['assignee', 'setter', '設定者'])),
+        key
+      );
+    }
+    if (key === 'reviewer') {
+      return normalizeComparableModalValue_(
+        resolvePersonFieldComparableValue_(getValueByKeys(entry, ['reviewer', 'checker', '確認者'])),
+        key
+      );
+    }
+    let value = entry[key];
+    if (String(value == null ? '' : value).trim() === '') {
+      const aliasMap = getModalFieldAliases_('editModal');
+      Object.keys(aliasMap).some(fieldName => {
+        if (getEditComparisonKey_(fieldName) !== key) return false;
+        const fromAlias = getValueByKeys(entry, aliasMap[fieldName]);
+        if (fromAlias === '') return false;
+        value = fromAlias;
+        return true;
+      });
+    }
+    return normalizeComparableModalValue_(value, key);
+  }
+
   function getFieldCurrentComparableValue_(field, key) {
-    return normalizeComparableModalValue_(field.type === 'checkbox' ? field.checked : field.value, key);
+    const raw = field.type === 'checkbox' ? field.checked : field.value;
+    if (key === 'assignee' || key === 'reviewer') {
+      return normalizeComparableModalValue_(resolvePersonFieldComparableValue_(raw), key);
+    }
+    return normalizeComparableModalValue_(raw, key);
   }
 
   function getBaseComparableValue_(key) {
-    const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
-    return normalizeComparableModalValue_(base[key], key);
+    return getEntryFieldComparableValue_(CURRENT_ENTRY_BASE || CURRENT_ENTRY, key);
   }
 
   function updateEditFieldHighlight_(field) {
@@ -632,6 +716,12 @@
     const key = getEditComparisonKey_(field.name);
     const group = field.closest('.form-group');
     if (!group) return;
+    if ((key === 'assignee' || key === 'reviewer') && !isAdminMasterReady_()) {
+      group.classList.remove('is-overridden');
+      const pending = group.querySelector('.previous-value');
+      if (pending) pending.remove();
+      return;
+    }
     const changed = getFieldCurrentComparableValue_(field, key) !== getBaseComparableValue_(key);
     group.classList.toggle('is-overridden', changed);
 
@@ -863,9 +953,93 @@
     setModalVisible_(modal, false);
   }
 
+  function getPersonFieldValueFromEntry_(entry, field) {
+    if (!entry) return '';
+    const aliases = field === 'assignee'
+      ? ['assignee', 'setter', '設定者']
+      : ['reviewer', 'checker', '確認者'];
+    return normalizePersonDisplayValue_(getValueByKeys(entry, aliases));
+  }
+
+  function syncEditModalPersonFields_(modal) {
+    if (!modal) return;
+    const master = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
+    const entry = CURRENT_ENTRY || master;
+    const assignee = getPersonFieldValueFromEntry_(entry, 'assignee') || getPersonFieldValueFromEntry_(master, 'assignee');
+    const reviewer = getPersonFieldValueFromEntry_(entry, 'reviewer') || getPersonFieldValueFromEntry_(master, 'reviewer');
+    const setterEl = modal.querySelector('[name="setter"]');
+    const checkerEl = modal.querySelector('[name="checker"]');
+    if (setterEl) setterEl.dataset.pendingValue = assignee;
+    if (checkerEl) checkerEl.dataset.pendingValue = reviewer;
+    refreshAdminSelects_();
+    if (typeof syncReviewerLock_ === 'function') syncReviewerLock_();
+  }
+
+  function scheduleEditModalHighlights_(modal) {
+    if (!modal) return;
+    const run = () => {
+      syncEditModalPersonFields_(modal);
+      updateEditChangeHighlights_(modal);
+    };
+    if (isAdminMasterReady_()) {
+      setTimeout(run, 0);
+      return;
+    }
+    let attempts = 0;
+    const timer = setInterval(() => {
+      attempts += 1;
+      if (isAdminMasterReady_() || attempts > 40) {
+        clearInterval(timer);
+        run();
+      }
+    }, 50);
+  }
+
+  function renderEditModalPrDetails_(entry) {
+    const prContainer = document.getElementById('edit-pr-details');
+    if (!prContainer || !entry) return;
+    const prDetails = typeof getPrRecordsForSchedule === 'function' ? getPrRecordsForSchedule(entry) : [];
+    const targetDate = normalizeDateString(entry.target_date || entry.delivery_date || entry.original_date);
+    const prStatesForModal = prDetails
+      .map(pr => ({
+        record: pr,
+        state: typeof getPrState === 'function' ? getPrState(pr, targetDate) : null
+      }))
+      .filter(item => item.state);
+    if (prStatesForModal.length > 0) {
+      const prList = prStatesForModal.map(item => {
+        const pr = item.record;
+        const prState = item.state;
+        const title = pr.pr_title || '不明';
+        const body = pr.pr_text || '（未設定）';
+        const statusLabel = `<div class="pr-label pr-label-${escapeAttribute(prState.status)}">${escapeHtml(prState.label)}</div>`;
+        return `<div class="pr-info-item">${statusLabel}<strong>PR ID:</strong> ${escapeHtml(pr.pr_id)}<br><strong>タイトル:</strong> ${escapeHtml(title)}<br><strong>PR内容:</strong><div class="pr-info-body">${escapeHtml(body).replace(/\r?\n/g, '<br>')}</div></div>`;
+      }).join('<hr>');
+      prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
+    } else {
+      prContainer.innerHTML = '<h4>紐付いているPR</h4><p>なし</p>';
+    }
+  }
+
+  function finalizeEditModalContent_(modal) {
+    if (!modal || !CURRENT_ENTRY) return;
+    syncEditModalPersonFields_(modal);
+    const editCoreFields = modal.querySelector('#editCoreFields');
+    if (editCoreFields) renderEditModalFields_(CURRENT_ENTRY);
+    const currentFormat = CURRENT_ENTRY.format || 'フリー';
+    window.openAndInitModalWithTab(currentFormat, 'editModal');
+    bindEditChangeHighlights_(modal);
+    scheduleEditModalHighlights_(modal);
+    renderEditModalPrDetails_(CURRENT_ENTRY);
+  }
+
   function openModal(encodedEntry) {
     const entry = JSON.parse(decodeURIComponent(encodedEntry));
-    const scheduleRow = (APP_DATA.schedule || []).find(row => String(row && row.schedule_id || '').trim() === String(entry && entry.schedule_id || '').trim());
+    const targetScheduleId = normalizeIdKey(getValueByKeys(entry, ['schedule_id', 'ID', 'id']));
+    const scheduleRow = (APP_DATA.schedule || []).find(row => {
+      const rowScheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
+      return rowScheduleId && rowScheduleId === targetScheduleId;
+    });
     const baseEntry = scheduleRow ? Object.assign({}, scheduleRow) : Object.assign({}, entry);
     baseEntry.target_date = entry.target_date;
     if (entry.original_date) baseEntry.original_date = entry.original_date;
@@ -874,6 +1048,10 @@
     if (masterHour !== '') {
       baseEntry.hour = masterHour;
     }
+    const masterAssignee = getValueByKeys(scheduleRow || entry, ['assignee', '設定者', 'setter']);
+    const masterReviewer = getValueByKeys(scheduleRow || entry, ['reviewer', '確認者', 'checker']);
+    if (masterAssignee !== '') baseEntry.assignee = masterAssignee;
+    if (masterReviewer !== '') baseEntry.reviewer = masterReviewer;
 
     CURRENT_ENTRY_BASE = baseEntry;
     const movedEntry = applyMoveOverrideToEntry(Object.assign({}, baseEntry));
@@ -885,52 +1063,23 @@
     const modal = document.getElementById('editModal');
     if (!modal) return;
     modal.dataset.mode = 'edit';
-    // 1. 追加フィールドのレンダリング
-    const editCoreFields = modal.querySelector('#editCoreFields');
-    if (editCoreFields) {
-      renderEditModalFields_(CURRENT_ENTRY);
-    }
 
-    // 2. name属性を基準としたデータ流し込み
     populateModalFields(modal, CURRENT_ENTRY, getModalFieldAliases_('editModal'));
     refreshAdminSelects_();
-    bindEditModalInteractions_(modal);
-
-    // 3. PR情報の表示
-    const prDetails = getPrRecordsForSchedule(CURRENT_ENTRY);
-    const prContainer = modal.querySelector('#edit-pr-details');
-    if (prContainer) {
-      const targetDate = normalizeDateString(CURRENT_ENTRY.target_date || CURRENT_ENTRY.delivery_date || CURRENT_ENTRY.original_date);
-      const prStatesForModal = prDetails
-        .map(pr => ({
-          record: pr,
-          state: typeof getPrState === 'function' ? getPrState(pr, targetDate) : null
-        }))
-        .filter(item => item.state);
-      if (prStatesForModal.length > 0) {
-        const prList = prStatesForModal.map(item => {
-          const pr = item.record;
-          const prState = item.state;
-          const title = pr.pr_title || '不明';
-          const body = pr.pr_text || '（未設定）';
-          const statusLabel = `<div class="pr-label pr-label-${escapeAttribute(prState.status)}">${escapeHtml(prState.label)}</div>`;
-          return `<div class="pr-info-item">${statusLabel}<strong>PR ID:</strong> ${escapeHtml(pr.pr_id)}<br><strong>タイトル:</strong> ${escapeHtml(title)}<br><strong>PR内容:</strong><div class="pr-info-body">${escapeHtml(body).replace(/\r?\n/g, '<br>')}</div></div>`;
-        }).join('<hr>');
-        prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
-      } else {
-        prContainer.innerHTML = '<h4>紐付いているPR</h4><p>なし</p>';
-      }
-    }
-
-    // 4. タブの初期化とルール適用
-    const currentFormat = CURRENT_ENTRY.format || 'フリー';
-    window.openAndInitModalWithTab(currentFormat, 'editModal');
-    updateEditChangeHighlights_(modal);
-    loadCommentsForCurrentEntry();
     setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
-    bindSingleDeliveryDateSync_(modal);
+
+    const editCoreFields = modal.querySelector('#editCoreFields');
+    if (editCoreFields) editCoreFields.innerHTML = '<div class="empty-state">項目を読み込み中...</div>';
+    const prContainer = modal.querySelector('#edit-pr-details');
+    if (prContainer) prContainer.innerHTML = '<div class="empty-state">読み込み中...</div>';
 
     setModalVisible_(modal, true);
+
+    bindEditModalInteractions_(modal);
+    bindSingleDeliveryDateSync_(modal);
+    loadCommentsForCurrentEntry();
+
+    requestAnimationFrame(() => finalizeEditModalContent_(modal));
   }
 
   // モーダルごとのタブ初期化（イベントリスナー登録）
@@ -1077,12 +1226,16 @@
     return text;
   }
 
+  function getRowProp_(row, key) {
+    if (Object.prototype.hasOwnProperty.call(row, key)) return String(row[key] == null ? '' : row[key]).trim();
+    const match = Object.keys(row).find(k => k.includes('/') && k.split('/').map(s => s.trim()).includes(key));
+    return match ? String(row[match] == null ? '' : row[match]).trim() : '';
+  }
+
   function getInputControlValueByAliases_(row, aliases) {
     for (const alias of aliases) {
-      if (Object.prototype.hasOwnProperty.call(row, alias)) {
-        const value = String(row[alias] == null ? '' : row[alias]).trim();
-        if (value) return value;
-      }
+      const value = getRowProp_(row, alias);
+      if (value) return value;
     }
     return '';
   }
@@ -1125,7 +1278,7 @@
       mail_content_free: ['メルマガ内容(フリー)', 'mail_content_free'],
       notes: ['備考', 'notes'],
       is_new: ['新規', 'is_new', 'new_flag'],
-      is_verifying: ['検証中', 'is_verifying', 'verifying_flag'],
+      is_verifying: ['検証中', 'is_verifying', '検証中/is_verifying', 'verifying_flag'],
       assignee: ['設定者', '設定', 'assignee'],
       reviewer: ['確認者', '確認', 'reviewer'],
       target_age: ['USER_年齢', 'target_age'],
@@ -1155,17 +1308,15 @@
       const rowKey = normalizeScheduleEditKey_(getInputControlValueByAliases_(row, keyAliases));
       if (rowKey && rowKey !== key) continue;
       // シートは「画面」列と「モーダル」列が別々のため、「モーダル」列を優先して照合する
-      const rowModal = normalize(row['モーダル'] || '') || normalize(row['画面'] || '');
+      const rowModal = getRowProp_(row, 'モーダル') || getRowProp_(row, '画面');
       const rowFormat = getInputControlValueByAliases_(row, formatAliases);
       const modalMatches = !rowModal || modalLabels.some(label => rowModal.includes(label));
       const formatMatches = !rowFormat || formatLabels.some(label => rowFormat.includes(label));
       if (modalMatches && formatMatches) {
         const labels = Array.from(new Set([].concat(keyLabels[key] || [], [getDisplayName(key), key]).filter(Boolean)));
         for (const label of labels) {
-          if (Object.prototype.hasOwnProperty.call(row, label)) {
-            const state = normalizeInputControlState_(row[label]);
-            if (state) return state;
-          }
+          const state = normalizeInputControlState_(getRowProp_(row, label));
+          if (state) return state;
         }
       }
       if (modalMatches && formatMatches) {
@@ -1175,18 +1326,14 @@
       for (const modalLabel of modalLabels) {
         for (const formatLabel of formatLabels) {
           for (const candidateKey of [`${modalLabel}_${formatLabel}`, `${modalLabel}:${formatLabel}`, `${modalLabel}/${formatLabel}`, `${modalLabel}${formatLabel}`]) {
-            if (Object.prototype.hasOwnProperty.call(row, candidateKey)) {
-              const state = normalizeInputControlState_(row[candidateKey]);
-              if (state) return state;
-            }
+            const state = normalizeInputControlState_(getRowProp_(row, candidateKey));
+            if (state) return state;
           }
         }
       }
       for (const candidateKey of formatLabels.concat(modalLabels)) {
-        if (Object.prototype.hasOwnProperty.call(row, candidateKey)) {
-          const state = normalizeInputControlState_(row[candidateKey]);
-          if (state) return state;
-        }
+        const state = normalizeInputControlState_(getRowProp_(row, candidateKey));
+        if (state) return state;
       }
     }
     return '';
@@ -1231,13 +1378,11 @@
       const rowCycle = getInputControlValueByAliases_(row, cycleAliases);
       if (!rowCycle || rowCycle !== normalizedCycle) continue;
       // シートは「画面」列と「モーダル」列が別々のため、「モーダル」列を優先して照合する
-      const rowModal = normalize(row['モーダル'] || '') || normalize(row['画面'] || '');
+      const rowModal = getRowProp_(row, 'モーダル') || getRowProp_(row, '画面');
       if (rowModal && !modalLabels.some(label => rowModal.includes(label))) continue;
       for (const label of (keyLabels[key] || [key])) {
-        if (Object.prototype.hasOwnProperty.call(row, label)) {
-          const state = normalizeInputControlState_(row[label]);
-          if (state) return state;
-        }
+        const state = normalizeInputControlState_(getRowProp_(row, label));
+        if (state) return state;
       }
     }
     return '';
@@ -1374,6 +1519,8 @@
     applyCycleInputControlMatrix_(modal);
     applyPrMasterControls_(modal);
     syncSingleDeliveryEndDate_(modal);
+    if (typeof syncReviewerLock_ === 'function') syncReviewerLock_();
+    if (modalId === 'editModal') updateEditChangeHighlights_(modal);
   }
 
   function openAndInitModalWithTab(format, modalId) {
@@ -1432,8 +1579,8 @@
     };
 
     Object.keys(nextValues).forEach(key => {
-      const next = normalizeComparableModalValue_(nextValues[key], key);
-      const prev = normalizeComparableModalValue_(base[key], key);
+      const next = getEntryFieldComparableValue_(nextValues, key);
+      const prev = getEntryFieldComparableValue_(base, key);
       if (next !== prev) {
         overrideFields.push(key);
         payload[key] = nextValues[key];
@@ -1588,7 +1735,7 @@
   function buildAssigneeOptions() {
     const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
     return rows.map(row => {
-      const value = row.initial || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
+      const value = row.initial || row.abbreviation || row.Abbreviation || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
       const label = row.full_name || row.fullName || row.name || row['氏名'] || row['名前'] || value;
       return `<option value="${escapeAttribute(value)}">${escapeHtml(value)}${label && label !== value ? ` (${escapeHtml(label)})` : ''}</option>`;
     }).join('');
@@ -1598,9 +1745,12 @@
     const rows = Array.isArray(APP_DATA.adminMaster) ? APP_DATA.adminMaster : [];
     return rows
       .map(row => {
-        const value = row.initial || row.name || row.full_name || row['略称'] || row['名前'] || row['氏名'] || '';
-        const label = row.full_name || row.fullName || row.name || row['氏名'] || row['名前'] || value;
-        return value ? { value, label: label && label !== value ? `${value} (${label})` : value } : null;
+        const value = String(row.initial || row.abbreviation || row.Abbreviation || getValueByKeys(row, ['initial', 'abbreviation', 'Abbreviation', '略称']) || '').trim();
+        const nameVal = String(row.full_name || row.fullName || row.name || getValueByKeys(row, ['full_name', 'fullName', 'name', 'Name', '名前', '氏名']) || '').trim();
+        const resolved = value || nameVal;
+        if (!resolved) return null;
+        const label = nameVal || resolved;
+        return { value: resolved, label: label && label !== resolved ? `${resolved} (${label})` : resolved };
       })
       .filter(Boolean);
   }

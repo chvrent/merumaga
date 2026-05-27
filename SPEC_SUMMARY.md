@@ -42,6 +42,8 @@
 ## シート連携
 
 - シートのヘッダー名を正とする。
+- 列名は `日本語/英語`（例: `設定者/assignee`）を推奨。サーバーは内部キー（英語）で保持し、UI・フィルター・ラベルは日本語で表示する（`SPEC.md` の列名統一仕様参照）。
+- 配信編集の設定者・確認者は `app_schedule` マスタ行の値を表示する。`app_admin_master` は候補リスト用。
 - app_scheduleに列追加した場合は、モーダルだけでなくメルマガ一覧・PR管理・保存API・入力制御を同時確認する。
 - `入力制御` シートが正本。`APP_DATA.inputControls`（`getInputControlRows_()` 読み込み）を参照し `applyDynamicInputControl` で適用する。
 - `入力制御` は1枚の中に `タブ別入力制御`、`サイクル別入力制御`、`PR管理専用 入力項目・配置マトリクス` を縦に並べる。`getInputControlRows_()` が各行へ `__section` を付け、クライアント側でブロック別に読み分ける。

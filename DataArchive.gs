@@ -12,26 +12,50 @@
 // アーカイブ操作
 // ============================================================
 
+const ARCHIVE_SPECIFIC_KEYS_ = ['archived_at', 'fixed_week_start', 'fixed_week_end', 'source_row', 'check_setter_active', 'check_checker_active'];
+
+function isArchiveSpecificHeader_(header) {
+  return ARCHIVE_SPECIFIC_KEYS_.some(key => matchesAlias_(header, key));
+}
+
+function matchesAlias_(header, alias) {
+  if (header === alias) return true;
+  return header.includes('/') && header.split('/').map(s => s.trim()).includes(alias);
+}
+
+function matchArchiveHeaderToScheduleIndex_(schedHeaderMap, archiveHeader) {
+  const exact = schedHeaderMap.get(archiveHeader);
+  if (exact != null) return exact;
+  const segments = archiveHeader.includes('/') ? archiveHeader.split('/').map(s => s.trim()) : [archiveHeader];
+  for (const seg of segments) {
+    const idx = resolveHeaderIndex_(schedHeaderMap, seg);
+    if (idx != null) return idx;
+  }
+  return null;
+}
+
 function getOrCreateArchiveSheet_(ss, scheduleHeaders) {
   const sheet = ss.getSheetByName(SCHEDULE_ARCHIVE_SHEET_NAME) || ss.insertSheet(SCHEDULE_ARCHIVE_SHEET_NAME);
-  const archiveHeaders = ['archived_at', 'fixed_week_start', 'fixed_week_end', 'source_row'].concat(scheduleHeaders);
+  const wantedHeaders = ['archived_at', 'fixed_week_start', 'fixed_week_end', 'source_row'].concat(scheduleHeaders);
 
   if (sheet.getLastRow() === 0) {
-    sheet.getRange(1, 1, 1, archiveHeaders.length).setValues([archiveHeaders]);
-  } else {
-    const currentHeaders = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), archiveHeaders.length)).getValues()[0];
-    if (!currentHeaders[0]) {
-      sheet.getRange(1, 1, 1, archiveHeaders.length).setValues([archiveHeaders]);
-    } else {
-      const currentSet = new Set(currentHeaders.map(header => String(header || '').trim()).filter(Boolean));
-      let nextHeaders = currentHeaders.map(header => String(header || '').trim());
-      archiveHeaders.forEach(header => {
-        if (!currentSet.has(header)) nextHeaders.push(header);
-      });
-      if (nextHeaders.length !== currentHeaders.length) {
-        sheet.getRange(1, 1, 1, nextHeaders.length).setValues([nextHeaders]);
-      }
-    }
+    sheet.getRange(1, 1, 1, wantedHeaders.length).setValues([wantedHeaders]);
+    return sheet;
+  }
+
+  const currentHeaders = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), wantedHeaders.length)).getValues()[0]
+    .map(h => String(h || '').trim());
+  if (!currentHeaders[0]) {
+    sheet.getRange(1, 1, 1, wantedHeaders.length).setValues([wantedHeaders]);
+    return sheet;
+  }
+
+  let nextHeaders = currentHeaders.slice();
+  wantedHeaders.forEach(header => {
+    if (!headerExists_(nextHeaders, header)) nextHeaders.push(header);
+  });
+  if (nextHeaders.length !== currentHeaders.length) {
+    sheet.getRange(1, 1, 1, nextHeaders.length).setValues([nextHeaders]);
   }
 
   return sheet;
@@ -43,8 +67,8 @@ function getExistingArchiveKeys_(archiveSheet) {
 
   const values = archiveSheet.getDataRange().getDisplayValues();
   const headers = values[0].map(header => String(header || '').trim());
-  const weekStartIndex = headers.indexOf('fixed_week_start');
-  const sourceRowIndex = headers.indexOf('source_row');
+  const weekStartIndex = findHeaderIndex_(headers, 'fixed_week_start');
+  const sourceRowIndex = findHeaderIndex_(headers, 'source_row');
   if (weekStartIndex < 0 || sourceRowIndex < 0) return keys;
 
   values.slice(1).forEach(row => {
@@ -62,9 +86,9 @@ function getFixedOccurrences_(dateRange) {
 
   const values = archiveSheet.getDataRange().getDisplayValues();
   const headers = values[0].map(header => String(header || '').trim());
-  const sourceRowIndex = headers.indexOf('source_row');
-  const weekStartIndex = headers.indexOf('fixed_week_start');
-  const weekEndIndex = headers.indexOf('fixed_week_end');
+  const sourceRowIndex = findHeaderIndex_(headers, 'source_row');
+  const weekStartIndex = findHeaderIndex_(headers, 'fixed_week_start');
+  const weekEndIndex = findHeaderIndex_(headers, 'fixed_week_end');
   if (sourceRowIndex < 0 || weekStartIndex < 0 || weekEndIndex < 0) return fixedOccurrences;
 
   values.slice(1).forEach(row => {
@@ -86,8 +110,8 @@ function getFixedOccurrences_(dateRange) {
 }
 
 function isArchiveDiffConfirmed_(headers, row) {
-  const setterIndex = headers.indexOf('check_setter_active');
-  const checkerIndex = headers.indexOf('check_checker_active');
+  const setterIndex = findHeaderIndex_(headers, 'check_setter_active');
+  const checkerIndex = findHeaderIndex_(headers, 'check_checker_active');
   const hasCheckColumns = setterIndex >= 0 || checkerIndex >= 0;
   const hasCheckValues = (setterIndex >= 0 && normalizeCell_(row[setterIndex]) !== '') ||
     (checkerIndex >= 0 && normalizeCell_(row[checkerIndex]) !== '');
@@ -108,12 +132,28 @@ function getArchivedOccurrenceRows_(dateRange) {
 
   const values = archiveSheet.getDataRange().getDisplayValues();
   const headers = values[0].map(header => String(header || '').trim());
-  const sourceRowIndex = headers.indexOf('source_row');
-  const weekStartIndex = headers.indexOf('fixed_week_start');
-  const weekEndIndex = headers.indexOf('fixed_week_end');
+  const sourceRowIndex = findHeaderIndex_(headers, 'source_row');
+  const weekStartIndex = findHeaderIndex_(headers, 'fixed_week_start');
+  const weekEndIndex = findHeaderIndex_(headers, 'fixed_week_end');
   if (sourceRowIndex < 0 || weekStartIndex < 0 || weekEndIndex < 0) return archived;
 
-  const scheduleHeaders = headers.slice(4);
+  const scheduleColumnIndices = [];
+  const scheduleHeaders = [];
+  headers.forEach((h, i) => {
+    if (!isArchiveSpecificHeader_(h)) {
+      scheduleColumnIndices.push(i);
+      scheduleHeaders.push(h);
+    }
+  });
+
+  // normalizeScheduleRow_ の新シグネチャ用にインデックスマップをループ外で1回だけ構築する
+  const scheduleHeaderMap = buildHeaderMap_(scheduleHeaders);
+  const archiveFieldIdx = {};
+  Object.keys(SCHEDULE_FIELD_ALIASES).forEach(key => {
+    const idx = firstExistingHeaderIndex_(scheduleHeaderMap, SCHEDULE_FIELD_ALIASES[key]);
+    archiveFieldIdx[key] = idx != null ? idx : -1;
+  });
+
   values.slice(1).forEach(row => {
     const sourceRow = normalizeCell_(row[sourceRowIndex]);
     const start = parseScheduleDate_(row[weekStartIndex]);
@@ -121,13 +161,13 @@ function getArchivedOccurrenceRows_(dateRange) {
     if (!sourceRow || !start || !end) return;
     if (dateRange && (end < dateRange.start || start > dateRange.end)) return;
 
-    const scheduleRow = row.slice(4, 4 + scheduleHeaders.length);
+    const scheduleRow = scheduleColumnIndices.map(i => row[i]);
     const isSingleDayArchive = formatDate_(start) === formatDate_(end);
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
       const dateStr = formatDate_(date);
       if (!isDateInOperationalRange_(dateStr, dateRange)) continue;
       if (!isSingleDayArchive && !isScheduleRowActiveOnDate_(scheduleHeaders, scheduleRow, date)) continue;
-      const record = normalizeScheduleRow_(SCHEDULE_SHEET_NAME, Number(sourceRow), scheduleHeaders, scheduleRow);
+      const record = normalizeScheduleRow_(SCHEDULE_SHEET_NAME, Number(sourceRow), scheduleRow, archiveFieldIdx);
       if (!record) continue;
       record.source_row = sourceRow;
       record.target_date = dateStr;
@@ -156,6 +196,12 @@ function archivePastOccurrencesForScheduleRow_(ss, headers, row, sourceRow) {
   const archiveSheet = getOrCreateArchiveSheet_(ss, headers);
   const existingKeys = getExistingArchiveKeys_(archiveSheet);
   const scheduleId = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.schedule_id);
+
+  const archiveHeaders = archiveSheet.getRange(1, 1, 1, archiveSheet.getLastColumn()).getValues()[0]
+    .map(h => String(h || '').trim());
+  const schedHeaderMap = new Map();
+  headers.forEach((h, i) => schedHeaderMap.set(h, i));
+
   const archiveRows = [];
   for (let date = new Date(scanStart); date <= scanEnd; date.setDate(date.getDate() + 1)) {
     if (!isScheduleRowActiveOnDate_(headers, row, date)) continue;
@@ -163,12 +209,15 @@ function archivePastOccurrencesForScheduleRow_(ss, headers, row, sourceRow) {
     const archiveKey = buildFixedOccurrenceKey_(scheduleId || sourceRow, dateStr);
     if (existingKeys.has(archiveKey)) continue;
 
-    archiveRows.push([
-      new Date(),
-      dateStr,
-      dateStr,
-      sourceRow
-    ].concat(row.slice(0, headers.length)));
+    const archiveRow = archiveHeaders.map(archiveHeader => {
+      if (matchesAlias_(archiveHeader, 'archived_at')) return new Date();
+      if (matchesAlias_(archiveHeader, 'fixed_week_start')) return dateStr;
+      if (matchesAlias_(archiveHeader, 'fixed_week_end')) return dateStr;
+      if (matchesAlias_(archiveHeader, 'source_row')) return sourceRow;
+      const schedIdx = matchArchiveHeaderToScheduleIndex_(schedHeaderMap, archiveHeader);
+      return schedIdx != null ? row[schedIdx] : '';
+    });
+    archiveRows.push(archiveRow);
     existingKeys.add(archiveKey);
   }
 

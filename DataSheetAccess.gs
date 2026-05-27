@@ -19,6 +19,16 @@ function getSheetHeaders_(ss, sheetName) {
 }
 
 function getInputControlRows_() {
+  const cacheKey = 'initialData:inputControls';
+  const cached = getJsonCache_(cacheKey);
+  if (Array.isArray(cached)) return cached;
+
+  const rows = getInputControlRowsUncached_();
+  putJsonCache_(cacheKey, rows, INITIAL_DATA_CACHE_TTL_SECONDS);
+  return rows;
+}
+
+function getInputControlRowsUncached_() {
   const ss = getSourceSpreadsheet_();
   const sheetNames = ['入力制御', 'input_control', 'app_input_control'];
   let sheet = null;
@@ -37,12 +47,13 @@ function getInputControlRows_() {
       section = row[0];
       continue;
     }
-    if (row[0] !== '画面' || row[1] !== 'モーダル') continue;
+    const matchesSeg_ = (val, target) => val === target || (val.includes('/') && val.split('/').map(s => s.trim()).includes(target));
+    if (!matchesSeg_(row[0], '画面') || !matchesSeg_(row[1], 'モーダル')) continue;
     const headers = row;
     for (let dataIndex = rowIndex + 1; dataIndex < values.length; dataIndex++) {
       const dataRow = values[dataIndex].map(value => String(value || '').trim());
       if (!dataRow.some(Boolean)) break;
-      if (dataRow[0] === '画面' && dataRow[1] === 'モーダル') break;
+      if (matchesSeg_(dataRow[0], '画面') && matchesSeg_(dataRow[1], 'モーダル')) break;
       const obj = {};
       obj.__section = section;
       headers.forEach((header, columnIndex) => {
@@ -66,20 +77,8 @@ function getSheetObjects_(sheetName, allowMissing = false) {
   const values = sheet.getDataRange().getDisplayValues();
   if (!values.length) return [];
 
-  const headers = values[0].map(header => String(header || '').trim());
   const safeSheetName = String(sheetName || '').trim();
-  return values
-    .slice(1)
-    .filter(row => row.some(v => v !== ''))
-    .map(row => {
-      const obj = {};
-      headers.forEach((header, index) => {
-        if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
-        obj[header] = normalizeCell_(row[index]);
-      });
-      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
-      return obj;
-    });
+  return mapDisplayValuesToMasterRows_(safeSheetName, values);
 }
 
 function getSheetObjectsCached_(sheetName, allowMissing = false) {
@@ -161,7 +160,7 @@ function isDateInOperationalRange_(value, dateRange) {
 }
 
 function ensureHeader_(sheet, headers, headerName) {
-  const index = headers.indexOf(headerName);
+  const index = findHeaderIndex_(headers, headerName);
   if (index >= 0) return index;
 
   const newIndex = headers.length;
@@ -171,7 +170,7 @@ function ensureHeader_(sheet, headers, headerName) {
 }
 
 function ensureHeaderAtMinColumn_(sheet, headers, headerName, preferredIndex) {
-  const index = headers.indexOf(headerName);
+  const index = findHeaderIndex_(headers, headerName);
   if (index >= 0) return index;
 
   const preferredHeader = normalizeCell_(headers[preferredIndex]);

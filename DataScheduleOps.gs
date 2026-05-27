@@ -331,63 +331,80 @@ function getScheduleRows_(ss) {
   if (!values.length) return [];
 
   const headers = values[0].map(header => String(header || '').trim());
+  const headerMap = buildHeaderMap_(headers);
+
+  // SCHEDULE_FIELD_ALIASES の列インデックスをヘッダー一覧から1回だけ解決する。
+  // 日本語/英語 形式のヘッダーに対して行ごとに O(n) スキャンが走るのを防ぐ。
+  const fieldIdx = {};
+  Object.keys(SCHEDULE_FIELD_ALIASES).forEach(key => {
+    const idx = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES[key]);
+    fieldIdx[key] = idx != null ? idx : -1;
+  });
+
   return values
     .slice(1)
     .filter(row => row.some(v => v !== ''))
-    .map((row, index) => normalizeScheduleRow_(SCHEDULE_SHEET_NAME, index + 2, headers, row))
+    .map((row, index) => normalizeScheduleRow_(SCHEDULE_SHEET_NAME, index + 2, row, fieldIdx))
     .filter(Boolean);
 }
 
-function normalizeScheduleRow_(sheetName, rowNumber, headers, row) {
+function normalizeScheduleRow_(sheetName, rowNumber, row, fieldIdx) {
+  // fieldIdx から O(1) でセル値を取得
+  const getF = key => {
+    const idx = fieldIdx[key];
+    return idx >= 0 ? normalizeCell_(row[idx]) : '';
+  };
+  const getP = key => {
+    const v = getF(key);
+    return isBooleanText_(v) ? '' : v;
+  };
+
+  const mailType = getF('mail_type') || normalizeCell_(row[1]);
   const record = {
-    schedule_id: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.schedule_id) || `${sheetName}:${rowNumber}`,
+    schedule_id: getF('schedule_id') || `${sheetName}:${rowNumber}`,
     source_sheet: sheetName,
     source_row: String(rowNumber),
-    mail_type: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_type) || normalizeCell_(row[1]),
-    category: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_type) || normalizeCell_(row[1]),
-    sub_category: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.sub_category),
-    cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle) || normalizeCell_(row[2]),
-    weekday: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.weekday) || normalizeCell_(row[3]),
-    hour: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.hour) || normalizeCell_(row[4]),
-    mail_name: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_name),
-    mail_content: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content),
-    mail_content_extract: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content_extract),
-    mail_content_free: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_content_free),
-    format: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.format),
-    delivery_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.delivery_count),
-    assignee: getPersonFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.assignee),
-    reviewer: getPersonFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.reviewer),
-    start_date: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.start_date),
-    end_date: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.end_date),
-    pr: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.pr),
-    notes: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.notes),
-    job_url: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_url),
-    auto_job_feature_id: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.auto_job_feature_id),
-    target_age: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_age),
-    target_address: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.target_address),
-    user_desired_location: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_desired_location),
-    user_experience_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_experience_job),
-    user_desired_job: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_desired_job),
-    user_other_condition: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.user_other_condition),
-    parameter: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.parameter),
-    job_location: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_location),
-    job_type: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_type),
-    job_keyword: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.job_keyword),
-    is_new: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_new),
-    is_verifying: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_verifying),
-    current_job_count: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_job_count),
-    auto_job_other_condition: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.auto_job_other_condition),
-    current_week_cycle: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_cycle),
-    current_week_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.current_week_inactive),
-    is_inactive: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_inactive),
-    is_draft: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_draft),
-    is_fixed: getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.is_fixed)
+    mail_type: mailType,
+    category: mailType,
+    sub_category: getF('sub_category'),
+    cycle: getF('cycle') || normalizeCell_(row[2]),
+    weekday: getF('weekday') || normalizeCell_(row[3]),
+    hour: getF('hour') || normalizeCell_(row[4]),
+    mail_name: getF('mail_name'),
+    mail_content: getF('mail_content'),
+    mail_content_extract: getF('mail_content_extract'),
+    mail_content_free: getF('mail_content_free'),
+    format: getF('format'),
+    delivery_count: getF('delivery_count'),
+    assignee: getP('assignee'),
+    reviewer: getP('reviewer'),
+    start_date: getF('start_date'),
+    end_date: getF('end_date'),
+    pr: getF('pr'),
+    notes: getF('notes'),
+    job_url: getF('job_url'),
+    auto_job_feature_id: getF('auto_job_feature_id'),
+    target_age: getF('target_age'),
+    target_address: getF('target_address'),
+    user_desired_location: getF('user_desired_location'),
+    user_experience_job: getF('user_experience_job'),
+    user_desired_job: getF('user_desired_job'),
+    user_other_condition: getF('user_other_condition'),
+    parameter: getF('parameter'),
+    job_location: getF('job_location'),
+    job_type: getF('job_type'),
+    job_keyword: getF('job_keyword'),
+    is_new: getF('is_new'),
+    is_verifying: getF('is_verifying'),
+    current_job_count: getF('current_job_count'),
+    auto_job_other_condition: getF('auto_job_other_condition'),
+    current_week_cycle: getF('current_week_cycle'),
+    current_week_inactive: getF('current_week_inactive'),
+    is_inactive: getF('is_inactive'),
+    is_draft: getF('is_draft'),
+    is_fixed: getF('is_fixed')
   };
-  headers.forEach((header, index) => {
-    if (isDeprecatedScheduleHeader_(sheetName, header)) return;
-    if (!header || Object.prototype.hasOwnProperty.call(record, header)) return;
-    record[header] = normalizeCell_(row[index]);
-  });
+  // 生ヘッダーキーの追加ループを廃止: 正規キーのみで JSON を軽量化する
   record.sub_category_class = getSubCategoryClass_(record.sub_category, record.mail_type);
 
   if (!record.mail_name) return null;

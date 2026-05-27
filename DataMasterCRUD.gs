@@ -22,18 +22,10 @@ function getMasterData(sheetName) {
 
   const headers = values[0].map(header => String(header || '').trim());
   const visibleHeaders = headers.filter(header => !isDeprecatedScheduleHeader_(safeSheetName, header));
-  const rows = values
-    .slice(1)
-    .map((row, index) => {
-      const obj = { __rowNumber: String(index + 2) };
-      headers.forEach((header, columnIndex) => {
-        if (isDeprecatedScheduleHeader_(safeSheetName, header)) return;
-        obj[header || `column_${columnIndex + 1}`] = normalizeCell_(row[columnIndex]);
-      });
-      addCanonicalMasterFields_(safeSheetName, headers, row, obj);
-      return obj;
-    })
-    .filter(row => Object.keys(row).some(key => key !== '__rowNumber' && row[key] !== ''));
+  const rows = mapDisplayValuesToMasterRows_(safeSheetName, values, {
+    withRowNumber: true,
+    filterEmptyObjects: true
+  });
 
   return { sheetName: safeSheetName, headers: visibleHeaders, rows };
 }
@@ -144,8 +136,9 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     ? values[rowNumber - 1].slice(0, headers.length)
     : headers.map(() => '');
 
+  const headerCanonicalKeys = headers.map(header => getCanonicalKeyForHeader_(safeSheetName, header));
   headers.forEach((header, index) => {
-    const canonicalKey = getCanonicalKeyForHeader_(safeSheetName, header);
+    const canonicalKey = headerCanonicalKeys[index];
     if (Object.prototype.hasOwnProperty.call(normalizedPayload, header)) {
       row[index] = normalizeCell_(normalizedPayload[header]);
     } else if (canonicalKey && Object.prototype.hasOwnProperty.call(normalizedPayload, canonicalKey)) {
@@ -180,7 +173,8 @@ function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload)
   if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) optionalHeaders.push('is_draft');
   if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) optionalHeaders.push('is_verifying');
   optionalHeaders.forEach(header => {
-    if (headers.indexOf(header) >= 0) return;
+    const exists = headers.some(h => h === header || (h.includes('/') && h.split('/').map(s => s.trim()).includes(header)));
+    if (exists) return;
     headers.push(header);
     sheet.getRange(1, headers.length).setValue(header);
   });

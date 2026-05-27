@@ -28,7 +28,7 @@ function getInitialData(options) {
     holidays: getSheetObjectsCached_('app_holidays', true),
     japaneseHolidays: getJapaneseHolidays_(),
     readme: getSheetObjectsCached_('app_readme', true),
-    adminMaster: getSheetObjectsCached_('app_admin_master', true),
+    adminMaster: getAdminList(),
     inputControls: getInputControlRows_()
   }, getOperationalDataForRange_(dateRange));
 }
@@ -51,27 +51,27 @@ function getAdminList() {
   const rows = getSheetObjectsCached_('app_admin_master', true);
   return rows
     .filter(row => {
+      // 有効/無効フラグを「日本語/英語」形式ヘッダーも考慮して判定
       const activeKeys = ['is_active', 'active', '有効', 'enabled', 'enable'];
       const inactiveKeys = ['is_deleted', 'deleted', '無効', 'inactive'];
       for (const key of activeKeys) {
-        if (Object.prototype.hasOwnProperty.call(row, key)) {
-          return isTruthy_(row[key]);
-        }
+        const val = getObjectFieldByAliasesSegment_(row, [key]);
+        if (val !== '') return isTruthy_(val);
       }
       for (const key of inactiveKeys) {
-        if (Object.prototype.hasOwnProperty.call(row, key)) {
-          return !isTruthy_(row[key]);
-        }
+        const val = getObjectFieldByAliasesSegment_(row, [key]);
+        if (val !== '') return !isTruthy_(val);
       }
       return true;
     })
     .map(row => {
-      const name = normalizeCell_(row.name || row['氏名'] || row['名前'] || row.initial || row['略称']);
+      // 各フィールドを「日本語/英語」形式ヘッダーも考慮して取得
+      const name = getObjectFieldByAliasesSegment_(row, ['name', '氏名', '名前', 'initial', '略称', 'abbreviation', 'Abbreviation']);
       if (!name) return null;
       return {
         name,
-        full_name: normalizeCell_(row.full_name || row.fullName || row['氏名'] || row['名前'] || name),
-        initial: normalizeCell_(row.initial || row['略称'] || name)
+        full_name: getObjectFieldByAliasesSegment_(row, ['full_name', 'fullName', '氏名', '名前']) || name,
+        initial: getObjectFieldByAliasesSegment_(row, ['abbreviation', 'Abbreviation', 'initial', '略称']) || name
       };
     })
     .filter(Boolean)

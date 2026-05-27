@@ -326,7 +326,7 @@ function archiveOldRowsByDate_(ss, sheetName, dateHeaders, cutoff) {
   const values = sheet.getDataRange().getValues();
   const headers = values[0].map(header => String(header || '').trim());
   const dateIndexes = dateHeaders
-    .map(header => headers.indexOf(header))
+    .map(header => findHeaderIndex_(headers, header))
     .filter(index => index >= 0);
 
   if (!dateIndexes.length) {

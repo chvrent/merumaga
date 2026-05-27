@@ -37,9 +37,9 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
   const archiveHeaders = archiveValues[0].map(header => String(header || '').trim());
   const archiveHeaderMap = buildHeaderMap_(archiveHeaders);
   const scheduleHeaderMap = buildHeaderMap_(scheduleHeaders);
-  const sourceRowIndex = archiveHeaders.indexOf('source_row');
-  const startIndex = archiveHeaders.indexOf('fixed_week_start');
-  const endIndex = archiveHeaders.indexOf('fixed_week_end');
+  const sourceRowIndex = findHeaderIndex_(archiveHeaders, 'source_row');
+  const startIndex = findHeaderIndex_(archiveHeaders, 'fixed_week_start');
+  const endIndex = findHeaderIndex_(archiveHeaders, 'fixed_week_end');
   if (sourceRowIndex < 0 || startIndex < 0 || endIndex < 0) {
     throw new Error(`${SCHEDULE_ARCHIVE_SHEET_NAME} must have source_row and fixed_week_start headers`);
   }
@@ -103,11 +103,11 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
     });
 
     if (Object.prototype.hasOwnProperty.call(change.fields, 'setter')) {
-      const index = archiveHeaderMap.get('check_setter_active');
+      const index = resolveHeaderIndex_(archiveHeaderMap, 'check_setter_active');
       if (index != null) nextRow[index] = change.fields.setter;
     }
     if (Object.prototype.hasOwnProperty.call(change.fields, 'checker')) {
-      const index = archiveHeaderMap.get('check_checker_active');
+      const index = resolveHeaderIndex_(archiveHeaderMap, 'check_checker_active');
       if (index != null) nextRow[index] = change.fields.checker;
     }
     ['assignee', 'reviewer'].forEach(k => {
@@ -216,8 +216,8 @@ function saveCheckStatusUnlocked_(itemId, field, active, payload) {
   const sheet = getCheckStatusSheet_();
   const headers = getCheckStatusHeaders_(sheet);
   const values = sheet.getDataRange().getValues();
-  const itemIdIndex = headers.indexOf('item_id');
-  const fieldIndex = headers.indexOf('field');
+  const itemIdIndex = findHeaderIndex_(headers, 'item_id');
+  const fieldIndex = findHeaderIndex_(headers, 'field');
   const timestamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
   const activeValue = active === true || String(active).toLowerCase() === 'true';
   if (!activeValue && (safeField === 'move_override' || safeField === 'occurrence_override')) {
@@ -429,8 +429,8 @@ function autoConfirmOccurrences_(pairs) {
   const sheet = getCheckStatusSheet_();
   const headers = getCheckStatusHeaders_(sheet);
   const values = sheet.getDataRange().getValues();
-  const itemIdIndex = headers.indexOf('item_id');
-  const fieldIndex = headers.indexOf('field');
+  const itemIdIndex = findHeaderIndex_(headers, 'item_id');
+  const fieldIndex = findHeaderIndex_(headers, 'field');
 
   // 既存行をキーで引けるマップ
   const existingMap = {};
@@ -485,8 +485,8 @@ function clearOccurrenceCheckStatus_(scheduleId, targetDate) {
   if (values.length < 2) return;
 
   const headers = values[0].map(h => String(h || '').trim());
-  const itemIdIndex = headers.indexOf('item_id');
-  const fieldIndex = headers.indexOf('field');
+  const itemIdIndex = findHeaderIndex_(headers, 'item_id');
+  const fieldIndex = findHeaderIndex_(headers, 'field');
   if (itemIdIndex < 0 || fieldIndex < 0) return;
 
   for (let i = values.length - 1; i >= 1; i--) {

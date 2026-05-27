@@ -126,9 +126,9 @@ function resumeAllDeliveriesForDay(dateStr) {
     if (values.length < 2) return { success: true, deleted: 0 };
 
     const headers = values[0].map(header => String(header || '').trim());
-    const dateIndex = headers.indexOf('target_date');
-    const statusIndex = headers.indexOf('status');
-    const scheduleIndex = headers.indexOf('schedule_id');
+    const dateIndex = findHeaderIndex_(headers, 'target_date');
+    const statusIndex = findHeaderIndex_(headers, 'status');
+    const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
 
     if (dateIndex < 0) return { success: true, deleted: 0 };
 
@@ -246,9 +246,9 @@ function resumeDeliveryUnlocked_(scheduleId, targetDate) {
   if (values.length < 2) return { success: true, action: 'resumed', deleted: 0 };
 
   const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = headers.indexOf('schedule_id');
-  const dateIndex = headers.indexOf('target_date');
-  const statusIndex = headers.indexOf('status');
+  const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
+  const dateIndex = findHeaderIndex_(headers, 'target_date');
+  const statusIndex = findHeaderIndex_(headers, 'status');
   if (scheduleIndex < 0 || dateIndex < 0) return { success: true, action: 'resumed', deleted: 0 };
 
   let deleted = 0;
@@ -304,7 +304,7 @@ function getExceptionHeaders_(sheet) {
   }
 
   requiredHeaders.forEach(header => {
-    if (headers.indexOf(header) !== -1) return;
+    if (headerExists_(headers, header)) return;
     headers.push(header);
     sheet.getRange(1, headers.length).setValue(header);
   });

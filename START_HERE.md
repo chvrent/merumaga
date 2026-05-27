@@ -97,6 +97,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-gas.ps1 -Env 
 - 配信停止と削除は別概念。カレンダーや一覧から消したいだけなら停止、シート行を物理削除する場合だけ削除。
 - 配信編集モーダルの日付別変更は `app_check_status.occurrence_override` を使う。マスタの週次定義を不用意に上書きしない。
 
+## 2026-05-26 列名 日本語/英語 統一ノート
+
+- スプシ列名は `日本語/英語`（例: `設定者/assignee`）または日本語のみ。サーバーは内部キー（英語）で読み書きし、画面ラベル・メルマガ一覧フィルターは日本語表示。
+- 配信編集の設定者・確認者は **メルマガマスタ（`app_schedule`）行** の `assignee` / `reviewer` を正本とする。詳細は `SPEC.md` の「列名の日本語/英語 統一仕様」。
+
 ## 2026-05-25 入力制御シート反映ノート
 
 - `入力制御` シートは、1枚の中に `タブ別入力制御`、`サイクル別入力制御`、`PR管理専用 入力項目・配置マトリクス` を縦に並べる構成。`DataService.gs` の `getInputControlRows_()` がブロック名を `__section` として各行へ付ける。
