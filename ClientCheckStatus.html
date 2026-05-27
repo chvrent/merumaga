@@ -102,16 +102,21 @@
   }
 
   function applyArchiveResult_(archive) {
-    if (!archive || !archive.source_row || !archive.target_date) return;
+    if (!archive || !archive.source_row || !archive.target_date) return false;
     if (!APP_DATA.fixedOccurrences) APP_DATA.fixedOccurrences = {};
     if (!APP_DATA.archivedOccurrences) APP_DATA.archivedOccurrences = {};
     const key = `${archive.schedule_id || archive.source_row}|${archive.target_date}`;
     if (archive.archived) {
+      const changed = !APP_DATA.fixedOccurrences[key];
       APP_DATA.fixedOccurrences[key] = true;
+      return changed;
     } else if (archive.deleted || Object.prototype.hasOwnProperty.call(archive, 'archived')) {
+      const changed = !!(APP_DATA.fixedOccurrences[key] || APP_DATA.archivedOccurrences[key]);
       delete APP_DATA.fixedOccurrences[key];
       delete APP_DATA.archivedOccurrences[key];
+      return changed;
     }
+    return false;
   }
 
   function parseCheckLogPayload(encodedPayload) {
@@ -233,11 +238,12 @@
           return;
         }
         setLocalCheckStatus(result.item_id, result.field, !!result.active);
-        applyArchiveResult_(result.archive);
+        const archiveChanged = applyArchiveResult_(result.archive);
         clearPendingCheckStatus(result.item_id, result.field);
         persistPendingCheckStatuses();
+        setCheckStatusCellSaving(cell, false);
         updatePendingCheckSaveButton();
-        renderScheduleGrid();
+        if (archiveChanged) renderScheduleGrid();
       })
       .withFailureHandler(err => {
         setPendingCheckStatus(itemId, field, nextActive, payload);
