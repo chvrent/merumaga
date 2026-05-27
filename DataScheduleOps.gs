@@ -87,8 +87,8 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
   const itemId = `${safeScheduleId}|${safeOldDate}`;
   const logRow = buildCheckStatusRow_(csHeaders, itemId, 'move_override', !isBackToOriginalSlot, logPayload, timestamp);
   const values = checkStatusSheet.getDataRange().getValues();
-  const itemIdIndex = csHeaders.indexOf('item_id');
-  const fieldIndex = csHeaders.indexOf('field');
+  const itemIdIndex = findHeaderIndex_(csHeaders, 'item_id');
+  const fieldIndex = findHeaderIndex_(csHeaders, 'field');
   const deliveryDateIndex = findHeaderIndex_(csHeaders, 'delivery_date');
 
   // 事前スキャン: 既存の move_override / occurrence_override の行インデックスと旧配信日を取得
@@ -124,16 +124,13 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
     checkStatusSheet.appendRow(logRow);
   }
 
-  // 2回目以降の移動: occurrence_override の delivery_date を旧移動先から新移動先へ更新
+  // 2回目以降の移動: occurrence_override の delivery_date を新移動先へ更新
   // これを行わないと、旧 delivery_date がカレンダー上で重複表示される
-  if (moveOverrideRowIndex >= 0 && oldMoveDeliveryDate && oldMoveDeliveryDate !== safeDate &&
-      occurrenceOverrideRowIndex >= 0 && deliveryDateIndex >= 0) {
+  if (occurrenceOverrideRowIndex >= 0 && deliveryDateIndex >= 0) {
     const occRow = values[occurrenceOverrideRowIndex];
-    if (normalizeCommentTargetDate_(occRow[deliveryDateIndex]) === oldMoveDeliveryDate) {
-      const updatedRow = occRow.slice();
-      updatedRow[deliveryDateIndex] = safeDate;
-      checkStatusSheet.getRange(occurrenceOverrideRowIndex + 1, 1, 1, csHeaders.length).setValues([updatedRow]);
-    }
+    const updatedRow = occRow.slice();
+    updatedRow[deliveryDateIndex] = safeDate;
+    checkStatusSheet.getRange(occurrenceOverrideRowIndex + 1, 1, 1, csHeaders.length).setValues([updatedRow]);
   }
 
   return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour };
