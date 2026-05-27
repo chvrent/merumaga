@@ -250,6 +250,15 @@
   function applyLoadedData_(data, cacheKey, cacheable, options) {
     const applyOptions = options || {};
     const nextData = data || {};
+    // サーバーの getCheckStatuses_ は setter/checker フィールドを返さないため、
+    // loadData 後もセッション中に設定した setter/checker 状態(= true)が消えないよう維持する
+    if (DATA_STATIC_READY && nextData.checkStatuses && APP_DATA.checkStatuses) {
+      Object.keys(APP_DATA.checkStatuses).forEach(key => {
+        if (APP_DATA.checkStatuses[key] === true && !Object.prototype.hasOwnProperty.call(nextData.checkStatuses, key)) {
+          nextData.checkStatuses[key] = true;
+        }
+      });
+    }
     APP_DATA = DATA_STATIC_READY
       ? Object.assign({}, APP_DATA, nextData)
       : nextData;

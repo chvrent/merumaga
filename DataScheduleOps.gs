@@ -89,25 +89,53 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
   const values = checkStatusSheet.getDataRange().getValues();
   const itemIdIndex = csHeaders.indexOf('item_id');
   const fieldIndex = csHeaders.indexOf('field');
+  const deliveryDateIndex = findHeaderIndex_(csHeaders, 'delivery_date');
+
+  // 事前スキャン: 既存の move_override / occurrence_override の行インデックスと旧配信日を取得
+  let moveOverrideRowIndex = -1;
+  let occurrenceOverrideRowIndex = -1;
+  let oldMoveDeliveryDate = null;
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    const row = values[rowIndex];
+    if (normalizeCell_(row[itemIdIndex]) !== itemId) continue;
+    const rowField = normalizeCell_(row[fieldIndex]);
+    if (rowField === 'move_override' && moveOverrideRowIndex < 0) {
+      moveOverrideRowIndex = rowIndex;
+      if (deliveryDateIndex >= 0) oldMoveDeliveryDate = normalizeCommentTargetDate_(row[deliveryDateIndex]);
+    } else if (rowField === 'occurrence_override' && occurrenceOverrideRowIndex < 0) {
+      occurrenceOverrideRowIndex = rowIndex;
+    }
+    if (moveOverrideRowIndex >= 0 && occurrenceOverrideRowIndex >= 0) break;
+  }
+
   if (isBackToOriginalSlot) {
-    for (let rowIndex = values.length - 1; rowIndex >= 1; rowIndex--) {
-      const row = values[rowIndex];
-      if (normalizeCell_(row[itemIdIndex]) === itemId && normalizeCell_(row[fieldIndex]) === 'move_override') {
-        checkStatusSheet.deleteRow(rowIndex + 1);
-        return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
-      }
+    if (moveOverrideRowIndex >= 0) {
+      checkStatusSheet.deleteRow(moveOverrideRowIndex + 1);
+      // 削除後に occurrence_override の行番号がずれる場合を補正
+      if (occurrenceOverrideRowIndex > moveOverrideRowIndex) occurrenceOverrideRowIndex--;
     }
     return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
   }
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    const row = values[rowIndex];
-    if (normalizeCell_(row[itemIdIndex]) === itemId && normalizeCell_(row[fieldIndex]) === 'move_override') {
-      checkStatusSheet.getRange(rowIndex + 1, 1, 1, csHeaders.length).setValues([mergeCheckStatusRow_(csHeaders, row, logRow)]);
-      return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour };
+
+  // move_override を更新（または新規追加）
+  if (moveOverrideRowIndex >= 0) {
+    checkStatusSheet.getRange(moveOverrideRowIndex + 1, 1, 1, csHeaders.length).setValues([mergeCheckStatusRow_(csHeaders, values[moveOverrideRowIndex], logRow)]);
+  } else {
+    checkStatusSheet.appendRow(logRow);
+  }
+
+  // 2回目以降の移動: occurrence_override の delivery_date を旧移動先から新移動先へ更新
+  // これを行わないと、旧 delivery_date がカレンダー上で重複表示される
+  if (moveOverrideRowIndex >= 0 && oldMoveDeliveryDate && oldMoveDeliveryDate !== safeDate &&
+      occurrenceOverrideRowIndex >= 0 && deliveryDateIndex >= 0) {
+    const occRow = values[occurrenceOverrideRowIndex];
+    if (normalizeCommentTargetDate_(occRow[deliveryDateIndex]) === oldMoveDeliveryDate) {
+      const updatedRow = occRow.slice();
+      updatedRow[deliveryDateIndex] = safeDate;
+      checkStatusSheet.getRange(occurrenceOverrideRowIndex + 1, 1, 1, csHeaders.length).setValues([updatedRow]);
     }
   }
 
-  checkStatusSheet.appendRow(logRow);
   return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour };
 }
 
