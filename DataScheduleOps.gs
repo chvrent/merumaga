@@ -91,9 +91,29 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
   const fieldIndex = findHeaderIndex_(csHeaders, 'field');
   const deliveryDateIndex = findHeaderIndex_(csHeaders, 'delivery_date');
 
-  // 全スキャン: 同一 item_id の move_override / occurrence_override を全て収集（重複行含む）
+  const { moveOverrideRows, occurrenceOverrideRows } = collectCheckStatusRows_(values, itemIdIndex, fieldIndex, itemId);
+  const mergedMoveRow = moveOverrideRows.length > 0
+    ? mergeCheckStatusRow_(csHeaders, moveOverrideRows[0].row, logRow)
+    : logRow;
+  const updatedOccRow = buildUpdatedOccurrenceOverrideRow_(occurrenceOverrideRows, deliveryDateIndex, safeDate);
+
+  deleteRowsDescending_(checkStatusSheet, moveOverrideRows.concat(occurrenceOverrideRows));
+
+  if (isBackToOriginalSlot) {
+    if (updatedOccRow) checkStatusSheet.appendRow(updatedOccRow);
+    return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
+  }
+
+  checkStatusSheet.appendRow(mergedMoveRow);
+  if (updatedOccRow) checkStatusSheet.appendRow(updatedOccRow);
+
+  return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour };
+}
+
+function collectCheckStatusRows_(values, itemIdIndex, fieldIndex, itemId) {
   const moveOverrideRows = [];
   const occurrenceOverrideRows = [];
+
   for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
     const row = values[rowIndex];
     if (normalizeCell_(row[itemIdIndex]) !== itemId) continue;
@@ -102,36 +122,21 @@ function updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour) {
     else if (rowField === 'occurrence_override') occurrenceOverrideRows.push({ rowIndex, row });
   }
 
-  // move_override の新しい行を事前構築（既存があればマージ）
-  const mergedMoveRow = moveOverrideRows.length > 0
-    ? mergeCheckStatusRow_(csHeaders, moveOverrideRows[0].row, logRow)
-    : logRow;
+  return { moveOverrideRows, occurrenceOverrideRows };
+}
 
-  // occurrence_override の delivery_date を新しい移動先に更新した行を事前構築
-  let updatedOccRow = null;
-  if (occurrenceOverrideRows.length > 0 && deliveryDateIndex >= 0) {
-    updatedOccRow = occurrenceOverrideRows[0].row.slice();
-    updatedOccRow[deliveryDateIndex] = safeDate;
-  }
+function buildUpdatedOccurrenceOverrideRow_(occurrenceOverrideRows, deliveryDateIndex, safeDate) {
+  if (occurrenceOverrideRows.length === 0 || deliveryDateIndex < 0) return null;
+  const updatedOccRow = occurrenceOverrideRows[0].row.slice();
+  updatedOccRow[deliveryDateIndex] = safeDate;
+  return updatedOccRow;
+}
 
-  // 既存の全ての一致行を後ろから削除（重複を含め全クリア）
-  // getCheckStatuses_ はシートを順読みして同キーを上書きするため、古い行が残ると
-  // 後続行が最新データを上書きしてしまう。削除→末尾追記で確実に最新データが末尾に来る。
-  [...moveOverrideRows, ...occurrenceOverrideRows]
+function deleteRowsDescending_(sheet, rowEntries) {
+  rowEntries
+    .slice()
     .sort((a, b) => b.rowIndex - a.rowIndex)
-    .forEach(({ rowIndex }) => checkStatusSheet.deleteRow(rowIndex + 1));
-
-  if (isBackToOriginalSlot) {
-    // 元の枠に戻った: move_override は削除済み。occurrence_override は delivery_date を元に戻して保持
-    if (updatedOccRow) checkStatusSheet.appendRow(updatedOccRow);
-    return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour, cleared: true };
-  }
-
-  // 移動先へ: move_override を末尾追記し、occurrence_override も delivery_date を更新して末尾追記
-  checkStatusSheet.appendRow(mergedMoveRow);
-  if (updatedOccRow) checkStatusSheet.appendRow(updatedOccRow);
-
-  return { success: true, schedule_id: safeScheduleId, original_date: safeOldDate, delivery_date: safeDate, hour: safeHour };
+    .forEach(({ rowIndex }) => sheet.deleteRow(rowIndex + 1));
 }
 
 function normalizeHourForMoveCompare_(value) {
@@ -156,38 +161,23 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   const prId = normalizeIdKey_(getObjectFieldByAliases_(normalizedPrPayload, PR_FIELD_ALIASES.pr_id) || normalizeCell_(savedPr.id));
   if (!prId) throw new Error('pr_id is required');
 
-  const targetsSheet = ss.getSheetByName('app_pr_targets');
-  if (!targetsSheet) throw new Error('Sheet not found: app_pr_targets');
+  const targetsSheetData = getSheetValuesAndHeaders_(ss.getSheetByName('app_pr_targets'));
+  if (!targetsSheetData) throw new Error('Sheet not found: app_pr_targets');
 
-  const range = targetsSheet.getDataRange();
-  const values = range.getValues();
-  const headers = values[0].map(h => String(h).trim());
-  const targetHeaderMap = buildHeaderMap_(headers);
+  const targetHeaderMap = buildHeaderMap_(targetsSheetData.headers);
   const prIdIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.pr_id);
   const mailNameIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.mail_name);
   if (prIdIndex == null || mailNameIndex == null) {
     throw new Error('app_pr_targets must have PR ID/pr_id and メルマガ名/mail_name headers');
   }
 
-  const selectedMailNames = (targetNewsletters || [])
-    .map(nl => normalizeCell_(nl && nl.mail_name))
-    .filter(Boolean);
+  const selectedMailNames = getNormalizedMailNames_(targetNewsletters);
+  const preservedRows = getPreservedPrTargetRows_(targetsSheetData.values, targetsSheetData.headers.length, prIdIndex, prId);
+  const newRows = buildPrTargetRows_(selectedMailNames, targetsSheetData.headers.length, prIdIndex, mailNameIndex, prId);
 
-  // 他PRの行はそのまま保持し、このPRの行は選択中のものだけに置き換える
-  const preservedRows = values.slice(1)
-    .map(row => row.slice(0, headers.length))
-    .filter(row => normalizeIdKey_(row[prIdIndex]) !== prId);
-
-  const newRows = selectedMailNames.map(mailName => {
-    const row = new Array(headers.length).fill('');
-    row[prIdIndex] = prId;
-    row[mailNameIndex] = mailName;
-    return row;
-  });
-
-  const finalValues = [headers].concat(preservedRows, newRows);
-  targetsSheet.clearContents();
-  targetsSheet.getRange(1, 1, finalValues.length, headers.length).setValues(finalValues);
+  const finalValues = [targetsSheetData.headers].concat(preservedRows, newRows);
+  targetsSheetData.sheet.clearContents();
+  targetsSheetData.range.getSheet().getRange(1, 1, finalValues.length, targetsSheetData.headers.length).setValues(finalValues);
   invalidateInitialDataCaches_(['app_pr', 'app_pr_targets']);
 
   return { success: true };
@@ -224,33 +214,21 @@ function upsertScheduleDataUnlocked_(data) {
   const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
   if (!sheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
 
-  const values = sheet.getDataRange().getValues();
-  if (!values.length) throw new Error(`${SCHEDULE_SHEET_NAME} is empty`);
+  const sheetData = getSheetValuesAndHeaders_(sheet);
+  if (!sheetData || !sheetData.values.length) throw new Error(`${SCHEDULE_SHEET_NAME} is empty`);
 
-  const headers = values[0].map(header => String(header || '').trim());
-  const headerMap = buildHeaderMap_(headers);
+  const headerMap = buildHeaderMap_(sheetData.headers);
   const idIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.schedule_id);
+  const rowIndex = resolveScheduleRowIndex_(sheetData.values, idIndex, scheduleId);
 
-  let rowIndex = -1;
-  if (idIndex != null) {
-    for (let i = 1; i < values.length; i++) {
-      if (String(values[i][idIndex]).trim() === scheduleId) {
-        rowIndex = i + 1;
-        break;
-      }
-    }
-  } else {
-    rowIndex = getRowIndexFromScheduleId_(scheduleId);
-  }
-
-  if (rowIndex < 2 || rowIndex > values.length) {
+  if (rowIndex < 2 || rowIndex > sheetData.values.length) {
     throw new Error(`Schedule row not found for schedule_id: ${scheduleId}`);
   }
 
-  const row = values[rowIndex - 1].slice();
-  archivePastOccurrencesForScheduleRow_(ss, headers, values[rowIndex - 1], rowIndex);
+  const row = sheetData.values[rowIndex - 1].slice();
+  archivePastOccurrencesForScheduleRow_(ss, sheetData.headers, sheetData.values[rowIndex - 1], rowIndex);
   applyPayloadToRow_(row, payload, headerMap);
-  sheet.getRange(rowIndex, 1, 1, headers.length).setValues([row]);
+  sheet.getRange(rowIndex, 1, 1, sheetData.headers.length).setValues([row]);
   invalidateInitialDataCaches_([SCHEDULE_SHEET_NAME]);
   return { success: true, action: 'update', schedule_id: scheduleId };
 }
@@ -285,6 +263,38 @@ function normalizePayload_(data) {
   });
 
   return payload;
+}
+
+function resolveScheduleRowIndex_(values, idIndex, scheduleId) {
+  if (idIndex != null) {
+    for (let i = 1; i < values.length; i++) {
+      if (String(values[i][idIndex]).trim() === scheduleId) {
+        return i + 1;
+      }
+    }
+  }
+  return getRowIndexFromScheduleId_(scheduleId);
+}
+
+function getNormalizedMailNames_(targetNewsletters) {
+  return (targetNewsletters || [])
+    .map(nl => normalizeCell_(nl && nl.mail_name))
+    .filter(Boolean);
+}
+
+function getPreservedPrTargetRows_(values, headerCount, prIdIndex, prId) {
+  return values.slice(1)
+    .map(row => row.slice(0, headerCount))
+    .filter(row => normalizeIdKey_(row[prIdIndex]) !== prId);
+}
+
+function buildPrTargetRows_(selectedMailNames, headerCount, prIdIndex, mailNameIndex, prId) {
+  return selectedMailNames.map(mailName => {
+    const row = new Array(headerCount).fill('');
+    row[prIdIndex] = prId;
+    row[mailNameIndex] = mailName;
+    return row;
+  });
 }
 
 function getRowIndexFromScheduleId_(scheduleId) {
@@ -357,64 +367,70 @@ function getScheduleRows_(ss) {
 }
 
 function normalizeScheduleRow_(sheetName, rowNumber, row, fieldIdx) {
-  // fieldIdx から O(1) でセル値を取得
-  const getF = key => {
-    const idx = fieldIdx[key];
-    return idx >= 0 ? normalizeCell_(row[idx]) : '';
-  };
-  const getP = key => {
-    const v = getF(key);
-    return isBooleanText_(v) ? '' : v;
-  };
+  const getValue = key => getScheduleFieldValue_(row, fieldIdx, key);
+  const getPersonValue = key => getSchedulePersonFieldValue_(row, fieldIdx, key);
 
-  const mailType = getF('mail_type') || normalizeCell_(row[1]);
-  const record = {
-    schedule_id: getF('schedule_id') || `${sheetName}:${rowNumber}`,
-    source_sheet: sheetName,
-    source_row: String(rowNumber),
-    mail_type: mailType,
-    category: mailType,
-    sub_category: getF('sub_category'),
-    cycle: getF('cycle') || normalizeCell_(row[2]),
-    weekday: getF('weekday') || normalizeCell_(row[3]),
-    hour: getF('hour') || normalizeCell_(row[4]),
-    mail_name: getF('mail_name'),
-    mail_content: getF('mail_content'),
-    mail_content_extract: getF('mail_content_extract'),
-    mail_content_free: getF('mail_content_free'),
-    format: getF('format'),
-    delivery_count: getF('delivery_count'),
-    assignee: getP('assignee'),
-    reviewer: getP('reviewer'),
-    start_date: getF('start_date'),
-    end_date: getF('end_date'),
-    pr: getF('pr'),
-    notes: getF('notes'),
-    job_url: getF('job_url'),
-    auto_job_feature_id: getF('auto_job_feature_id'),
-    target_age: getF('target_age'),
-    target_address: getF('target_address'),
-    user_desired_location: getF('user_desired_location'),
-    user_experience_job: getF('user_experience_job'),
-    user_desired_job: getF('user_desired_job'),
-    user_other_condition: getF('user_other_condition'),
-    parameter: getF('parameter'),
-    job_location: getF('job_location'),
-    job_type: getF('job_type'),
-    job_keyword: getF('job_keyword'),
-    is_new: getF('is_new'),
-    is_verifying: getF('is_verifying'),
-    current_job_count: getF('current_job_count'),
-    auto_job_other_condition: getF('auto_job_other_condition'),
-    current_week_cycle: getF('current_week_cycle'),
-    current_week_inactive: getF('current_week_inactive'),
-    is_inactive: getF('is_inactive'),
-    is_draft: getF('is_draft'),
-    is_fixed: getF('is_fixed')
-  };
-  // 生ヘッダーキーの追加ループを廃止: 正規キーのみで JSON を軽量化する
+  const mailType = getValue('mail_type') || normalizeCell_(row[1]);
+  const record = buildScheduleRecord_(sheetName, rowNumber, row, mailType, getValue, getPersonValue);
   record.sub_category_class = getSubCategoryClass_(record.sub_category, record.mail_type);
 
   if (!record.mail_name) return null;
   return record;
+}
+
+function getScheduleFieldValue_(row, fieldIdx, key) {
+  const idx = fieldIdx[key];
+  return idx >= 0 ? normalizeCell_(row[idx]) : '';
+}
+
+function getSchedulePersonFieldValue_(row, fieldIdx, key) {
+  const value = getScheduleFieldValue_(row, fieldIdx, key);
+  return isBooleanText_(value) ? '' : value;
+}
+
+function buildScheduleRecord_(sheetName, rowNumber, row, mailType, getValue, getPersonValue) {
+  return {
+    schedule_id: getValue('schedule_id') || `${sheetName}:${rowNumber}`,
+    source_sheet: sheetName,
+    source_row: String(rowNumber),
+    mail_type: mailType,
+    category: mailType,
+    sub_category: getValue('sub_category'),
+    cycle: getValue('cycle') || normalizeCell_(row[2]),
+    weekday: getValue('weekday') || normalizeCell_(row[3]),
+    hour: getValue('hour') || normalizeCell_(row[4]),
+    mail_name: getValue('mail_name'),
+    mail_content: getValue('mail_content'),
+    mail_content_extract: getValue('mail_content_extract'),
+    mail_content_free: getValue('mail_content_free'),
+    format: getValue('format'),
+    delivery_count: getValue('delivery_count'),
+    assignee: getPersonValue('assignee'),
+    reviewer: getPersonValue('reviewer'),
+    start_date: getValue('start_date'),
+    end_date: getValue('end_date'),
+    pr: getValue('pr'),
+    notes: getValue('notes'),
+    job_url: getValue('job_url'),
+    auto_job_feature_id: getValue('auto_job_feature_id'),
+    target_age: getValue('target_age'),
+    target_address: getValue('target_address'),
+    user_desired_location: getValue('user_desired_location'),
+    user_experience_job: getValue('user_experience_job'),
+    user_desired_job: getValue('user_desired_job'),
+    user_other_condition: getValue('user_other_condition'),
+    parameter: getValue('parameter'),
+    job_location: getValue('job_location'),
+    job_type: getValue('job_type'),
+    job_keyword: getValue('job_keyword'),
+    is_new: getValue('is_new'),
+    is_verifying: getValue('is_verifying'),
+    current_job_count: getValue('current_job_count'),
+    auto_job_other_condition: getValue('auto_job_other_condition'),
+    current_week_cycle: getValue('current_week_cycle'),
+    current_week_inactive: getValue('current_week_inactive'),
+    is_inactive: getValue('is_inactive'),
+    is_draft: getValue('is_draft'),
+    is_fixed: getValue('is_fixed')
+  };
 }

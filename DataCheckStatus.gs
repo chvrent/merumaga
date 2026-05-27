@@ -425,16 +425,7 @@ function getCheckStatusHeaders_(sheet) {
   const requiredHeaders = systemHeaders.concat(scheduleHeaders);
 
   // 現在のシートのヘッダーを取得
-  const lastCol = sheet.getLastColumn();
-  let headers = [];
-  if (lastCol > 0) {
-    headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
-  }
-
-  // 【重要】末尾の空要素（空列）を削除して、無駄な右側への挿入を防ぐ
-  while (headers.length > 0 && headers[headers.length - 1] === '') {
-    headers.pop();
-  }
+  const headers = trimTrailingEmptyHeaders_(getSheetTrimmedHeaders_(sheet));
 
   // シートが空なら初期設定
   if (headers.length === 0) {
@@ -444,17 +435,8 @@ function getCheckStatusHeaders_(sheet) {
     return requiredHeaders;
   }
 
-  // 足りないヘッダーを順次追加
-  requiredHeaders.forEach(header => {
-    const canonicalKey = getCheckStatusCanonicalKey_(header);
-    // すでに同じ意味の列が存在するか（内部キーで照合）
-    const alreadyExists = headers.some(current => getCheckStatusCanonicalKey_(current) === canonicalKey);
-    
-    if (!alreadyExists) {
-      headers.push(header);
-      sheet.getRange(1, headers.length).setValue(header);
-    }
-  });
+  // 必要ヘッダーを canonical キーで保証
+  ensureCanonicalHeaders_(sheet, headers, requiredHeaders, getCheckStatusCanonicalKey_);
 
   return headers;
 }

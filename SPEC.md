@@ -57,6 +57,8 @@
   - 元の配信日・元の時間へ戻した場合は `move_override` を解除し、変更アラートや日付別変更扱いにしない。
   - 移動後の再描画では、同一スロット内の同一配信枠を重複表示しない。元スロットには移動済みの元発生分を残さない。
   - **【移動→内容編集→再移動 複製禁止】**: 移動後に内容を個別編集（`occurrence_override`）し、さらに別の日へ再移動した場合、カレンダー上に同じメルマガが複製されてはならない。`move_override` の `delivery_date` を更新する際は、同一 `item_id` の `occurrence_override` が保持する `delivery_date` も新しい移動先に同期すること（旧移動先のスロットにゴースト表示が残ることを防ぐ）。
+  - **【移動→配信編集（時間/曜日変更）複製禁止】**: 移動後に配信編集モーダルで時間または曜日を変更した場合、`occurrence_override.delivery_date` が `move_override.delivery_date` と異なる値になる。この場合、エントリーは `occurrence_override.delivery_date` の位置のみに表示し、`move_override.delivery_date` の元移動先スロットには表示しないこと。
+  - **【編集後移動 内容引き継ぎ】**: 配信編集後（`occurrence_override.delivery_date = original_date` の状態）に移動した場合、移動先でも編集内容（`override_fields`）を引き継いで表示すること。
   - `end_date` を超えた配信枠は、PR紐付き状態や日付別移動・編集情報が残っていてもカレンダー上に表示しない。
   - 確認者が未設定の配信枠は、カレンダー上の確認者セルを赤塗り対象にしない。
   - 確定済みアーカイブ行の時間は、通常マスタと同じ時刻正規化でカレンダースロットへ復元する。
@@ -100,7 +102,7 @@
         - **配信編集専用ロック対象**（全形式共通）: `start_date`、`end_date`、`mail_name`、`mail_type`、`cycle`、`format`、`sub_category`、`is_new`、`weekday`、`is_verifying`。実装は `ClientModals.html` の `applyInputControlMatrix_` 関数が正。
     - 編集内容は `app_check_status` の `occurrence_override` に保存される。
     - **【個別編集の永続化】**: 変更された項目名（内部キー）は `override_fields` 列にカンマ区切りで記録される。サーバー側で既存の `override_fields` とマージして保存するため、時間移動の後に設定者を変更するなど、複数回の編集を行っても過去の変更が消失することはない。
-    - 保存時は「この日だけ変更」または「この日以降を変更」を選べる。「この日だけ」は `occurrence_override`、「この日以降」は選択日を `start_date` としてマスタ行へ反映する。
+    - 保存時は「この日だけ変更」スコープ確認モーダルを表示する。変更項目が0件の場合はモーダルをスキップしてそのまま保存する。編集内容は `occurrence_override` に保存される。「この日以降を変更」オプションは廃止済み（マスタを変更したい場合はマスタ編集モーダルを使用すること）。
     - マスタ由来の元値（`CURRENT_ENTRY_BASE`）と入力値を比較し、値が異なる項目は赤系ハイライト（`.is-overridden`）で表示する。
     - 比較キーは保存時と同じ正規化に合わせ、`setter` は `assignee`、`checker` は `reviewer`、`new_flag` は `is_new` として扱う。チェックボックス値は `TRUE` / `FALSE` 相当、時間は `H:00`、曜日・日付は正規化値で比較する。
     - `時間` はカレンダー表示用の一時値ではなく、`app_schedule` のマスタ行を元値とする。配信回ごとの時間変更がある場合だけ差分として赤表示し、`occurrence_override` へ保存する。

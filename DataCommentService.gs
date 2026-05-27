@@ -77,11 +77,7 @@ function getCommentsByScheduleId(scheduleId, targetDate) {
   if (values.length < 2) return [];
 
   const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
-  const dateIndex = findHeaderIndex_(headers, 'target_date');
-  const timestampIndex = findHeaderIndex_(headers, 'timestamp');
-  const userIndex = findHeaderIndex_(headers, 'user');
-  const textIndex = findHeaderIndex_(headers, 'comment_text');
+  const { scheduleIndex, dateIndex, timestampIndex, userIndex, textIndex } = getCommentColumnIndexes_(headers);
   if (scheduleIndex < 0 || dateIndex < 0) return [];
 
   const results = [];
@@ -129,8 +125,7 @@ function getCommentCounts_(dateRange) {
   if (values.length < 2) return counts;
 
   const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
-  const dateIndex = findHeaderIndex_(headers, 'target_date');
+  const { scheduleIndex, dateIndex } = getCommentColumnIndexes_(headers);
   if (scheduleIndex < 0 || dateIndex < 0) return counts;
 
   values.slice(1).forEach(row => {
@@ -171,16 +166,7 @@ function getCommentHeaders_(sheet) {
   ];
 
   // 現在のシートのヘッダーを取得
-  const lastCol = sheet.getLastColumn();
-  let headers = [];
-  if (lastCol > 0) {
-    headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
-  }
-
-  // 【重要】末尾の空要素（空列）を削除して、無駄な右側への挿入を防ぐ
-  while (headers.length > 0 && headers[headers.length - 1] === '') {
-    headers.pop();
-  }
+  const headers = trimTrailingEmptyHeaders_(getSheetTrimmedHeaders_(sheet));
 
   // シートが空なら初期設定
   if (headers.length === 0) {
@@ -188,21 +174,22 @@ function getCommentHeaders_(sheet) {
     return requiredHeaders;
   }
 
-  // 足りないヘッダーを順次追加（内部キーで照合）
-  requiredHeaders.forEach(header => {
-    const canonicalKey = getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, header) || header;
-    const alreadyExists = headers.some(current => {
-      const currentKey = getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, current) || current;
-      return currentKey === canonicalKey;
-    });
-    
-    if (!alreadyExists) {
-      headers.push(header);
-      sheet.getRange(1, headers.length).setValue(header);
-    }
+  // 足りないヘッダーを canonical キー（COMMENTS_FIELD_ALIASES）で保証
+  ensureCanonicalHeaders_(sheet, headers, requiredHeaders, function(h) {
+    return getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, h) || String(h || '').trim();
   });
 
   return headers;
+}
+
+function getCommentColumnIndexes_(headers) {
+  return {
+    scheduleIndex: findHeaderIndex_(headers, 'schedule_id'),
+    dateIndex: findHeaderIndex_(headers, 'target_date'),
+    timestampIndex: findHeaderIndex_(headers, 'timestamp'),
+    userIndex: findHeaderIndex_(headers, 'user'),
+    textIndex: findHeaderIndex_(headers, 'comment_text')
+  };
 }
 
 function buildCommentKey_(scheduleId, targetDate) {

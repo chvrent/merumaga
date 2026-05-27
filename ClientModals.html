@@ -1628,7 +1628,8 @@
   }
 
   function chooseScheduleEditScope_(overrideFields) {
-    return Promise.resolve('single');
+    if (!overrideFields || !overrideFields.length) return Promise.resolve('single');
+    return openScheduleEditScopeModal_();
   }
 
   function ensureScheduleEditScopeModal_() {

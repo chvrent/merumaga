@@ -457,7 +457,11 @@
       if (status.field !== 'occurrence_override' || status.is_active !== true) return false;
       if (String(status.schedule_id || '').trim() !== scheduleId) return false;
       const deliveryMatch = normalizeDateString(status.delivery_date || status.original_date) === targetDate;
-      const originalMatch = rowOrigDate && normalizeDateString(status.original_date) === rowOrigDate;
+      // originalMatch: 移動前に編集した場合（delivery_date が original_date のまま）のみ
+      // delivery_date が変わっている場合は delivery_date 側でマッチするため除外する
+      const originalMatch = rowOrigDate &&
+        normalizeDateString(status.original_date) === rowOrigDate &&
+        normalizeDateString(status.delivery_date || status.original_date) === normalizeDateString(status.original_date);
       return deliveryMatch || originalMatch;
     });
     if (!matches.length) return null;

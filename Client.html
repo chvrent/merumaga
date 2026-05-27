@@ -750,9 +750,18 @@
     const moveOverride = getMoveOverrideForDate(row, dateStr);
 
     if (moveOverride) {
-      // 移動済みの発生分: 発生分上書き(時間変更)があればそちらを優先
-      const overrideHasHour = occurrenceOverride && String(occurrenceOverride.override_fields || '').split(',').includes('hour');
-      const rawHour = overrideHasHour ? occurrenceOverride.hour : moveOverride.hour;
+      // original_date で occurrence_override を引く（edit-then-move / move-then-edit 両対応）
+      const occItemId = `${String(row.schedule_id || '').trim()}|${String(moveOverride.original_date || '').trim()}`;
+      const occurrenceOverrideForMove = getOccurrenceOverrideForItemId(occItemId);
+      // occurrence_override が別の日付へ移動済みなら、ここには表示しない（コピー防止）
+      if (occurrenceOverrideForMove &&
+          occurrenceOverrideForMove.delivery_date &&
+          normalizeDateString(occurrenceOverrideForMove.delivery_date) !== dateStr) {
+        return null;
+      }
+      const overrideHasHour = occurrenceOverrideForMove &&
+        String(occurrenceOverrideForMove.override_fields || '').split(',').includes('hour');
+      const rawHour = overrideHasHour ? occurrenceOverrideForMove.hour : moveOverride.hour;
       return String(normalizeMasterHourValue(rawHour) || rawHour || '').split(':')[0].trim() || null;
     }
 
