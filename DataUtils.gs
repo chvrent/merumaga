@@ -171,6 +171,27 @@ function getObjectFieldByAliases_(obj, aliases) {
   return '';
 }
 
+/**
+ * getObjectFieldByAliases_ のセグメント対応版。
+ * キーが「日本語/英語」形式でも各セグメントを alias と照合する。
+ */
+function getObjectFieldByAliasesSegment_(obj, aliases) {
+  if (!obj) return '';
+  for (const alias of toAliasList_(aliases)) {
+    if (Object.prototype.hasOwnProperty.call(obj, alias)) {
+      const value = normalizeCell_(obj[alias]);
+      if (value !== '') return value;
+    }
+    for (const key of Object.keys(obj)) {
+      if (key.includes('/') && key.split('/').map(s => s.trim()).includes(alias)) {
+        const value = normalizeCell_(obj[key]);
+        if (value !== '') return value;
+      }
+    }
+  }
+  return '';
+}
+
 function getMasterFieldAliases_(sheetName) {
   switch (String(sheetName || '').trim()) {
     case SCHEDULE_SHEET_NAME:
