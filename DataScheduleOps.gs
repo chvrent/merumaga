@@ -136,57 +136,33 @@ function savePRDataUnlocked_(prPayload, targetNewsletters) {
   const targetsSheet = ss.getSheetByName('app_pr_targets');
   if (!targetsSheet) throw new Error('Sheet not found: app_pr_targets');
 
-  getOrCreateInactiveColumn_(targetsSheet, PR_TARGET_FIELD_ALIASES.is_inactive);
   const range = targetsSheet.getDataRange();
   const values = range.getValues();
   const headers = values[0].map(h => String(h).trim());
   const targetHeaderMap = buildHeaderMap_(headers);
   const prIdIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.pr_id);
   const mailNameIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.mail_name);
-  const sourceRowIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.source_row);
-  const targetIndexIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.target_index);
-  const inactiveIndex = firstExistingHeaderIndex_(targetHeaderMap, PR_TARGET_FIELD_ALIASES.is_inactive);
   if (prIdIndex == null || mailNameIndex == null) {
     throw new Error('app_pr_targets must have PR ID/pr_id and メルマガ名/mail_name headers');
   }
 
-  const selectedRows = (targetNewsletters || []).map((nl, index) => ({
-    mailName: normalizeCell_(nl && nl.mail_name),
-    sourceRow: normalizeCell_(nl && nl.source_row),
-    targetIndex: index + 1
-  })).filter(row => row.mailName);
-  const selectedByMail = new Map(selectedRows.map(row => [row.mailName, row]));
-  const usedSelected = new Set();
-  const bodyRows = values.slice(1).map(row => row.slice(0, headers.length));
+  const selectedMailNames = (targetNewsletters || [])
+    .map(nl => normalizeCell_(nl && nl.mail_name))
+    .filter(Boolean);
 
-  bodyRows.forEach(row => {
-    if (normalizeIdKey_(row[prIdIndex]) !== prId) return;
-    const mailName = normalizeCell_(row[mailNameIndex]);
-    const selected = selectedByMail.get(mailName);
-    if (selected) {
-      row[prIdIndex] = prId;
-      row[mailNameIndex] = selected.mailName;
-      if (sourceRowIndex != null) row[sourceRowIndex] = selected.sourceRow;
-      if (targetIndexIndex != null) row[targetIndexIndex] = selected.targetIndex;
-      if (inactiveIndex != null) row[inactiveIndex] = false;
-      usedSelected.add(mailName);
-    } else if (inactiveIndex != null) {
-      row[inactiveIndex] = true;
-    }
-  });
+  // 他PRの行はそのまま保持し、このPRの行は選択中のものだけに置き換える
+  const preservedRows = values.slice(1)
+    .map(row => row.slice(0, headers.length))
+    .filter(row => normalizeIdKey_(row[prIdIndex]) !== prId);
 
-  selectedRows.forEach(rowInfo => {
-    if (usedSelected.has(rowInfo.mailName)) return;
+  const newRows = selectedMailNames.map(mailName => {
     const row = new Array(headers.length).fill('');
     row[prIdIndex] = prId;
-    row[mailNameIndex] = rowInfo.mailName;
-    if (sourceRowIndex != null) row[sourceRowIndex] = rowInfo.sourceRow;
-    if (targetIndexIndex != null) row[targetIndexIndex] = rowInfo.targetIndex;
-    if (inactiveIndex != null) row[inactiveIndex] = false;
-    bodyRows.push(row);
+    row[mailNameIndex] = mailName;
+    return row;
   });
 
-  const finalValues = [headers].concat(bodyRows);
+  const finalValues = [headers].concat(preservedRows, newRows);
   targetsSheet.clearContents();
   targetsSheet.getRange(1, 1, finalValues.length, headers.length).setValues(finalValues);
   invalidateInitialDataCaches_(['app_pr', 'app_pr_targets']);

@@ -87,6 +87,7 @@
     // タブの初期化とルール適用
     populateModalFields(form, row, getModalFieldAliases_('masterModal'));
     refreshAdminSelects_();
+    bindMasterModalInteractions_(modal);
     bindFormatSelects_(modal);
     bindCycleButtons_(modal);
     bindSingleDeliveryDateSync_(modal);
@@ -102,6 +103,14 @@
       updateMasterActionButtons_(row);
       setModalVisible_(modal, true);
     }
+  }
+
+  function bindMasterModalInteractions_(modal) {
+    if (!modal) return;
+    bindChangeField_(modal, '[name="setter"]', () => {
+      syncReviewerLock_('masterModal');
+    });
+    syncReviewerLock_('masterModal');
   }
 
   function updateMasterActionButtons_(row) {
@@ -499,17 +508,20 @@
     }).join('');
   }
 
-  function syncReviewerLock_() {
-    const modal = document.getElementById('editModal');
+  function syncReviewerLock_(modalId = 'editModal') {
+    const modal = document.getElementById(modalId);
     const assigneeEl = modal ? modal.querySelector('[name="setter"]') : null;
     const reviewerEl = modal ? modal.querySelector('[name="checker"]') : null;
     if (!assigneeEl || !reviewerEl) return;
 
-    const locked = CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY));
-    if (locked) {
-      reviewerEl.disabled = true;
-      reviewerEl.required = false;
-      return;
+    // editModal の場合のみ確定・停止ロックを考慮
+    if (modalId === 'editModal') {
+      const locked = CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY));
+      if (locked) {
+        reviewerEl.disabled = true;
+        reviewerEl.required = false;
+        return;
+      }
     }
 
     const assignee = String(assigneeEl.value || '').trim();
@@ -587,7 +599,7 @@
     bindCopyField_(modal, '[name="mail_name"]');
     bindCycleButtons_(modal);
     bindChangeField_(modal, '[name="setter"]', () => {
-      syncReviewerLock_();
+      syncReviewerLock_('editModal');
       updateEditChangeHighlights_(modal);
     });
     ['mail_type', 'category', 'sub_category', 'cycle'].forEach(name => {
@@ -599,7 +611,7 @@
     });
     bindEditChangeHighlights_(modal);
     bindSingleDeliveryDateSync_(modal);
-    syncReviewerLock_();
+    syncReviewerLock_('editModal');
   }
 
   function bindCycleButtons_(root) {
@@ -870,13 +882,7 @@
     if (MASTER_DATA.sheetName === 'app_pr') {
       const selectedNewsletters = [];
       document.querySelectorAll('#newsletterList input[type="checkbox"]:checked').forEach(cb => {
-        const mailName = cb.dataset.targetName;
-        // source_row は APP_DATA.schedule から検索
-        const rowData = APP_DATA.schedule.find(s => normalizeText(getValueByKeys(s, ['mail_name', 'メルマガ名'])) === mailName);
-        selectedNewsletters.push({
-          mail_name: mailName,
-          source_row: rowData ? rowData.source_row : ''
-        });
+        selectedNewsletters.push({ mail_name: cb.dataset.targetName });
       });
       payload.target_ids = selectedNewsletters.map(n => n.mail_name).join(',');
 
