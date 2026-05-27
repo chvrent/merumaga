@@ -1604,7 +1604,7 @@
         .withSuccessHandler(() => {
           hideBusy();
           closeModal();
-          loadData({ force: true });
+          loadData({ force: true, includeStatic: true });
         })
         .withFailureHandler(err => {
           hideBusy();
