@@ -880,7 +880,7 @@
         MASTER_DATA = data || { sheetName, headers: [], rows: [] };
         if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
         if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
-        if (MASTER_DATA.sheetName === 'app_pr') masterFilters.status = '__all__';
+        if (MASTER_DATA.sheetName === 'app_pr') masterFilters.status = 'active';
         renderMasterFilterChips();
         renderMasterTable();
       } catch (error) {
@@ -921,8 +921,9 @@
   }
 
   function setMasterStatusFilter(value) {
-    masterFilters.status = value === '__all__' ? '__all__' : ((value === 'ended') ? 'ended' : 'active');
+    masterFilters.status = ['active', 'inactive', '__all__'].includes(value) ? value : 'active';
     renderMasterTable();
+    renderMasterFilterChips();
   }
 
   function getActiveMasterSheetName() {
@@ -995,6 +996,15 @@
     `;
   }
 
+  function renderMasterStatusChips_() {
+    const s = masterFilters.status;
+    return [
+      `<button type="button" class="filter-chip ${s === 'active' ? 'active' : ''}" onclick="setMasterStatusFilter('active')">配信中</button>`,
+      `<button type="button" class="filter-chip ${s === '__all__' ? 'active' : ''}" onclick="setMasterStatusFilter('__all__')">すべて</button>`,
+      `<button type="button" class="filter-chip ${s === 'inactive' ? 'active' : ''}" onclick="setMasterStatusFilter('inactive')">配信終了</button>`
+    ].join('');
+  }
+
   function renderMasterFilterChips() {
     const container = document.getElementById('masterFilterChips');
     if (!container) return;
@@ -1012,13 +1022,13 @@
       return;
     }
     if (isPrMasterSheet) {
-      // PR管理一覧: フィルター不要
-      container.style.display = 'none';
+      container.style.display = 'flex';
       masterFilters.subcategory = '__all__';
       masterFilters.format = '__all__';
       masterFilters.category = '__all__';
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
+      container.innerHTML = renderMasterStatusChips_();
       return;
     }
 
@@ -1057,7 +1067,7 @@
       'setMasterCategoryFilter'
     );
 
-    container.innerHTML = [newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [renderMasterStatusChips_(), newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterVerifyingOnly(checked) {
@@ -1106,6 +1116,13 @@
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.verifyingOnly && verifyingHeader) {
         if (!isTruthyValue(getCellByHeader_(row, verifyingHeader))) return false;
+      }
+      if (masterFilters.status !== '__all__') {
+        const rowEndDate = endDateHeader ? normalizeDateString(getCellByHeader_(row, endDateHeader)) : '';
+        const rowInactive = inactiveHeader ? isTruthyValue(getCellByHeader_(row, inactiveHeader)) : false;
+        const isEffectivelyInactive = rowInactive || (!!rowEndDate && rowEndDate < today);
+        if (masterFilters.status === 'active' && isEffectivelyInactive) return false;
+        if (masterFilters.status === 'inactive' && !isEffectivelyInactive) return false;
       }
       return true;
     });

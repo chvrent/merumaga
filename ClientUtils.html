@@ -44,12 +44,16 @@
       if (['source_sheet', 'source_row', 'schedule_action'].includes(h)) return false;
       return true;
     });
-    if (MASTER_DATA.sheetName === 'app_pr' && !visible.some(header => ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID'].includes(String(header || '').trim()))) {
-      visible.unshift('pr_id');
-    }
-    // PR管理画面では紐づいたメルマガを一覧の最後に別列表示する
-    if (MASTER_DATA.sheetName === 'app_pr' && !visible.includes('target_mails')) {
-      visible.push('target_mails');
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      const prIdAliases = ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'ID'];
+      const hasPrId = visible.some(h => {
+        const s = String(h || '').trim();
+        if (prIdAliases.includes(s)) return true;
+        if (s.includes('/')) return s.split('/').map(seg => seg.trim()).some(seg => prIdAliases.includes(seg));
+        return false;
+      });
+      if (!hasPrId) visible.unshift('pr_id');
+      if (!visible.includes('target_mails')) visible.push('target_mails');
     }
     return visible;
   }
@@ -555,16 +559,27 @@
   }
 
   function getOccurrenceOverrideFieldsForEntry(entry) {
+    const fields = new Set();
     const move = getMoveOverrideForDate(entry, entry && entry.target_date);
-    if (move) return ['weekday', 'hour'];
+    if (move) {
+      fields.add('weekday');
+      fields.add('hour');
+    }
+
     const origDate = entry && (entry.original_date || entry.target_date);
     const occItemId = entry && entry.schedule_id
       ? `${String(entry.schedule_id || '').trim()}|${String(origDate || '').trim()}`
       : getCheckItemId(entry);
     const override = getOccurrenceOverrideForItemId(occItemId) ||
       getOccurrenceOverrideForDate(entry, entry && entry.target_date);
-    if (!override || !Array.isArray(override.override_fields)) return [];
-    return override.override_fields.map(key => String(key || '').trim()).filter(Boolean);
+
+    if (override && Array.isArray(override.override_fields)) {
+      override.override_fields.forEach(key => {
+        const field = String(key || '').trim();
+        if (field) fields.add(field);
+      });
+    }
+    return Array.from(fields);
   }
 
   function isOccurrenceFieldOverridden(entry, keys) {
