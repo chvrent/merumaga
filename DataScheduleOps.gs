@@ -324,6 +324,10 @@ function getSourceRowByScheduleId_(scheduleId) {
 // ============================================================
 
 function getScheduleRows_(ss) {
+  const cacheKey = 'initialData:scheduleRows';
+  const cached = getJsonCache_(cacheKey);
+  if (Array.isArray(cached)) return cached;
+
   const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
   if (!sheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
 
@@ -341,11 +345,16 @@ function getScheduleRows_(ss) {
     fieldIdx[key] = idx != null ? idx : -1;
   });
 
-  return values
+  const rows = values
     .slice(1)
     .filter(row => row.some(v => v !== ''))
     .map((row, index) => normalizeScheduleRow_(SCHEDULE_SHEET_NAME, index + 2, row, fieldIdx))
     .filter(Boolean);
+
+  // ScriptCache に保存（95KB 超過時は putJsonCache_ が自動スキップ）。
+  // 無効化は invalidateInitialDataCaches_([SCHEDULE_SHEET_NAME]) が担う。
+  putJsonCache_(cacheKey, rows, INITIAL_DATA_CACHE_TTL_SECONDS);
+  return rows;
 }
 
 function normalizeScheduleRow_(sheetName, rowNumber, row, fieldIdx) {
