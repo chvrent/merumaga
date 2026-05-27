@@ -64,12 +64,7 @@
   const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
-  let MASTER_SUBCATEGORY_FILTER = '__all__';
-  let MASTER_FORMAT_FILTER = '__all__';
-  let MASTER_CATEGORY_FILTER = '__all__';
-  let MASTER_STATUS_FILTER = 'active';
-  let MASTER_NEW_ONLY = false;
-  let MASTER_VERIFYING_ONLY = false;
+  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false };
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     default: '#FFFFFF',
     checkingSingle: '#d9e6fc',
@@ -878,7 +873,7 @@
         MASTER_DATA = data || { sheetName, headers: [], rows: [] };
         if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
         if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
-        if (MASTER_DATA.sheetName === 'app_pr') MASTER_STATUS_FILTER = '__all__';
+        if (MASTER_DATA.sheetName === 'app_pr') masterFilters.status = '__all__';
         renderMasterFilterChips();
         renderMasterTable();
       } catch (error) {
@@ -904,22 +899,22 @@
   }
 
   function setMasterSubCategoryFilter(value) {
-    MASTER_SUBCATEGORY_FILTER = String(value || '__all__');
+    masterFilters.subcategory = String(value || '__all__');
     renderMasterTable();
   }
 
   function setMasterFormatFilter(value) {
-    MASTER_FORMAT_FILTER = String(value || '__all__');
+    masterFilters.format = String(value || '__all__');
     renderMasterTable();
   }
 
   function setMasterCategoryFilter(value) {
-    MASTER_CATEGORY_FILTER = String(value || '__all__');
+    masterFilters.category = String(value || '__all__');
     renderMasterTable();
   }
 
   function setMasterStatusFilter(value) {
-    MASTER_STATUS_FILTER = value === '__all__' ? '__all__' : ((value === 'ended') ? 'ended' : 'active');
+    masterFilters.status = value === '__all__' ? '__all__' : ((value === 'ended') ? 'ended' : 'active');
     renderMasterTable();
   }
 
@@ -1001,22 +996,22 @@
     if (MASTER_DATA.sheetName !== 'app_schedule' && !isPrMasterSheet) {
       container.innerHTML = '';
       container.style.display = 'none';
-      MASTER_SUBCATEGORY_FILTER = '__all__';
-      MASTER_FORMAT_FILTER = '__all__';
-      MASTER_CATEGORY_FILTER = '__all__';
-      MASTER_STATUS_FILTER = 'active';
-      MASTER_NEW_ONLY = false;
-      MASTER_VERIFYING_ONLY = false;
+      masterFilters.subcategory = '__all__';
+      masterFilters.format = '__all__';
+      masterFilters.category = '__all__';
+      masterFilters.status = 'active';
+      masterFilters.newOnly = false;
+      masterFilters.verifyingOnly = false;
       return;
     }
     if (isPrMasterSheet) {
       // PR管理一覧: フィルター不要
       container.style.display = 'none';
-      MASTER_SUBCATEGORY_FILTER = '__all__';
-      MASTER_FORMAT_FILTER = '__all__';
-      MASTER_CATEGORY_FILTER = '__all__';
-      MASTER_NEW_ONLY = false;
-      MASTER_VERIFYING_ONLY = false;
+      masterFilters.subcategory = '__all__';
+      masterFilters.format = '__all__';
+      masterFilters.category = '__all__';
+      masterFilters.newOnly = false;
+      masterFilters.verifyingOnly = false;
       return;
     }
 
@@ -1028,29 +1023,29 @@
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
 
     const newOnlyChip = isNewHeader ? `
-      <button type="button" class="filter-chip ${MASTER_NEW_ONLY ? 'active' : ''}" onclick="setMasterNewOnly(!MASTER_NEW_ONLY)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
+      <button type="button" class="filter-chip ${masterFilters.newOnly ? 'active' : ''}" onclick="setMasterNewOnly(!masterFilters.newOnly)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
     ` : '';
     const verifyingOnlyChip = verifyingHeader ? `
-      <button type="button" class="filter-chip ${MASTER_VERIFYING_ONLY ? 'active' : ''}" onclick="setMasterVerifyingOnly(!MASTER_VERIFYING_ONLY)">${getMasterFilterLabel_(verifyingHeader, '検証中')}のみ</button>
+      <button type="button" class="filter-chip ${masterFilters.verifyingOnly ? 'active' : ''}" onclick="setMasterVerifyingOnly(!masterFilters.verifyingOnly)">${getMasterFilterLabel_(verifyingHeader, '検証中')}のみ</button>
     ` : '';
     const subCategorySelect = renderMasterFilterSelect_(
       'masterSubCategorySelect',
       getMasterFilterLabel_(subCategoryHeader, '担当部署'),
-      MASTER_SUBCATEGORY_FILTER,
+      masterFilters.subcategory,
       getUniqueMasterColumnValues_(subCategoryHeader),
       'setMasterSubCategoryFilter'
     );
     const formatSelect = renderMasterFilterSelect_(
       'masterFormatSelect',
       getMasterFilterLabel_(formatHeader, '形式'),
-      MASTER_FORMAT_FILTER,
+      masterFilters.format,
       getUniqueMasterColumnValues_(formatHeader),
       'setMasterFormatFilter'
     );
     const categorySelect = renderMasterFilterSelect_(
       'masterCategorySelect',
       getMasterFilterLabel_(mailTypeHeader, '種別'),
-      MASTER_CATEGORY_FILTER,
+      masterFilters.category,
       getUniqueMasterColumnValues_(mailTypeHeader),
       'setMasterCategoryFilter'
     );
@@ -1059,13 +1054,13 @@
   }
 
   function setMasterVerifyingOnly(checked) {
-    MASTER_VERIFYING_ONLY = !!checked;
+    masterFilters.verifyingOnly = !!checked;
     renderMasterTable();
     renderMasterFilterChips();
   }
 
   function setMasterNewOnly(checked) {
-    MASTER_NEW_ONLY = !!checked;
+    masterFilters.newOnly = !!checked;
     renderMasterTable();
     renderMasterFilterChips();
   }
@@ -1090,19 +1085,19 @@
       if (keyword && !Object.values(row).map(v => v == null ? '' : String(v)).join(' ').toLowerCase().includes(keyword)) {
         return false;
       }
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_SUBCATEGORY_FILTER !== '__all__' && subCategoryHeader) {
-        if (String(getCellByHeader_(row, subCategoryHeader) || '').trim() !== MASTER_SUBCATEGORY_FILTER) return false;
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.subcategory !== '__all__' && subCategoryHeader) {
+        if (String(getCellByHeader_(row, subCategoryHeader) || '').trim() !== masterFilters.subcategory) return false;
       }
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_FORMAT_FILTER !== '__all__' && formatHeader) {
-        if (String(getCellByHeader_(row, formatHeader) || '').trim() !== MASTER_FORMAT_FILTER) return false;
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.format !== '__all__' && formatHeader) {
+        if (String(getCellByHeader_(row, formatHeader) || '').trim() !== masterFilters.format) return false;
       }
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_CATEGORY_FILTER !== '__all__' && mailTypeHeader) {
-        if (String(getCellByHeader_(row, mailTypeHeader) || '').trim() !== MASTER_CATEGORY_FILTER) return false;
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.category !== '__all__' && mailTypeHeader) {
+        if (String(getCellByHeader_(row, mailTypeHeader) || '').trim() !== masterFilters.category) return false;
       }
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_NEW_ONLY && isNewHeader) {
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.newOnly && isNewHeader) {
         if (!isTruthyValue(getCellByHeader_(row, isNewHeader))) return false;
       }
-      if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_VERIFYING_ONLY && verifyingHeader) {
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.verifyingOnly && verifyingHeader) {
         if (!isTruthyValue(getCellByHeader_(row, verifyingHeader))) return false;
       }
       return true;
@@ -1890,7 +1885,7 @@
     }
 
     if (action === 'toggle-master-new-only') {
-      setMasterNewOnly(!MASTER_NEW_ONLY);
+      setMasterNewOnly(!masterFilters.newOnly);
       return;
     }
 
