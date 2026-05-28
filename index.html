@@ -24,7 +24,7 @@
         <div>
           <h1>配信カレンダー</h1>
           <p>開始日を選んで、日別の配信予定を確認・編集します。</p>
-          <div class="screen-note">通常枠は「確認」が赤い場合、R枠は「設定」が赤い場合に、その日付分を差分保護します。通常枠の「設定」は画面上のメモです。</div>
+          <div class="screen-note">通常枠・R枠ともに「確認」が赤い場合に、その日付分を差分保護します。通常枠の「設定」は画面上のメモです。</div>
         </div>
         <div class="toolbar-controls">
           <input type="date" id="startInput" class="hidden-start-input" aria-label="開始日">
@@ -142,6 +142,10 @@
             <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
           </section>
 
+          <div class="check-action-buttons">
+            <button type="button" class="setting-action-button" data-action="modal-toggle-setting" id="btnModalSetting">設定</button>
+            <button type="button" class="checking-action-button" data-action="modal-set-checking" id="btnModalChecking">確認</button>
+          </div>
           <div class="modal-actions">
             <button type="button" class="primary-button" data-action="save-edit">保存</button>
             <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>

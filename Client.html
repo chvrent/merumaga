@@ -412,32 +412,6 @@
     });
   }
 
-  function fillRForDay(dateStr) {
-    const updates = [];
-    document.querySelectorAll(`#tableContainer td[data-date="${escapeCssValue(dateStr)}"] .check-status-cell[data-check-field="setter"]`).forEach(cell => {
-      if (String(cell.textContent || '').trim() !== 'R') return;
-      if (cell.classList.contains('archived-cell')) return;
-      const itemId = cell.dataset.itemId;
-      if (isCheckStatusActive(itemId, 'setter')) return;
-      updates.push({
-        itemId,
-        field: 'setter',
-        active: true,
-        payload: parseCheckLogPayload(cell.dataset.logPayload)
-      });
-    });
-
-    if (!updates.length) {
-      updatePendingCheckSaveButton();
-      return;
-    }
-
-    updates.forEach(update => setPendingCheckStatus(update.itemId, update.field, update.active, update.payload));
-    schedulePendingCheckPersist();
-    renderScheduleGrid();
-    updatePendingCheckSaveButton();
-  }
-
   function escapeCssValue(value) {
     if (window.CSS && typeof window.CSS.escape === 'function') return window.CSS.escape(String(value || ''));
     return String(value || '').replace(/["\\]/g, '\\$&');
@@ -571,7 +545,7 @@
         <div class="day-bulk-actions">
            <button type="button" class="bulk-stop-button" data-action="stop-all-for-day" data-date="${escapeAttribute(dateStr)}" title="この日の配信予定をすべて停止します">全停止</button>
            <button type="button" class="bulk-resume-button" data-action="resume-all-for-day" data-date="${escapeAttribute(dateStr)}" title="この日の停止設定をすべて解除します">再開</button>
-           <button type="button" class="bulk-r-button" data-action="fill-r-for-day" data-date="${escapeAttribute(dateStr)}" title="この日のR枠だけ設定済みにします">R一括設定</button>
+           <button type="button" class="bulk-r-button" data-action="fill-r-for-day" data-date="${escapeAttribute(dateStr)}" title="この日のR枠を一括確定します">R確定</button>
         </div>
       `;
 
@@ -672,9 +646,7 @@
             const checkerChanged = isOccurrenceFieldOverridden(entryForDate, ['reviewer']);
             const subCategoryClass = getSubCategoryClass(effectiveEntry);
             const itemBg = getBgColor(effectiveEntry);
-            const assigneeForFixed = String((effectiveEntry && effectiveEntry.assignee) || '').trim();
-            const fixed = isFixed(entry, dateStr) ||
-              (assigneeForFixed === 'R' ? isCheckStatusActive(checkItemId, 'setter') : isCheckStatusActive(checkItemId, 'checker'));
+            const fixed = isFixed(entry, dateStr) || isCheckStatusActive(checkItemId, 'checker');
             const stopped = !fixed && isStopped(entryForDate);
             const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
             const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
@@ -1917,6 +1889,16 @@
       return;
     }
 
+    if (action === 'modal-toggle-setting') {
+      handleModalToggleSetting_();
+      return;
+    }
+
+    if (action === 'modal-set-checking') {
+      handleModalSetChecking_();
+      return;
+    }
+
     if (action === 'save-pending-check-statuses') {
       savePendingCheckStatuses();
       return;
@@ -2107,6 +2089,49 @@
         loadData({ force: true });
       })
       .resumeAllDeliveriesForDay(dateStr);
+  }
+
+  function fillRForDay(dateStr) {
+    const updates = [];
+    document.querySelectorAll(`td[data-date="${dateStr}"] .delivery-row`).forEach(row => {
+      try {
+        const entry = JSON.parse(decodeURIComponent(row.dataset.entry || '{}'));
+        if (String(entry.assignee || '').trim() !== 'R') return;
+        const scheduleId = row.dataset.scheduleId || row.dataset.itemId;
+        const checkItemId = `${scheduleId}|${dateStr}`;
+        if (isCheckStatusActive(checkItemId, 'checker')) return;
+        updates.push({
+          itemId: checkItemId,
+          field: 'checker',
+          active: true,
+          payload: buildCheckLogPayload(checkItemId, 'checker', Object.assign({}, entry, { target_date: dateStr }))
+        });
+      } catch (e) {}
+    });
+
+    if (!updates.length) {
+      alert('確定対象のRエントリーが見つかりません（すでに確定済みの場合も含みます）。');
+      return;
+    }
+
+    if (!confirm(`${dateStr} のR枠${updates.length}件を一括確定しますか？`)) return;
+
+    showBusy('R一括確定中...');
+    google.script.run
+      .withSuccessHandler(results => {
+        (Array.isArray(results) ? results : []).forEach(result => {
+          if (!result || !result.success) return;
+          setLocalCheckStatus(result.item_id, result.field, !!result.active);
+          applyArchiveResult_(result.archive);
+        });
+        hideBusy();
+        renderScheduleGrid();
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        alert('R一括確定に失敗しました: ' + (err.message || String(err)));
+      })
+      .saveDailyCheckStatuses(updates);
   }
 
   window.addEventListener('beforeunload', event => {

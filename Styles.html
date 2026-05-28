@@ -510,7 +510,7 @@
     margin-top: 6px;
     padding-bottom: 2px;
   }
-  .bulk-stop-button, .bulk-resume-button, .bulk-r-button {
+  .bulk-stop-button, .bulk-resume-button {
     font-size: 10px;
     padding: 2px 6px;
     border-radius: 4px;
@@ -531,10 +531,21 @@
     border-color: #86efac;
     color: #16a34a;
   }
+  .bulk-r-button {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #86efac;
+    background: #dcfce7;
+    color: #16a34a;
+    cursor: pointer;
+    transition: all 0.2s;
+    line-height: 1;
+  }
   .bulk-r-button:hover {
-    background: #fef3c7;
-    border-color: #f59e0b;
-    color: #b45309;
+    background: #16a34a;
+    border-color: #16a34a;
+    color: #fff;
   }
   .date-note {
     font-size: 10px;
@@ -1085,6 +1096,43 @@
     color: #9ca3af;
     margin-top: 3px;
     font-style: italic;
+  }
+  .check-action-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-strong);
+  }
+  .setting-action-button,
+  .checking-action-button {
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .setting-action-button {
+    background: var(--primary);
+    color: #fff;
+    border-color: var(--primary);
+  }
+  .setting-action-button.is-cancel-mode {
+    background: #dc2626;
+    border-color: #dc2626;
+    color: #fff;
+  }
+  .checking-action-button {
+    background: #16803c;
+    border-color: #16803c;
+    color: #fff;
+  }
+  .setting-action-button:disabled,
+  .checking-action-button:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
   .modal-actions {
     display: flex;
