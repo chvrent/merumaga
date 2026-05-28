@@ -1467,4 +1467,24 @@ thead th {
 .modal-footer-btn.primary-btn:hover { background: #333; }
 .modal-footer-btn.stop-mfoot-btn { background: transparent; border-color: var(--ui-border); color: var(--ui-text-2); display: flex; align-items: center; gap: 3px; }
 .modal-footer-btn.stop-mfoot-btn:hover { border-color: #fca5a5; color: #991b1b; }
+
+/* ===== PR row styles in edit modal ===== */
+.pr-rows { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; }
+.pr-row { display: flex; align-items: center; gap: 7px; padding: 4px 7px; border: 1px solid var(--ui-border); font-size: 11px; background: var(--ui-bg-sub); }
+.pr-row.pr-active { border-color: var(--pink-border); background: var(--pink-bg); }
+.pr-row.pr-start { border-color: var(--ok-border); background: var(--ok-bg); }
+.pr-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.pr-row-name { flex: 1; font-weight: 500; }
+.pr-row-name.pink { color: var(--pink); }
+.pr-row-name.green { color: var(--ok); }
+.pr-row-date { font-size: 10px; color: var(--ui-text-3); }
+.pr-row-tag { font-size: 10px; padding: 0 5px; border: 1px solid var(--ui-border); }
+.pr-row-tag.pt-active { color: var(--pink); border-color: var(--pink-border); background: var(--pink-bg); }
+.pr-row-tag.pt-start { color: var(--ok); border-color: var(--ok-border); background: var(--ok-bg); }
+
+/* ===== PR status filter chips (PR管理画面) ===== */
+.pr-status-chips { display: flex; gap: 4px; padding: 8px 12px; }
+.pr-status-chip { font-size: 11px; padding: 3px 10px; border: 1px solid var(--ui-border); background: var(--ui-bg); color: var(--ui-text-2); cursor: pointer; font-family: inherit; }
+.pr-status-chip:hover { background: var(--ui-bg-hover); }
+.pr-status-chip.active { background: var(--ui-bg-hover); font-weight: 500; color: var(--ui-text); border-color: var(--ui-border-strong); }
 </style>

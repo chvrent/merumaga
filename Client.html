@@ -1225,11 +1225,6 @@
   function renderMasterTable() {
     if (MASTER_DATA.sheetName === 'app_pr') { renderPrCards(); return; }
     const container = document.getElementById('masterTableContainer');
-    // PR管理はカードレイアウトを使用
-    if (MASTER_DATA.sheetName === 'app_pr') {
-      renderPrCards_();
-      return;
-    }
     const headers = MASTER_DATA.headers || [];
     const visibleHeaders = getVisibleMasterHeaders(headers);
     const searchInput = document.getElementById('masterSearchInput');
@@ -1364,9 +1359,9 @@
       if (isDraft(row)) return false;
       if (keyword && !Object.values(row).map(v => v == null ? '' : String(v)).join(' ').toLowerCase().includes(keyword)) return false;
       const st = getPrStatus(row);
-      if (masterFilters.status === 'active'   && st !== 'active') return false;
-      if (masterFilters.status === 'upcoming'  && st !== 'start')  return false;
-      if (masterFilters.status === 'inactive'  && st !== 'end')    return false;
+      if (masterFilters.status === 'active'                                          && st !== 'active') return false;
+      if ((masterFilters.status === 'upcoming' || masterFilters.status === 'start') && st !== 'start')  return false;
+      if ((masterFilters.status === 'inactive' || masterFilters.status === 'end')   && st !== 'end')    return false;
       return true;
     });
 
