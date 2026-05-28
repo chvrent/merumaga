@@ -1454,7 +1454,9 @@
     const map = {};
     const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
     schedule.forEach(row => {
-      const id = String(getValueByKeys(row, ['schedule_id', 'id'])).trim();
+      // normalizeIdKey で参照側と同じキー形(末尾 .0 を除去)に揃える。
+      // Sheets が数値IDを '5.0' で返すケースで参照側 '5' と不一致になりヒットしない問題の修正。
+      const id = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
       if (id) map[id] = row.mail_name || id;
     });
     return map;
