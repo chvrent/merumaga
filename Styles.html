@@ -497,7 +497,17 @@ thead th {
   transition: background 0.1s;
 }
 .bulk-r-button:hover { background: var(--ok); border-color: var(--ok); color: #fff; }
-.date-note { font-size: 10px; font-weight: 600; color: var(--alert); }
+/* 月末配信期間 note: styled like a サイクル:月末配信 tag (warm lavender) */
+.date-note {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 500;
+  color: #6b5fa5;
+  background: #ede9f5;
+  border: 1px solid #c9c0dc;
+  padding: 0 5px;
+  line-height: 1.6;
+}
 
 /* cycle chips */
 .cycle-chip {
@@ -511,7 +521,8 @@ thead th {
 .cycle-chip-A { border-color: var(--schedule-line-biweekly-a, #9bd283); border-left-width: 3px; }
 .cycle-chip-B { border-color: var(--schedule-line-biweekly-b, #e171c0); border-left-width: 3px; }
 .cycle-chip-1, .cycle-chip-2, .cycle-chip-3 { border-color: var(--schedule-line-special-cycle, #8e7cc3); border-left-width: 3px; }
-.month-end-header { background: var(--pink-bg) !important; }
+/* 月末配信期間: no pink bg; date-note uses same warm-amber tone as cycle label */
+.month-end-header { background: transparent !important; }
 .month-end-header .date-header { background: transparent; }
 
 /* time column */
@@ -582,9 +593,9 @@ thead th {
 .delivery-row.is-stopped .col-count,
 .delivery-row.is-stopped .col-setter,
 .delivery-row.is-stopped .col-checker { color: var(--text-3); text-decoration: line-through; }
+/* 変更点: red text only — no background tint */
 .delivery-row.has-occurrence-overrides { box-shadow: inset 3px 0 0 var(--pink); }
 .delivery-row .is-occurrence-overridden {
-  background: var(--pink-bg);
   color: var(--pink);
   font-weight: 600;
 }
@@ -914,7 +925,7 @@ thead th {
 }
 .modal-impact-note[hidden] { display: none !important; }
 
-/* modal tabs */
+/* modal tabs — matches reference tone */
 .modal-tabs-container {
   display: flex;
   border-bottom: 1px solid var(--border);
@@ -923,13 +934,14 @@ thead th {
   padding: 0 12px;
 }
 .modal-tab {
-  padding: 7px 12px;
-  font-size: 11px;
+  padding: 6px 12px;
+  font-size: 12px;
   color: var(--text-3);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   user-select: none;
+  white-space: nowrap;
 }
 .modal-tab:hover { color: var(--text-2); }
 .modal-tab.active {
@@ -1007,23 +1019,21 @@ thead th {
 .form-group.full-width { grid-column: span 2; }
 .form-group.disabled { opacity: 0.4; pointer-events: none; background: transparent; }
 
-/* overridden fields */
+/* overridden fields: red text + border only, no background tint */
 .form-group.is-overridden {
-  border-left: 3px solid var(--pink);
+  border-left: 2px solid var(--pink);
   padding-left: 7px;
-  background: var(--pink-bg);
 }
 .form-group.is-overridden label { color: var(--pink); }
 .form-group.is-overridden input,
 .form-group.is-overridden select,
 .form-group.is-overridden textarea {
   border-color: var(--pink-border);
-  background: var(--pink-bg);
+  color: var(--pink);
 }
 #editModal .form-group.is-overridden {
-  border-left: 3px solid var(--pink);
+  border-left: 2px solid var(--pink);
   padding-left: 7px;
-  background: var(--pink-bg);
 }
 #masterModal[data-mode="master"] .form-group {
   border-left: 3px solid var(--alert);
@@ -1452,21 +1462,28 @@ thead th {
 .modal-section-head { padding: 5px 12px; background: var(--ui-bg-sub); font-size: 10px; font-weight: 500; color: var(--ui-text-3); letter-spacing: 0.5px; text-transform: uppercase; border-top: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); margin: 0 -15px; width: calc(100% + 30px); }
 
 /* ===== Compact modal footer (.mfoot) ===== */
-.mfoot { border-top: 1px solid var(--ui-border-strong); padding: 7px 10px; flex-shrink: 0; background: var(--ui-bg-sub); }
+.mfoot { border-top: 1px solid var(--border-strong); padding: 7px 10px; flex-shrink: 0; background: var(--bg-sub); }
 .mfoot-status { display: flex; align-items: center; gap: 5px; margin-bottom: 6px; }
-.foot-label { font-size: 10px; color: var(--ui-text-3); }
+.foot-label { font-size: 10px; color: var(--text-3); }
 .mfoot-btns { display: flex; align-items: center; gap: 5px; }
 .fsp { flex: 1; }
-.modal-footer-btn { padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; border: 1px solid var(--ui-border); background: var(--ui-bg); color: var(--ui-text-2); }
-.modal-footer-btn:hover { background: var(--ui-bg-hover); }
+.modal-footer-btn { padding: 4px 10px; font-size: 11px; cursor: pointer; font-family: inherit; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); }
+.modal-footer-btn:hover { background: var(--bg-hover); }
 .modal-footer-btn.state-btn { background: #f0f0fa; color: #3a3a8a; border-color: #b0b0d8; font-weight: 500; }
+.modal-footer-btn.state-btn.is-cancel-mode { background: var(--alert-bg); color: var(--alert); border-color: #e8a89e; }
 .modal-footer-btn.state-btn:hover { background: #e8e8f5; }
+.modal-footer-btn.state-btn.is-cancel-mode:hover { background: #fde8e8; }
 .modal-footer-btn.checking-btn { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-border); font-weight: 500; }
 .modal-footer-btn.checking-btn:hover { background: #d0ede0; }
-.modal-footer-btn.primary-btn { background: var(--ui-text); color: #fff; border-color: var(--ui-text); font-weight: 500; }
+.modal-footer-btn.primary-btn { background: var(--text); color: #fff; border-color: var(--text); font-weight: 500; }
 .modal-footer-btn.primary-btn:hover { background: #333; }
-.modal-footer-btn.stop-mfoot-btn { background: transparent; border-color: var(--ui-border); color: var(--ui-text-2); display: flex; align-items: center; gap: 3px; }
-.modal-footer-btn.stop-mfoot-btn:hover { border-color: #fca5a5; color: #991b1b; }
+
+/* ===== 配信停止エリア（スクロール内） ===== */
+.stop-resume-row { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--bg-sub); }
+.stop-resume-row .stop-btn { background: transparent; border: 1px solid var(--border); padding: 4px 9px; font-size: 11px; color: var(--text-2); cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 4px; }
+.stop-resume-row .stop-btn:hover { border-color: #e8a89e; color: var(--alert); }
+.stop-resume-row .resume-btn { background: transparent; border: 1px solid var(--ok-border); padding: 4px 9px; font-size: 11px; color: var(--ok); cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 4px; }
+.stop-resume-row .resume-btn:hover { background: var(--ok-bg); }
 
 /* ===== PR row styles in edit modal ===== */
 .pr-rows { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; }
