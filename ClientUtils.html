@@ -369,6 +369,10 @@
     return map[lower] || map[text] || text;
   }
 
+  function isNthWeekOfMonth(date, n) {
+    return Math.floor((date.getDate() - 1) / 7) + 1 === n;
+  }
+
   function normalizeCycleLabel(value) {
     const text = String(value == null ? '' : value).trim();
     if (!text || text === '毎週' || text === '毎週配信') return '';
@@ -376,6 +380,10 @@
     if (text === '毎日' || text === '毎日配信') return '毎日';
     if (text === '毎月' || text === '毎月配信') return '毎月';
     if (text === '月末' || text === '月末増発') return '月末';
+    if (text.includes('第1週')) return 'M1';
+    if (text.includes('第2週')) return 'M2';
+    if (text.includes('第3週')) return 'M3';
+    if (text.includes('第4週')) return 'M4';
     if (text.includes('隔週配信A') || text.includes('隔週A') || text === 'A') return 'A';
     if (text.includes('隔週配信B') || text.includes('隔週B') || text === 'B') return 'B';
     const match = text.match(/(\d+)/);
