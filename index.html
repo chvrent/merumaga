@@ -136,19 +136,25 @@
             </div>
           </section>
 
-          <section class="exception-panel" aria-label="配信停止・再開">
-            <div id="delivery-status-pill" class="delivery-status-pill" aria-live="polite"></div>
-            <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
-            <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
-          </section>
-
-          <div class="check-action-buttons">
-            <button type="button" class="setting-action-button" data-action="modal-toggle-setting" id="btnModalSetting">設定</button>
-            <button type="button" class="checking-action-button" data-action="modal-set-checking" id="btnModalChecking">確認</button>
+          <div class="modal-status-row">
+            <div class="modal-status-left">
+              <div id="delivery-status-pill" class="delivery-status-pill" aria-live="polite"></div>
+            </div>
+            <div class="modal-status-right">
+              <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
+              <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
+            </div>
           </div>
-          <div class="modal-actions">
-            <button type="button" class="primary-button" data-action="save-edit">保存</button>
-            <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>
+
+          <div class="modal-action-footer">
+            <div class="modal-state-actions">
+              <button type="button" class="setting-action-button" data-action="modal-toggle-setting" id="btnModalSetting">設定</button>
+              <button type="button" class="checking-action-button" data-action="modal-set-checking" id="btnModalChecking">確認</button>
+            </div>
+            <div class="modal-form-actions">
+              <button type="button" class="primary-button" data-action="save-edit">保存</button>
+              <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>
+            </div>
           </div>
         </div>
       </div>

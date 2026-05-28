@@ -1097,20 +1097,51 @@
     margin-top: 3px;
     font-style: italic;
   }
-  .check-action-buttons {
+  .modal-status-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .modal-status-left {
+    display: flex;
+    align-items: center;
+  }
+  .modal-status-right {
+    display: flex;
+    gap: 6px;
+  }
+  .modal-status-row .danger-button,
+  .modal-status-row .resume-button {
+    padding: 4px 10px;
+    font-size: 11px;
+    font-weight: 500;
+  }
+  .modal-action-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 2px solid var(--border-strong);
+  }
+  .modal-state-actions,
+  .modal-form-actions {
     display: flex;
     gap: 8px;
-    justify-content: flex-end;
-    margin-top: 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-strong);
+    align-items: center;
   }
   .setting-action-button,
   .checking-action-button {
     border: 1px solid var(--border-strong);
     border-radius: 6px;
-    padding: 8px 16px;
-    font-size: 14px;
+    padding: 8px 12px;
+    font-size: 13px;
     font-weight: 600;
     cursor: pointer;
   }
@@ -1278,14 +1309,7 @@
     justify-content: flex-end;
     margin-top: 8px;
   }
-  .exception-panel {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 12px;
-  }
+
   #editModal .form-group.has-job-count-alert label {
     color: #b91c1c;
   }
@@ -1307,7 +1331,6 @@
   .delivery-status-pill {
     display: none;
     width: fit-content;
-    margin-bottom: 8px;
     padding: 6px 10px;
     border: 1px solid #9ca3af;
     border-radius: 6px;

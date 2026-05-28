@@ -1757,7 +1757,7 @@
         field.disabled = false;
       }
     });
-    const saveButton = document.querySelector('#editModal .modal-actions .primary-button');
+    const saveButton = document.querySelector('#editModal .modal-form-actions .primary-button');
     saveButton.disabled = locked;
     saveButton.style.display = locked ? 'none' : '';
 
@@ -1785,9 +1785,9 @@
       notice = document.createElement('div');
       notice.id = 'fixedNotice';
       notice.className = 'fixed-notice';
-      const modalActions = document.querySelector('#editModal .modal-actions');
-      if (modalActions && modalActions.parentNode) {
-        modalActions.parentNode.insertBefore(notice, modalActions);
+      const actionFooter = document.querySelector('#editModal .modal-action-footer');
+      if (actionFooter && actionFooter.parentNode) {
+        actionFooter.parentNode.insertBefore(notice, actionFooter);
       }
     }
     notice.textContent = fixed
