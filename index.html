@@ -1,89 +1,163 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
   <head>
     <base target="_top">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/dist/tabler-icons.min.css">
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
     <?!= include('Styles'); ?>
   </head>
   <body>
+
+    <!-- ---- ビジーオーバーレイ ---- -->
     <div id="busyOverlay" class="busy-overlay" aria-hidden="true">
       <div class="busy-card">
         <div class="busy-spinner"></div>
         <div id="busyMessage">処理中...</div>
       </div>
     </div>
-    <div class="app-shell">
-      <nav class="app-tabs" aria-label="画面切り替え">
-        <button type="button" class="tab-button active" data-tab="calendar">配信カレンダー</button>
-        <button type="button" class="tab-button" data-tab="schedule">メルマガ一覧</button>
-        <button type="button" class="tab-button" data-tab="pr">PR管理</button>
+
+    <!-- ---- アプリシェル ---- -->
+    <div class="app">
+
+      <!-- サイドバーナビゲーション -->
+      <nav class="sidebar" aria-label="画面切り替え">
+        <div class="logo">メルマガ管理</div>
+        <div class="nav">
+          <button type="button" class="ni tab-button active" data-tab="calendar">
+            <i class="ti ti-calendar" aria-hidden="true"></i>
+            <span>カレンダー</span>
+          </button>
+          <button type="button" class="ni tab-button" data-tab="schedule">
+            <i class="ti ti-mail" aria-hidden="true"></i>
+            <span>メルマガ一覧</span>
+          </button>
+          <button type="button" class="ni tab-button" data-tab="pr">
+            <i class="ti ti-speakerphone" aria-hidden="true"></i>
+            <span>PR管理</span>
+          </button>
+        </div>
+        <div class="sidebar-bottom"></div>
       </nav>
 
-      <section id="view-calendar" class="tab-view active">
-      <header class="toolbar">
-        <div>
-          <h1>配信カレンダー</h1>
-          <p>開始日を選んで、日別の配信予定を確認・編集します。</p>
-          <div class="screen-note">通常枠・R枠ともに「確認」が赤い場合に、その日付分を差分保護します。通常枠の「設定」は画面上のメモです。</div>
-        </div>
-        <div class="toolbar-controls">
-          <input type="date" id="startInput" class="hidden-start-input" aria-label="開始日">
-          <div id="scheduleLegend" class="legend-container toolbar-legend" aria-label="凡例"></div>
-          <button type="button" id="saveDailyChecksButton" class="primary-button toolbar-button" data-action="save-pending-check-statuses" disabled>本日の状態を一括保存（0）</button>
-          <button type="button" id="moveModeToggle" class="secondary-button toolbar-button" data-action="toggle-move-mode">移動: OFF</button>
-          <button type="button" class="secondary-button toolbar-button" data-action="jump-week" data-week-offset="-1">前週</button>
-          <button type="button" class="secondary-button toolbar-button" data-action="jump-to-current-week">今週</button>
-          <button type="button" class="secondary-button toolbar-button" data-action="jump-week" data-week-offset="1">次週</button>
-          <label class="toolbar-field">
-            <span>検索</span>
-            <input type="text" id="searchInput" placeholder="メルマガ名、曜日、担当者">
-          </label>
-        </div>
-      </header>
+      <!-- メインエリア（app-shell クラスは JS の移動モードが参照） -->
+      <div class="main-area app-shell">
 
-      <main class="content">
-        <div id="tableContainer" class="table-container"></div>
-      </main>
-      </section>
+        <!-- ============ カレンダービュー ============ -->
+        <section id="view-calendar" class="tab-view active">
 
-      <section id="view-master" class="tab-view">
-        <header class="toolbar">
-          <div>
-            <h1 id="masterTitle">メルマガ一覧</h1>
-            <p id="masterDescription">スプレッドシートの最新データを表形式で確認・編集します。</p>
-            <div class="screen-note">この画面の編集は、マスタ行を更新します。確定していない同じメルマガ予定すべてに反映されます。</div>
+          <!-- トップバー -->
+          <div class="topbar">
+            <div class="week-nav">
+              <button type="button" class="wbtn" data-action="jump-week" data-week-offset="-1" aria-label="前週">
+                <i class="ti ti-chevron-left" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="today-btn" data-action="jump-to-current-week">今週</button>
+              <button type="button" class="wbtn" data-action="jump-week" data-week-offset="1" aria-label="次週">
+                <i class="ti ti-chevron-right" aria-hidden="true"></i>
+              </button>
+            </div>
+
+            <div id="scheduleLegend" class="inline-legend" aria-label="凡例"></div>
+
+            <div class="sp"></div>
+
+            <input
+              type="text"
+              id="searchInput"
+              class="topbar-search"
+              placeholder="メルマガ名・担当者"
+              aria-label="カレンダー検索"
+            >
+            <button type="button" id="moveModeToggle" class="tbtn" data-action="toggle-move-mode">
+              移動: OFF
+            </button>
+            <button
+              type="button"
+              id="saveDailyChecksButton"
+              class="primary-tbtn"
+              data-action="save-pending-check-statuses"
+              disabled
+            >
+              一括保存（0）
+            </button>
+
+            <!-- 非表示の日付入力（週移動に使用） -->
+            <input type="date" id="startInput" class="hidden-start-input" aria-label="開始日">
           </div>
-          <div class="toolbar-controls">
-            <label class="toolbar-field" id="masterSheetField">
-              <span>管理対象</span>
-              <select id="masterSheetSelect"></select>
-            </label>
-            <label class="toolbar-field">
-              <span>検索</span>
-              <input type="text" id="masterSearchInput" placeholder="キーワード">
-            </label>
-            <button type="button" class="secondary-button toolbar-button" data-action="load-active-master">再読込</button>
-            <button type="button" class="primary-button toolbar-button" data-action="open-master-modal">新規追加</button>
+
+          <!-- 注記バー -->
+          <div class="screen-note-bar">
+            通常枠・R枠ともに「確認」が赤い場合に、その日付分を差分保護します。通常枠の「設定」は画面上のメモです。
           </div>
-        </header>
 
-        <div id="masterFilterChips" class="filter-chips"></div>
+          <!-- カレンダー本体 -->
+          <main class="content">
+            <div id="tableContainer" class="table-container"></div>
+          </main>
 
-        <main class="content master-content">
-          <div id="masterTableContainer" class="table-container master-table-container"></div>
-        </main>
-      </section>
-    </div>
+        </section><!-- /#view-calendar -->
 
+
+        <!-- ============ メルマガ一覧 / PR管理ビュー ============ -->
+        <section id="view-master" class="tab-view">
+
+          <!-- トップバー -->
+          <div class="topbar">
+            <div style="min-width:0;">
+              <h1 id="masterTitle" class="topbar-h1">メルマガ一覧</h1>
+              <p id="masterDescription" class="topbar-desc">スプレッドシートの最新データを表形式で確認・編集します。</p>
+            </div>
+
+            <div class="search-wrap">
+              <i class="ti ti-search" aria-hidden="true"></i>
+              <input type="text" id="masterSearchInput" placeholder="キーワード" aria-label="マスタ検索">
+            </div>
+
+            <label id="masterSheetField" class="sheet-select-label" aria-label="管理対象">
+              <select id="masterSheetSelect" class="sheet-select"></select>
+            </label>
+
+            <div class="sp"></div>
+
+            <button type="button" class="tbtn" data-action="load-active-master" title="再読込">
+              <i class="ti ti-refresh" aria-hidden="true"></i>再読込
+            </button>
+            <button type="button" class="add-btn" data-action="open-master-modal">
+              <i class="ti ti-plus" aria-hidden="true"></i>新規追加
+            </button>
+          </div>
+
+          <!-- フィルターチップ -->
+          <div id="masterFilterChips" class="filter-chips-bar"></div>
+
+          <!-- 一覧テーブル -->
+          <main class="master-content">
+            <div id="masterTableContainer" class="table-container master-table-container"></div>
+          </main>
+
+        </section><!-- /#view-master -->
+
+      </div><!-- /.main-area -->
+    </div><!-- /.app -->
+
+
+    <!-- ======================================================
+         配信編集モーダル
+         ====================================================== -->
     <div id="editModal" class="modal" aria-hidden="true">
       <div class="modal-card master-modal-card">
+
         <div class="modal-header">
           <h2>配信編集</h2>
-          <button type="button" class="icon-button" data-action="close-modal" aria-label="閉じる">×</button>
+          <button type="button" class="icon-button" data-action="close-modal" aria-label="閉じる">
+            <i class="ti ti-x" aria-hidden="true"></i>
+          </button>
         </div>
+
         <div class="modal-impact-note delivery-impact-note">
           この配信だけが修正されます。繰り返し設定のメルマガはマスタから編集してください。
         </div>
+
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
           <div class="modal-tab" data-format="抽出">抽出</div>
@@ -91,7 +165,7 @@
           <div class="modal-tab" data-format="その他">その他</div>
         </div>
 
-        <!-- 1. ［最上部：固定ヘッダーエリア］ -->
+        <!-- メルマガ名・設定者・確認者（固定ヘッダー） -->
         <div class="modal-header-fixed">
           <div class="form-group">
             <label>メルマガ名 (クリックでコピー)</label>
@@ -107,15 +181,16 @@
           </div>
         </div>
 
-        <!-- 2. ［中央部：2カラム・グリッドエリア］ -->
+        <!-- フォームフィールド（JS が動的生成） -->
         <form id="editForm" class="form-grid">
           <input type="hidden" name="schedule_id" id="edit-id">
           <input type="hidden" name="format" id="edit-format">
           <div id="editCoreFields" style="display:contents;"></div>
         </form>
 
-        <!-- 3. ［最下部：独自機能エリア］ -->
+        <!-- PR・コメント・ステータス・アクション -->
         <div class="modal-footer-unique">
+
           <div id="edit-pr-details" class="pr-info-container"></div>
 
           <section class="comment-panel" aria-label="コメントスレッド">
@@ -141,53 +216,85 @@
               <div id="delivery-status-pill" class="delivery-status-pill" aria-live="polite"></div>
             </div>
             <div class="modal-status-right">
-              <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
-              <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
+              <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">
+                この週を配信停止にする
+              </button>
+              <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">
+                配信を再開する（元に戻す）
+              </button>
             </div>
           </div>
 
+          <!-- スティッキーフッターボタンバー -->
           <div class="modal-action-footer">
             <button type="button" class="modal-footer-btn state-btn" data-action="modal-toggle-setting" id="btnModalSetting">設定</button>
             <button type="button" class="modal-footer-btn state-btn checking-btn" data-action="modal-set-checking" id="btnModalChecking">確認</button>
             <button type="button" class="modal-footer-btn primary-btn" data-action="save-edit" id="btnModalSave">保存して閉じる</button>
             <button type="button" class="modal-footer-btn primary-btn" data-action="close-modal" id="btnModalClose" style="display:none">閉じる</button>
           </div>
-        </div>
-      </div>
-    </div>
 
+        </div><!-- /.modal-footer-unique -->
+      </div><!-- /.modal-card -->
+    </div><!-- /#editModal -->
+
+
+    <!-- ======================================================
+         マスタ編集モーダル
+         ====================================================== -->
     <div id="masterModal" class="modal" aria-hidden="true" style="display:none;">
       <div class="modal-card master-modal-card">
+
         <div class="modal-header">
           <h2 id="masterModalTitle">マスタ編集</h2>
-          <button type="button" class="icon-button" data-action="close-master-modal" aria-label="閉じる">×</button>
+          <button type="button" class="icon-button" data-action="close-master-modal" aria-label="閉じる">
+            <i class="ti ti-x" aria-hidden="true"></i>
+          </button>
         </div>
+
         <div id="masterImpactNote" class="modal-impact-note master-impact-note" hidden>
           確定済・確認済みではない同じメルマガ予定がすべて変更されます。
         </div>
+
         <div id="masterStoppedNote" class="master-stopped-note" hidden>
           ⚠ このメルマガは終了済みです。終了日が過去に設定されているため、カレンダーに表示されていません。再開する場合は終了日を変更してください。
         </div>
+
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
           <div class="modal-tab" data-format="抽出">抽出</div>
           <div class="modal-tab" data-format="自動求人特集">自動求人特集</div>
           <div class="modal-tab" data-format="その他">その他</div>
         </div>
+
         <input type="hidden" id="master-row-number">
         <form id="masterForm" class="form-grid">
-          <!-- 項目はJSで動的に生成 -->
+          <!-- 項目は JS で動的生成 -->
         </form>
+
         <div class="modal-row-actions">
           <button type="button" id="delete-master-button" class="danger-button" data-action="delete-master-current">削除</button>
         </div>
+
         <div class="modal-actions">
-          <button type="button" id="draft-master-button" class="secondary-button" data-action="save-master-draft" title="下書きとして保存します。カレンダーには反映されません。">下書き保存</button>
-          <button type="button" class="primary-button" data-action="save-master-edit" title="変更を保存します。開始日・終了日の変更はカレンダーに即反映されます。">保存</button>
+          <button
+            type="button"
+            id="draft-master-button"
+            class="secondary-button"
+            data-action="save-master-draft"
+            title="下書きとして保存します。カレンダーには反映されません。"
+          >下書き保存</button>
+          <button
+            type="button"
+            class="primary-button"
+            data-action="save-master-edit"
+            title="変更を保存します。開始日・終了日の変更はカレンダーに即反映されます。"
+          >保存</button>
           <button type="button" class="secondary-button" data-action="close-master-modal">キャンセル</button>
         </div>
-      </div>
-    </div>
+
+      </div><!-- /.modal-card -->
+    </div><!-- /#masterModal -->
+
 
     <?!= include('ClientUtils'); ?>
     <?!= include('ClientComments'); ?>
