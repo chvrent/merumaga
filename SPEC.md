@@ -22,6 +22,7 @@
 | 2026-05-27 | 1.12 | `confirmed_by` / `confirmed_at` フィールドの廃止。アプリ内で使用されていないため、ロジックから削除。本番デプロイ済み（@572）。 | Gemini |
 | 2026-05-27 | 1.13 | PR管理「紐づいたメルマガ」バグ修正。`savePRDataUnlocked_` を delete-and-reinsert 方式に変更し、チェックを外したメルマガが残存し続ける問題を解消。`app_pr_targets` スキーマ・採番仕様・PRラベル紐付けロジックを仕様書に明文化。 | Claude Sonnet |
 | 2026-05-28 | 1.14 | 下書き機能の仕様整備。一覧に「下書きのみ」フィルターチップを追加。「配信中」ビューから下書きを除外（これまで混入していた）。カレンダー・PR判定への非掲出は既存仕様を維持。 | Claude Sonnet |
+| 2026-05-29 | 1.16 | **Fix 4 を main へ取り込み** (モーダル通数(万)を `<input type="number" name="delivery_count">` で編集可能化、`.hf` 幅 46→66px、編集モーダルPR行に `pr-row-body` で本文表示、PR行ステータスマップ `'start'/'end'` → `'add'/'remove'` 修正、カレンダーPRラベル `div`→`span` + `.pr-labels-row` 横並びバッジ化・取り消し線廃止・追加=緑/削除=赤/掲出中=ミュート、`.month-end-header { background: transparent !important }` 削除でsticky時の透け解消、sticky thead 1行目 `height:70px` / 2行目 `top:70px`、CSS変数 `--color-month-end-bg` 導入で `.date-note` と `SCHEDULE_BACKGROUND_COLORS.monthEnd` を同色 `#d9d2e9` で連動、`.modal-scroll-body { overflow-x: hidden }` で横スクロール抑止)。staging `@208` 反映済み。 | Claude Sonnet |
 
 ## 1. 目的
 
