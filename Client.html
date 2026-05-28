@@ -2025,10 +2025,12 @@
 
     const stopButton = document.getElementById('stop-delivery-button');
     const resumeButton = document.getElementById('resume-delivery-button');
-    if (stopButton && resumeButton) {
-      stopButton.style.display = !fixed && !stopped ? '' : 'none';
-      resumeButton.style.display = !fixed && stopped ? '' : 'none';
-    }
+    const stopResumeRow = document.getElementById('stopResumeRow');
+    const showStop = !fixed && !stopped;
+    const showResume = !fixed && stopped;
+    if (stopButton) stopButton.style.display = showStop ? '' : 'none';
+    if (resumeButton) resumeButton.style.display = showResume ? '' : 'none';
+    if (stopResumeRow) stopResumeRow.style.display = (showStop || showResume) ? '' : 'none';
 
     const statusPill = document.getElementById('delivery-status-pill');
     if (statusPill) {

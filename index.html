@@ -220,6 +220,12 @@
                 <button type="button" class="secondary-button small-button" data-action="reload-comments">再読込</button>
               </div>
             </section>
+
+            <!-- 配信停止エリア（スクロール内） -->
+            <div class="stop-resume-row" id="stopResumeRow" style="display:none;">
+              <button type="button" id="stop-delivery-button" class="stop-btn" data-action="stop-current-delivery" style="display:none">この週を配信停止</button>
+              <button type="button" id="resume-delivery-button" class="resume-btn" data-action="resume-current-delivery" style="display:none">配信を再開する</button>
+            </div>
           </div>
         </div>
 
@@ -228,8 +234,6 @@
           <div class="mfoot-status">
             <span class="foot-label">ステータス：</span>
             <div id="delivery-status-pill" class="delivery-status-pill" aria-live="polite"></div>
-            <button type="button" id="stop-delivery-button" class="modal-footer-btn stop-mfoot-btn" data-action="stop-current-delivery" style="display:none">この週を配信停止</button>
-            <button type="button" id="resume-delivery-button" class="modal-footer-btn" data-action="resume-current-delivery" style="display:none">配信を再開する</button>
           </div>
           <div class="mfoot-btns">
             <button type="button" class="modal-footer-btn state-btn" data-action="modal-toggle-setting" id="btnModalSetting">設定</button>
