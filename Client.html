@@ -602,8 +602,8 @@
         const slotEntries = dedupeSlotEntries_(archivedSlotEntries.concat(entries), dateStr, hour);
         html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
         if (slotEntries.length) {
-          const renderedPrIds = new Set();
           slotEntries.forEach(entry => {
+            const renderedPrIds = new Set();
             const entryForDate = Object.assign({}, entry, { target_date: dateStr });
             const moveOverride = getMoveOverrideForDate(entry, dateStr);
             if (moveOverride) {
@@ -1547,7 +1547,7 @@
       action = '\u524a\u9664';
     } else if (startMs != null && targetMs >= startMs && targetMs < startMs + 7 * DAY_MS) {
       status = 'add';
-      action = '\u958b\u59cb';
+      action = '\u8ffd\u52a0';
     } else if ((startMs == null || targetMs >= startMs) && (endMs == null || targetMs <= endMs)) {
       status = 'active';
       action = '\u63b2\u51fa\u4e2d';
