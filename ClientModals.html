@@ -473,13 +473,31 @@
     const excludedKeys = new Set([
       'mail_name',
       'assignee',
-      'reviewer'
+      'reviewer',
+      'delivery_count'
     ]);
 
-    container.innerHTML = getScheduleEditHeaders_().filter(header => {
+    // Section grouping (rough)
+    const sectionMap = {
+      'weekday': '基本設定', 'hour': '基本設定', 'start_date': '基本設定', 'end_date': '基本設定',
+      'mail_type': '基本設定', 'category': '基本設定', 'sub_category': '基本設定',
+      'cycle': '基本設定', 'format': '基本設定',
+      'user_age': '抽出内容', 'user_area': '抽出内容', 'user_other_condition': '抽出内容',
+      'job_keyword': '抽出内容', 'is_new': '抽出内容', 'auto_job_other_condition': '抽出内容',
+      'current_job_count': '抽出内容',
+      'mail_content': 'メルマガ内容', 'mail_content_extract': 'メルマガ内容',
+      'mail_content_free': 'メルマガ内容', 'notes': 'メルマガ内容',
+      'is_verifying': 'ステータス', 'parameter': 'ステータス',
+    };
+    const sectionOrder = ['基本設定', '抽出内容', 'メルマガ内容', 'ステータス'];
+    let lastSection = '';
+
+    const headers = getScheduleEditHeaders_().filter(header => {
       const key = normalizeScheduleEditKey_(header);
       return !excludedKeys.has(key);
-    }).map(header => {
+    });
+
+    container.innerHTML = headers.map(header => {
       const key = normalizeScheduleEditKey_(header);
       const value = getEntryFieldValue_(entry, header, key);
       const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword'].includes(key);
@@ -489,7 +507,14 @@
         ? getJobCountAlert(entry)
         : null;
       const jobAlertText = jobAlert ? `<div class="job-count-alert-message">${escapeHtml(jobAlert.message)}</div>` : '';
+      const section = sectionMap[key] || '';
+      let sectionHeading = '';
+      if (section && section !== lastSection) {
+        lastSection = section;
+        sectionHeading = `<div class="modal-section-head full-width">${escapeHtml(section)}</div>`;
+      }
       return `
+        ${sectionHeading}
         <div class="form-group ${isFullWidth ? 'full-width' : ''} ${jobAlert ? 'has-job-count-alert' : ''}" data-field="${escapeAttribute(key)}">
           <label>${escapeHtml(getModalFieldLabel_(header, key))}</label>
           ${input}
@@ -584,7 +609,22 @@
 
   function bindEditModalInteractions_(modal) {
     if (!modal) return;
-    bindCopyField_(modal, '[name="mail_name"]');
+    // Compact header: name-copy click handler
+    const nameCopy = modal.querySelector('#mhead-name-copy');
+    if (nameCopy && !nameCopy.dataset.copyBound) {
+      nameCopy.dataset.copyBound = 'true';
+      nameCopy.addEventListener('click', () => {
+        const mailNameInput = modal.querySelector('[name="mail_name"]');
+        const text = mailNameInput ? mailNameInput.value : (modal.querySelector('#mhead-mail-name') || {}).textContent || '';
+        if (typeof copyTextToClipboard_ === 'function') {
+          copyTextToClipboard_(text);
+        } else {
+          navigator.clipboard.writeText(text).catch(() => {});
+        }
+        nameCopy.classList.add('copied');
+        setTimeout(() => nameCopy.classList.remove('copied'), 1800);
+      });
+    }
     bindCycleButtons_(modal);
     bindChangeField_(modal, '[name="setter"]', () => {
       syncReviewerLock_();
@@ -997,7 +1037,7 @@
 
   function renderEditModalPrDetails_(entry) {
     const prContainer = document.getElementById('edit-pr-details');
-    if (!prContainer || !entry) return;
+    if (!prContainer || !entry) { if (prContainer) prContainer.innerHTML = ''; return; }
     const prDetails = typeof getPrRecordsForSchedule === 'function' ? getPrRecordsForSchedule(entry) : [];
     const targetDate = normalizeDateString(entry.target_date || entry.delivery_date || entry.original_date);
     const prStatesForModal = prDetails
@@ -1006,19 +1046,32 @@
         state: typeof getPrState === 'function' ? getPrState(pr, targetDate) : null
       }))
       .filter(item => item.state);
-    if (prStatesForModal.length > 0) {
-      const prList = prStatesForModal.map(item => {
-        const pr = item.record;
-        const prState = item.state;
-        const title = pr.pr_title || '不明';
-        const body = pr.pr_text || '（未設定）';
-        const statusLabel = `<div class="pr-label pr-label-${escapeAttribute(prState.status)}">${escapeHtml(prState.label)}</div>`;
-        return `<div class="pr-info-item">${statusLabel}<strong>PR ID:</strong> ${escapeHtml(pr.pr_id)}<br><strong>タイトル:</strong> ${escapeHtml(title)}<br><strong>PR内容:</strong><div class="pr-info-body">${escapeHtml(body).replace(/\r?\n/g, '<br>')}</div></div>`;
-      }).join('<hr>');
-      prContainer.innerHTML = '<h4>紐付いているPR</h4>' + prList;
-    } else {
-      prContainer.innerHTML = '<h4>紐付いているPR</h4><p>なし</p>';
+    if (prStatesForModal.length === 0) {
+      prContainer.innerHTML = '';
+      return;
     }
+    const statusDotColor = { active: 'var(--pink)', start: 'var(--ok)', end: 'var(--ui-border-strong)' };
+    const statusRowClass = { active: 'pr-active', start: 'pr-start', end: '' };
+    const statusTagClass = { active: 'pt-active', start: 'pt-start', end: '' };
+    const rows = prStatesForModal.map(item => {
+      const pr = item.record;
+      const prState = item.state;
+      const title = `PR${escapeHtml(String(pr.pr_id || ''))} ${escapeHtml(pr.pr_title || '(タイトルなし)')}`;
+      const dotColor = statusDotColor[prState.status] || 'var(--ui-border-strong)';
+      const rowCls = statusRowClass[prState.status] || '';
+      const tagCls = statusTagClass[prState.status] || '';
+      const nameColor = prState.status === 'active' ? 'pink' : prState.status === 'start' ? 'green' : '';
+      const endDate = pr.end_date ? String(pr.end_date).replace(/-/g, '/') : '';
+      const startDate = pr.start_date ? String(pr.start_date).replace(/-/g, '/') : '';
+      const dateStr = startDate && endDate ? `${startDate}〜${endDate}` : (endDate ? `〜${endDate}` : startDate);
+      return `<div class="pr-row ${rowCls}">
+        <div class="pr-dot" style="background:${dotColor};"></div>
+        <span class="pr-row-name ${nameColor}">${title}</span>
+        ${dateStr ? `<span class="pr-row-date">${escapeHtml(dateStr)}</span>` : ''}
+        ${prState.label ? `<span class="pr-row-tag ${tagCls}">${escapeHtml(prState.label)}</span>` : ''}
+      </div>`;
+    }).join('');
+    prContainer.innerHTML = `<div class="pr-rows">${rows}</div>`;
   }
 
   function finalizeEditModalContent_(modal) {
@@ -1065,6 +1118,19 @@
     modal.dataset.mode = 'edit';
 
     populateModalFields(modal, CURRENT_ENTRY, getModalFieldAliases_('editModal'));
+    // Sync hidden mail_name input to compact header display
+    const hiddenMailName = modal.querySelector('#edit-mail-name');
+    if (hiddenMailName) hiddenMailName.value = CURRENT_ENTRY.mail_name || '';
+    const mheadMailName = modal.querySelector('#mhead-mail-name');
+    if (mheadMailName) mheadMailName.textContent = CURRENT_ENTRY.mail_name || '';
+    const mheadDelivery = modal.querySelector('#mhead-delivery-count');
+    if (mheadDelivery) mheadDelivery.textContent = CURRENT_ENTRY.delivery_count || '—';
+    const mheadIdTime = modal.querySelector('#mhead-id-time');
+    if (mheadIdTime) {
+      const sid = CURRENT_ENTRY.schedule_id || '';
+      const hr = CURRENT_ENTRY.hour || '';
+      mheadIdTime.textContent = [sid ? `#${sid}` : '', hr].filter(Boolean).join(' · ');
+    }
     refreshAdminSelects_();
     setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
 

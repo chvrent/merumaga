@@ -77,13 +77,38 @@
 
     <div id="editModal" class="modal" aria-hidden="true">
       <div class="modal-card master-modal-card">
-        <div class="modal-header">
-          <h2>配信編集</h2>
-          <button type="button" class="icon-button" data-action="close-modal" aria-label="閉じる">×</button>
+
+        <!-- コンパクトヘッダー行 -->
+        <div class="mhead">
+          <span class="mhead-meta" id="mhead-id-time"></span>
+          <div class="vdiv"></div>
+          <div class="name-copy" id="mhead-name-copy" title="クリックしてコピー">
+            <span class="name-text" id="mhead-mail-name"></span>
+            <span class="copy-icon">⎘</span>
+            <span class="copy-done">コピー済</span>
+          </div>
+          <div class="vdiv"></div>
+          <div class="hf">
+            <span class="hf-label">通数(万)</span>
+            <span class="hf-ctrl" id="mhead-delivery-count">—</span>
+          </div>
+          <div class="vdiv"></div>
+          <div class="hf">
+            <span class="hf-label">設定</span>
+            <select name="setter" class="hf-ctrl setter"></select>
+          </div>
+          <div class="vdiv"></div>
+          <div class="hf">
+            <span class="hf-label">確認</span>
+            <select name="checker" class="hf-ctrl checker"></select>
+          </div>
+          <button type="button" class="close-btn" data-action="close-modal" aria-label="閉じる">×</button>
         </div>
-        <div class="modal-impact-note delivery-impact-note">
-          この配信だけが修正されます。繰り返し設定のメルマガはマスタから編集してください。
-        </div>
+
+        <!-- 変更バナー（変更がある場合に表示） -->
+        <div id="editChangeBanner" class="change-banner" style="display:none;"></div>
+
+        <!-- フォーマットタブ -->
         <div class="modal-tabs-container">
           <div class="modal-tab active" data-format="フリー">フリー</div>
           <div class="modal-tab" data-format="抽出">抽出</div>
@@ -91,62 +116,55 @@
           <div class="modal-tab" data-format="その他">その他</div>
         </div>
 
-        <!-- 1. ［最上部：固定ヘッダーエリア］ -->
-        <div class="modal-header-fixed">
-          <div class="form-group">
-            <label>メルマガ名 (クリックでコピー)</label>
-            <input type="text" name="mail_name" readonly>
-          </div>
-          <div class="form-group">
-            <label>設定者</label>
-            <select name="setter"></select>
-          </div>
-          <div class="form-group">
-            <label>確認者</label>
-            <select name="checker"></select>
+        <!-- スクロール可能なボディ -->
+        <div class="modal-scroll-body">
+          <form id="editForm" class="form-grid">
+            <input type="hidden" name="schedule_id" id="edit-id">
+            <input type="hidden" name="format" id="edit-format">
+            <input type="hidden" name="mail_name" id="edit-mail-name">
+            <div id="editCoreFields" style="display:contents;"></div>
+          </form>
+
+          <div class="modal-footer-unique">
+            <div id="edit-pr-details"></div>
+
+            <section class="comment-panel" aria-label="コメントスレッド">
+              <div class="comment-panel-header">
+                <h3>コメント</h3>
+                <span id="comment-count-label">0件</span>
+              </div>
+              <div id="comment-thread" class="comment-thread">
+                <div class="empty-state">コメントを読み込み中...</div>
+              </div>
+              <div class="cinput-row">
+                <div class="avatar" id="comment-avatar">?</div>
+                <textarea id="new-comment" placeholder="コメントを入力..."></textarea>
+                <button type="button" class="send-btn" data-action="post-comment">送信</button>
+              </div>
+              <div class="comment-reload-row">
+                <button type="button" class="secondary-button small-button" data-action="reload-comments">再読込</button>
+              </div>
+            </section>
           </div>
         </div>
 
-        <!-- 2. ［中央部：2カラム・グリッドエリア］ -->
-        <form id="editForm" class="form-grid">
-          <input type="hidden" name="schedule_id" id="edit-id">
-          <input type="hidden" name="format" id="edit-format">
-          <div id="editCoreFields" style="display:contents;"></div>
-        </form>
-
-        <!-- 3. ［最下部：独自機能エリア］ -->
-        <div class="modal-footer-unique">
-          <div id="edit-pr-details" class="pr-info-container"></div>
-
-          <section class="comment-panel" aria-label="コメントスレッド">
-            <div class="comment-panel-header">
-              <h3>コメント</h3>
-              <span id="comment-count-label">0件</span>
-            </div>
-            <div id="comment-thread" class="comment-thread">
-              <div class="empty-state">コメントを読み込み中...</div>
-            </div>
-            <div class="form-group comment-input-field">
-              <label>新しいコメント</label>
-              <textarea id="new-comment" placeholder="コメントを入力"></textarea>
-            </div>
-            <div class="comment-actions">
-              <button type="button" class="secondary-button" data-action="reload-comments">再読込</button>
-              <button type="button" class="primary-button" data-action="post-comment">送信</button>
-            </div>
-          </section>
-
-          <section class="exception-panel" aria-label="配信停止・再開">
+        <!-- 固定フッター -->
+        <div class="mfoot">
+          <div class="mfoot-status">
+            <span class="foot-label">ステータス：</span>
             <div id="delivery-status-pill" class="delivery-status-pill" aria-live="polite"></div>
-            <button type="button" id="stop-delivery-button" class="danger-button" data-action="stop-current-delivery">この週を配信停止にする</button>
-            <button type="button" id="resume-delivery-button" class="resume-button" data-action="resume-current-delivery">配信を再開する（元に戻す）</button>
-          </section>
-
-          <div class="modal-actions">
-            <button type="button" class="primary-button" data-action="save-edit">保存</button>
-            <button type="button" class="secondary-button" data-action="close-modal">キャンセル</button>
+            <button type="button" id="stop-delivery-button" class="modal-footer-btn stop-mfoot-btn" data-action="stop-current-delivery" style="display:none">この週を配信停止</button>
+            <button type="button" id="resume-delivery-button" class="modal-footer-btn" data-action="resume-current-delivery" style="display:none">配信を再開する</button>
+          </div>
+          <div class="mfoot-btns">
+            <button type="button" class="modal-footer-btn state-btn" data-action="modal-toggle-setting" id="btnModalSetting">設定</button>
+            <button type="button" class="modal-footer-btn checking-btn" data-action="modal-set-checking" id="btnModalChecking">確認</button>
+            <div class="fsp"></div>
+            <button type="button" class="modal-footer-btn primary-btn" data-action="save-edit" id="btnModalSave">保存して閉じる</button>
+            <button type="button" class="modal-footer-btn" data-action="close-modal" id="btnModalClose" style="display:none">閉じる</button>
           </div>
         </div>
+
       </div>
     </div>
 

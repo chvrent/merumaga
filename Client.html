@@ -1001,13 +1001,24 @@
       return;
     }
     if (isPrMasterSheet) {
-      // PR管理一覧: フィルター不要
-      container.style.display = 'none';
+      // PR管理: ステータスフィルターチップスを表示
       masterFilters.subcategory = '__all__';
       masterFilters.format = '__all__';
       masterFilters.category = '__all__';
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
+      if (!masterFilters.status) masterFilters.status = '__all__';
+      const prStatusChips = [
+        { value: '__all__', label: 'すべて' },
+        { value: 'active', label: '掲出中' },
+        { value: 'start', label: '開始予定' },
+        { value: 'end', label: '終了済' }
+      ].map(opt => {
+        const isActive = masterFilters.status === opt.value;
+        return `<button type="button" class="pr-status-chip ${isActive ? 'active' : ''}" onclick="setPrStatusFilter('${opt.value}')">${escapeHtml(opt.label)}</button>`;
+      }).join('');
+      container.innerHTML = `<div class="pr-status-chips">${prStatusChips}</div>`;
+      container.style.display = 'block';
       return;
     }
 
@@ -1055,14 +1066,142 @@
     renderMasterFilterChips();
   }
 
+  function setPrStatusFilter(status) {
+    masterFilters.status = status || '__all__';
+    renderMasterTable();
+    renderMasterFilterChips();
+  }
+
   function setMasterNewOnly(checked) {
     masterFilters.newOnly = !!checked;
     renderMasterTable();
     renderMasterFilterChips();
   }
 
+  function renderPrCards_() {
+    const container = document.getElementById('masterTableContainer');
+    if (!container) return;
+
+    const searchInput = document.getElementById('masterSearchInput');
+    const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
+    const today = formatDate(new Date());
+    const newsMap = getNewsletterNameMap_();
+
+    const prIdHeader = findMasterHeaderByAliases_(['pr_id', 'PR ID', 'ID', 'id']);
+    const titleHeader = findMasterHeaderByAliases_(['pr_title', 'name', 'タイトル', '名称']);
+    const textHeader = findMasterHeaderByAliases_(['pr_text', 'PR本文', '本文', '文面', 'content']);
+    const startDateHeader = findMasterHeaderByAliases_(['start_date', '開始日']);
+    const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日']);
+    const targetIdsHeader = findMasterHeaderByAliases_(['target_ids', '紐付けID', 'PRが入るメルマガ', '紐付けメルマガ']);
+    const notesHeader = findMasterHeaderByAliases_(['notes', '備考', 'memo']);
+
+    function getPrCardState_(row) {
+      const startDate = normalizeDateString(startDateHeader ? getCellByHeader_(row, startDateHeader) : '');
+      const endDate = normalizeDateString(endDateHeader ? getCellByHeader_(row, endDateHeader) : '');
+      if (endDate && endDate < today) return 'end';
+      if (startDate && startDate > today) return 'start';
+      return 'active';
+    }
+
+    let rows = (MASTER_DATA.rows || []).filter(row => {
+      if (!keyword) return true;
+      return Object.values(row).map(v => v == null ? '' : String(v)).join(' ').toLowerCase().includes(keyword);
+    });
+
+    // ステータスフィルター
+    const statusFilter = masterFilters.status || '__all__';
+    if (statusFilter !== '__all__') {
+      rows = rows.filter(row => getPrCardState_(row) === statusFilter);
+    }
+
+    const stateOrder = { active: 0, start: 1, end: 2 };
+    rows.sort((a, b) => {
+      const sa = stateOrder[getPrCardState_(a)] || 0;
+      const sb = stateOrder[getPrCardState_(b)] || 0;
+      if (sa !== sb) return sa - sb;
+      const ea = normalizeDateString(endDateHeader ? getCellByHeader_(a, endDateHeader) : '');
+      const eb = normalizeDateString(endDateHeader ? getCellByHeader_(b, endDateHeader) : '');
+      return ea.localeCompare(eb);
+    });
+
+    if (!rows.length) {
+      container.innerHTML = '<div class="empty-state">該当するPRがありません。</div>';
+      return;
+    }
+
+    const stateLabels = { active: '掲出中', start: '開始予定', end: '終了済' };
+    const stateClasses = { active: 's-active', start: 's-start', end: 's-end' };
+    const statusBadgeClasses = { active: 'active', start: 'start', end: 'end' };
+
+    let html = '<div class="pr-list">';
+    rows.forEach(row => {
+      const prId = prIdHeader ? getCellByHeader_(row, prIdHeader) : '';
+      const title = (titleHeader ? getCellByHeader_(row, titleHeader) : '') || '(タイトルなし)';
+      const text = textHeader ? getCellByHeader_(row, textHeader) : '';
+      const startDateRaw = startDateHeader ? getCellByHeader_(row, startDateHeader) : '';
+      const endDateRaw = endDateHeader ? getCellByHeader_(row, endDateHeader) : '';
+      const targetIdsRaw = targetIdsHeader ? getCellByHeader_(row, targetIdsHeader) : '';
+      const notes = notesHeader ? getCellByHeader_(row, notesHeader) : '';
+      const state = getPrCardState_(row);
+
+      const startDate = normalizeDateString(startDateRaw);
+      const endDate = normalizeDateString(endDateRaw);
+      const dateStr = startDate || endDate
+        ? `${startDate ? startDate.replace(/-/g, '/') : '?'} — ${endDate ? endDate.replace(/-/g, '/') : '?'}`
+        : '';
+
+      // 紐づきメルマガ
+      const targetIds = String(targetIdsRaw).split(',').map(s => normalizeIdKey(s.trim())).filter(Boolean);
+      const targetNames = targetIds.map(id => newsMap[id] || id);
+      const maxShown = 8;
+      const shownNames = targetNames.slice(0, maxShown);
+      const moreCount = targetNames.length - maxShown;
+      const chipClass = state === 'active' ? 'live' : '';
+      const mailChips = shownNames.map(n => `<span class="mc ${chipClass}">${escapeHtml(n)}</span>`).join('')
+        + (moreCount > 0 ? `<span class="mc more">+${moreCount}件</span>` : '');
+
+      const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
+      const rowNumber = escapeAttribute(String(row.__rowNumber || ''));
+
+      html += `
+        <div class="pr-card ${stateClasses[state]}">
+          <div class="pr-head">
+            <div class="pr-head-left">
+              <div class="pr-id">PR ID: ${escapeHtml(String(prId))}</div>
+              <div class="pr-title">${escapeHtml(title)}</div>
+              <div class="pr-meta">
+                <span class="pr-status ${statusBadgeClasses[state]}">${stateLabels[state]}</span>
+                ${dateStr ? `<span class="pr-date">${escapeHtml(dateStr)}</span>` : ''}
+              </div>
+            </div>
+            <div class="pr-head-right">
+              <div class="pr-actions">
+                <button type="button" class="act-btn" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
+                ${state !== 'end' ? `<button type="button" class="act-btn danger" data-action="delete-master-row" data-row-number="${rowNumber}" title="この行を削除します（取り消し不可）">削除</button>` : ''}
+              </div>
+              <span class="pr-count">紐づき <b>${targetNames.length}</b> 件</span>
+            </div>
+          </div>
+          ${text ? `<div class="pr-body"><span class="pr-body-label">PR本文</span><div class="pr-body-text">${escapeHtml(text)}</div></div>` : ''}
+          <div class="pr-targets">
+            <span class="pr-targets-label">紐づき先</span>
+            <div class="mail-chips">${mailChips || '<span class="pr-targets-empty">なし</span>'}</div>
+          </div>
+          ${notes ? `<div class="pr-notes"><span class="pr-notes-label">備考</span><span class="pr-notes-text">${escapeHtml(notes)}</span></div>` : ''}
+        </div>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+  }
+
   function renderMasterTable() {
     const container = document.getElementById('masterTableContainer');
+    // PR管理はカードレイアウトを使用
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      renderPrCards_();
+      return;
+    }
     const headers = MASTER_DATA.headers || [];
     const visibleHeaders = getVisibleMasterHeaders(headers);
     const searchInput = document.getElementById('masterSearchInput');
@@ -1723,9 +1862,16 @@
         field.disabled = false;
       }
     });
-    const saveButton = document.querySelector('#editModal .modal-actions .primary-button');
-    saveButton.disabled = locked;
-    saveButton.style.display = locked ? 'none' : '';
+    // 保存ボタン（新フッター対応）
+    const saveButton = document.getElementById('btnModalSave');
+    if (saveButton) {
+      saveButton.disabled = locked;
+      saveButton.style.display = locked ? 'none' : '';
+    }
+    const closeButton = document.getElementById('btnModalClose');
+    if (closeButton) {
+      closeButton.style.display = locked ? '' : 'none';
+    }
 
     const stopButton = document.getElementById('stop-delivery-button');
     const resumeButton = document.getElementById('resume-delivery-button');
@@ -1739,11 +1885,11 @@
       statusPill.classList.toggle('is-stopped', !!stopped && !fixed);
       statusPill.classList.toggle('is-active', !stopped && !fixed);
       statusPill.textContent = fixed
-        ? ''
+        ? '確定済'
         : stopped
           ? '配信停止中'
           : '配信予定';
-      statusPill.style.display = fixed ? 'none' : '';
+      statusPill.style.display = '';
     }
 
     let notice = document.getElementById('fixedNotice');
@@ -1751,10 +1897,8 @@
       notice = document.createElement('div');
       notice.id = 'fixedNotice';
       notice.className = 'fixed-notice';
-      const modalActions = document.querySelector('#editModal .modal-actions');
-      if (modalActions && modalActions.parentNode) {
-        modalActions.parentNode.insertBefore(notice, modalActions);
-      }
+      const scrollBody = document.querySelector('#editModal .modal-scroll-body');
+      if (scrollBody) scrollBody.insertBefore(notice, scrollBody.firstChild);
     }
     notice.textContent = fixed
       ? 'この配信は確定済みのため編集できません。コメントの追加は可能です。'
