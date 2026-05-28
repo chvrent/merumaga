@@ -654,15 +654,16 @@
             const jobAlertIcon = renderJobAlertIcon(jobAlert);
             const rowTitle = jobAlert ? ` title="${escapeAttribute(getJobAlertTooltip(jobAlert))}"` : '';
             const prStates = getPrStates(effectiveEntry, dateStr);
-            const prLabel = prStates
+            const prLabelItems = prStates
               .filter(prState => {
                 const key = normalizeText(prState.pr_id);
                 if (!key || renderedPrIds.has(key)) return false;
                 renderedPrIds.add(key);
                 return true;
               })
-              .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
+              .map(prState => `<span class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</span>`)
               .join('');
+            const prLabel = prLabelItems ? `<div class="pr-labels-row">${prLabelItems}</div>` : '';
             html += `
             <div class="delivery-row slot-item ${subCategoryClass} ${hasOccurrenceOverrides ? 'has-occurrence-overrides' : ''} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
               <div class="col-name ${nameChanged ? 'is-occurrence-overridden' : ''}">
