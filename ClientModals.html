@@ -1073,6 +1073,11 @@
     populateModalFields(modal, CURRENT_ENTRY, getModalFieldAliases_('editModal'));
     refreshAdminSelects_();
     setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
+    modal.classList.remove('is-locked-edit');
+    const _btnSave = document.getElementById('btnModalSave');
+    const _btnClose = document.getElementById('btnModalClose');
+    if (_btnSave) _btnSave.style.display = '';
+    if (_btnClose) _btnClose.style.display = 'none';
     applySettingLock_(modal);
     initEditModalCheckButtons_();
 
@@ -1802,11 +1807,11 @@
       }
     });
 
-    const saveButton = modal.querySelector('.modal-form-actions .primary-button');
-    if (saveButton) {
-      saveButton.disabled = true;
-      saveButton.style.display = 'none';
-    }
+    modal.classList.add('is-locked-edit');
+    const saveBtn = document.getElementById('btnModalSave');
+    const closeBtn = document.getElementById('btnModalClose');
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (closeBtn) closeBtn.style.display = '';
   }
 
   function saveCheckStatusFromModal_(itemId, field, active) {
