@@ -32,6 +32,8 @@
   --ui-text: var(--text);
   --ui-text-2: var(--text-2);
   --ui-text-3: var(--text-3);
+  /* month-end background — must match SCHEDULE_BACKGROUND_COLORS.monthEnd in Client.html */
+  --color-month-end-bg: #d9d2e9;
   /* legacy aliases kept for JS-generated styles */
   --primary: #1a1a1a;
   --primary-weak: #f0efee;
@@ -419,22 +421,26 @@ thead th {
   top: 0;
   z-index: 12;
   background: var(--bg-sub);
+  /* explicit height so second row's top aligns correctly */
+  height: 70px;
 }
 #tableContainer thead tr:nth-child(2) th {
   position: sticky;
-  top: 60px;
+  top: 70px;
   z-index: 11;
   background: var(--bg);
 }
 #tableContainer thead .time-col { top: 0; z-index: 13; }
 
-/* date header cells */
+/* date header cells — min-height must stay within thead first-row height (70px) */
 .date-header {
   display: grid;
   gap: 3px;
-  padding: 5px 8px;
+  padding: 4px 8px;
   line-height: 1.2;
   min-height: 60px;
+  max-height: 70px;
+  overflow: hidden;
 }
 .date-title { font-size: 12px; font-weight: 600; }
 #tableContainer thead th.is-weekend .date-title,
@@ -497,13 +503,13 @@ thead th {
   transition: background 0.1s;
 }
 .bulk-r-button:hover { background: var(--ok); border-color: var(--ok); color: #fff; }
-/* 月末配信期間 note: styled like a サイクル:月末配信 tag (warm lavender) */
+/* 月末配信期間 note — background matches SCHEDULE_BACKGROUND_COLORS.monthEnd (--color-month-end-bg) */
 .date-note {
   display: inline-block;
   font-size: 10px;
   font-weight: 500;
   color: #6b5fa5;
-  background: #ede9f5;
+  background: var(--color-month-end-bg);
   border: 1px solid #c9c0dc;
   padding: 0 5px;
   line-height: 1.6;
@@ -521,8 +527,8 @@ thead th {
 .cycle-chip-A { border-color: var(--schedule-line-biweekly-a, #9bd283); border-left-width: 3px; }
 .cycle-chip-B { border-color: var(--schedule-line-biweekly-b, #e171c0); border-left-width: 3px; }
 .cycle-chip-1, .cycle-chip-2, .cycle-chip-3 { border-color: var(--schedule-line-special-cycle, #8e7cc3); border-left-width: 3px; }
-/* 月末配信期間: no pink bg; date-note uses same warm-amber tone as cycle label */
-.month-end-header { background: transparent !important; }
+/* 月末配信期間: th keeps solid bg for sticky scroll; inner date-header is transparent so th bg shows */
+.month-end-header { background: var(--bg-sub); }
 .month-end-header .date-header { background: transparent; }
 
 /* time column */
@@ -722,23 +728,34 @@ thead th {
 .job-alert-warning { color: var(--warn); }
 .job-alert-info { color: var(--text); }
 .job-alert-unavailable { color: var(--text-3); }
+/* PR label wrapper: horizontal badges row */
+.pr-labels-row { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 2px; }
 .pr-label {
-  display: block;
-  max-width: 100%;
-  margin-top: 1px;
-  padding: 0 4px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 5px;
   font-size: 10px;
-  line-height: 1.3;
+  line-height: 1.5;
   color: var(--text-3);
+  border: 1px solid transparent;
+  white-space: nowrap;
 }
+/* 追加 (start/upcoming) — action needed, green */
 .pr-label-add {
-  background: #fff7b8;
-  border: 1px solid var(--alert);
-  color: #7f1d1d;
-  font-weight: 700;
+  background: var(--ok-bg);
+  border-color: var(--ok-border);
+  color: var(--ok);
+  font-weight: 600;
 }
-.pr-label-remove { background: var(--bg-sub); color: var(--text-3); text-decoration: line-through; }
-.pr-label-active { padding-left: 0; color: var(--text-3); }
+/* 削除 (end) — action needed, red/alert */
+.pr-label-remove {
+  background: var(--alert-bg);
+  border-color: #e8a89e;
+  color: var(--alert);
+  font-weight: 600;
+}
+/* 掲出中 (active) — no action needed, muted */
+.pr-label-active { background: var(--bg-sub); border-color: var(--border); color: var(--text-3); }
 .pr-label-summary {
   background: #eef2ff;
   border: 1px solid #c7d2fe;
@@ -1083,7 +1100,9 @@ thead th {
 .modal-scroll-body {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
+  min-width: 0;
 }
 
 /* modal footer unique (PR, comments, status) — no nested scroll */
@@ -1398,6 +1417,8 @@ thead th {
   color: var(--text-2);
   line-height: 1.65;
   white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
   font-family: 'Consolas', 'Menlo', monospace;
   background: var(--bg-sub);
   padding: 6px 8px;
@@ -1450,7 +1471,7 @@ thead th {
 .copy-done { font-size: 10px; color: var(--ok); flex-shrink: 0; opacity: 0; white-space: nowrap; }
 .name-copy.copied .copy-icon { opacity: 0; }
 .name-copy.copied .copy-done { opacity: 1; }
-.hf { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; width: 46px; }
+.hf { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; width: 66px; }
 .hf-label { font-size: 9px; color: var(--ui-text-3); text-align: center; }
 .hf-ctrl { font-family: inherit; font-size: 11px; font-weight: 500; border: 1px solid var(--ui-border); padding: 2px 3px; background: var(--ui-bg); color: var(--ui-text); width: 100%; text-align: center; min-height: auto !important; border-radius: 0 !important; }
 .hf-ctrl:focus { outline: none; border-color: var(--ui-text); }
@@ -1487,17 +1508,32 @@ thead th {
 
 /* ===== PR row styles in edit modal ===== */
 .pr-rows { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; }
-.pr-row { display: flex; align-items: center; gap: 7px; padding: 4px 7px; border: 1px solid var(--ui-border); font-size: 11px; background: var(--ui-bg-sub); }
+.pr-row { display: flex; align-items: flex-start; gap: 7px; padding: 5px 7px; border: 1px solid var(--ui-border); font-size: 11px; background: var(--ui-bg-sub); }
 .pr-row.pr-active { border-color: var(--pink-border); background: var(--pink-bg); }
 .pr-row.pr-start { border-color: var(--ok-border); background: var(--ok-bg); }
-.pr-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.pr-row-name { flex: 1; font-weight: 500; }
+.pr-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.pr-row-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.pr-row-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.pr-row-name { font-weight: 500; }
 .pr-row-name.pink { color: var(--pink); }
 .pr-row-name.green { color: var(--ok); }
 .pr-row-date { font-size: 10px; color: var(--ui-text-3); }
 .pr-row-tag { font-size: 10px; padding: 0 5px; border: 1px solid var(--ui-border); }
 .pr-row-tag.pt-active { color: var(--pink); border-color: var(--pink-border); background: var(--pink-bg); }
 .pr-row-tag.pt-start { color: var(--ok); border-color: var(--ok-border); background: var(--ok-bg); }
+.pr-row-body {
+  font-size: 10px;
+  color: var(--ui-text-2);
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  padding: 4px 6px;
+  max-height: 80px;
+  overflow-y: auto;
+}
 
 /* ===== PR status filter chips (PR管理画面) ===== */
 .pr-status-chips { display: flex; gap: 4px; padding: 8px 12px; }
