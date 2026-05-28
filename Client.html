@@ -1349,6 +1349,20 @@
     const notesHeader = findMasterHeaderByAliases_(['notes', '備考']);
     const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止']);
 
+    // 紐付けは app_pr_targets シート (APP_DATA.prTargets) に分離されている。
+    // pr_id をキーにメルマガ名を引けるよう Map を構築。
+    const prTargetsByPrId = new Map();
+    const allPrTargets = Array.isArray(APP_DATA.prTargets) ? APP_DATA.prTargets : [];
+    allPrTargets.forEach(t => {
+      if (isInactive(t) || isDraft(t)) return;
+      const linkedPrId = normalizeIdKey(getValueByKeys(t, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR', 'pr']));
+      if (!linkedPrId) return;
+      const mailName = getPrTargetMailName_(t);
+      if (!mailName) return;
+      if (!prTargetsByPrId.has(linkedPrId)) prTargetsByPrId.set(linkedPrId, []);
+      prTargetsByPrId.get(linkedPrId).push(mailName);
+    });
+
     function getPrStatus(row) {
       const endDate = endDateHeader ? normalizeDateString(getCellByHeader_(row, endDateHeader)) : '';
       const startDate = startDateHeader ? normalizeDateString(getCellByHeader_(row, startDateHeader)) : '';
@@ -1406,16 +1420,24 @@
         const ed      = edRaw ? escapeHtml(edRaw) : '';
         const prText  = prTextHeader  ? getCellByHeader_(row, prTextHeader)  : '';
         const notes   = notesHeader   ? getCellByHeader_(row, notesHeader)   : '';
-        const rawIds  = targetIdsHeader ? getCellByHeader_(row, targetIdsHeader) : '';
-        const ids     = rawIds ? String(rawIds).split(',').map(s => s.trim()).filter(Boolean) : [];
+        // 紐付け取得: ① app_pr_targets 経由 (新方式・優先) → ② 旧 target_ids カラム (後方互換)
+        const currentPrIdKey = prIdHeader ? normalizeIdKey(getCellByHeader_(row, prIdHeader)) : '';
+        let mailNames = currentPrIdKey ? (prTargetsByPrId.get(currentPrIdKey) || []).slice() : [];
+        if (!mailNames.length && targetIdsHeader) {
+          const rawIds = getCellByHeader_(row, targetIdsHeader);
+          const ids = rawIds ? String(rawIds).split(',').map(s => s.trim()).filter(Boolean) : [];
+          mailNames = ids.map(id => nameMap[normalizeIdKey(id)] || id);
+        }
+        // 重複除去 + 名前順
+        mailNames = Array.from(new Set(mailNames)).sort((a, b) => a.localeCompare(b, 'ja'));
+        const ids = mailNames;
 
         const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
 
         const MAX_CHIPS = 10;
-        const chipsHtml = ids.slice(0, MAX_CHIPS).map(id => {
-          const mailName = nameMap[normalizeIdKey(id)] || id;
-          return `<span class="mc${prStatus === 'active' ? ' live' : ''}">${escapeHtml(mailName)}</span>`;
-        }).join('') + (ids.length > MAX_CHIPS ? `<span class="mc more">+${ids.length - MAX_CHIPS}件</span>` : '');
+        const chipsHtml = mailNames.slice(0, MAX_CHIPS).map(name => {
+          return `<span class="mc${prStatus === 'active' ? ' live' : ''}">${escapeHtml(name)}</span>`;
+        }).join('') + (mailNames.length > MAX_CHIPS ? `<span class="mc more">+${mailNames.length - MAX_CHIPS}件</span>` : '');
 
         const dateRange = (sd || ed) ? `${sd} — ${ed}` : '';
 
