@@ -911,7 +911,7 @@
   }
 
   function setMasterStatusFilter(value) {
-    masterFilters.status = ['active', 'inactive', '__all__'].includes(value) ? value : 'active';
+    masterFilters.status = ['active', 'inactive', 'upcoming', '__all__'].includes(value) ? value : 'active';
     renderMasterTable();
     renderMasterFilterChips();
   }
@@ -988,6 +988,14 @@
 
   function renderMasterStatusChips_() {
     const s = masterFilters.status;
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      return [
+        `<button type="button" class="filter-chip ${s === 'active' ? 'active' : ''}" onclick="setMasterStatusFilter('active')">掲出中</button>`,
+        `<button type="button" class="filter-chip ${s === 'upcoming' ? 'active' : ''}" onclick="setMasterStatusFilter('upcoming')">開始予定</button>`,
+        `<button type="button" class="filter-chip ${s === '__all__' ? 'active' : ''}" onclick="setMasterStatusFilter('__all__')">すべて</button>`,
+        `<button type="button" class="filter-chip ${s === 'inactive' ? 'active' : ''}" onclick="setMasterStatusFilter('inactive')">終了済</button>`
+      ].join('');
+    }
     return [
       `<button type="button" class="filter-chip ${s === 'active' ? 'active' : ''}" onclick="setMasterStatusFilter('active')">配信中</button>`,
       `<button type="button" class="filter-chip ${s === '__all__' ? 'active' : ''}" onclick="setMasterStatusFilter('__all__')">すべて</button>`,
@@ -1085,6 +1093,7 @@
   }
 
   function renderMasterTable() {
+    if (MASTER_DATA.sheetName === 'app_pr') { renderPrCards(); return; }
     const container = document.getElementById('masterTableContainer');
     const headers = MASTER_DATA.headers || [];
     const visibleHeaders = getVisibleMasterHeaders(headers);
@@ -1185,6 +1194,122 @@
     });
 
     html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function renderPrCards() {
+    const container = document.getElementById('masterTableContainer');
+    const rows = MASTER_DATA.rows || [];
+    const today = formatDate(new Date());
+    const keyword = String((document.getElementById('masterSearchInput') || {}).value || '').trim().toLowerCase();
+
+    const prIdHeader = findMasterHeaderByAliases_(['pr_id', 'PR ID', 'ID']);
+    const nameHeader = findMasterHeaderByAliases_(['name', 'pr_title', 'PRタイトル']);
+    const startDateHeader = findMasterHeaderByAliases_(['start_date', '開始日', '開始']);
+    const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日', '終了']);
+    const prTextHeader = findMasterHeaderByAliases_(['pr_text', 'PR本文']);
+    const targetIdsHeader = findMasterHeaderByAliases_(['target_ids', 'target_mails', 'PRが入るメルマガ', '紐づいたメルマガ']);
+    const notesHeader = findMasterHeaderByAliases_(['notes', '備考']);
+    const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止']);
+
+    function getPrStatus(row) {
+      const endDate = endDateHeader ? normalizeDateString(getCellByHeader_(row, endDateHeader)) : '';
+      const startDate = startDateHeader ? normalizeDateString(getCellByHeader_(row, startDateHeader)) : '';
+      const inactive = inactiveHeader ? isTruthyValue(getCellByHeader_(row, inactiveHeader)) : false;
+      if (inactive || (endDate && endDate < today)) return 'end';
+      if (startDate && startDate > today) return 'start';
+      return 'active';
+    }
+
+    const allActive = rows.filter(r => !isDraft(r) && getPrStatus(r) === 'active');
+    const allStart  = rows.filter(r => !isDraft(r) && getPrStatus(r) === 'start');
+    const allEnd    = rows.filter(r => !isDraft(r) && getPrStatus(r) === 'end');
+
+    const filteredRows = rows.filter(row => {
+      if (isDraft(row)) return false;
+      if (keyword && !Object.values(row).map(v => v == null ? '' : String(v)).join(' ').toLowerCase().includes(keyword)) return false;
+      const st = getPrStatus(row);
+      if (masterFilters.status === 'active'   && st !== 'active') return false;
+      if (masterFilters.status === 'upcoming'  && st !== 'start')  return false;
+      if (masterFilters.status === 'inactive'  && st !== 'end')    return false;
+      return true;
+    });
+
+    if (!rows.length) {
+      container.innerHTML = '<div class="empty-state">PRデータがありません。</div>';
+      return;
+    }
+
+    const nameMap = getNewsletterNameMap_();
+
+    const endHidden = masterFilters.status !== 'inactive' && masterFilters.status !== '__all__';
+    let html = `
+      <div class="pr-stats-bar">
+        <div class="pr-si"><div class="pr-si-dot" style="background:var(--pink)"></div>掲出中 <b>${allActive.length}</b> 件</div>
+        <div class="pr-si"><div class="pr-si-dot" style="background:var(--ok)"></div>開始予定 <b>${allStart.length}</b> 件</div>
+        <div class="pr-si"><div class="pr-si-dot" style="background:var(--border-strong)"></div>終了済 <b>${allEnd.length}</b> 件${endHidden ? '（非表示中）' : ''}</div>
+      </div>
+      <div class="pr-list">
+    `;
+
+    if (!filteredRows.length) {
+      html += '<div class="empty-state">該当するPRがありません。</div>';
+    } else {
+      filteredRows.forEach(row => {
+        const prStatus = getPrStatus(row);
+        const cardClass = prStatus === 'active' ? 's-active' : prStatus === 'start' ? 's-start' : 's-end';
+        const statusLabel = prStatus === 'active' ? '掲出中' : prStatus === 'start' ? '開始予定' : '終了済';
+        const statusBadge = prStatus === 'active' ? 'active' : prStatus === 'start' ? 'start' : 'end';
+
+        const prId    = prIdHeader    ? escapeHtml(getCellByHeader_(row, prIdHeader))    : '';
+        const title   = nameHeader    ? escapeHtml(getCellByHeader_(row, nameHeader))    : '(名称なし)';
+        const sdRaw   = startDateHeader ? getCellByHeader_(row, startDateHeader) : '';
+        const edRaw   = endDateHeader   ? getCellByHeader_(row, endDateHeader)   : '';
+        const sd      = sdRaw ? escapeHtml(sdRaw) : '';
+        const ed      = edRaw ? escapeHtml(edRaw) : '';
+        const prText  = prTextHeader  ? getCellByHeader_(row, prTextHeader)  : '';
+        const notes   = notesHeader   ? getCellByHeader_(row, notesHeader)   : '';
+        const rawIds  = targetIdsHeader ? getCellByHeader_(row, targetIdsHeader) : '';
+        const ids     = rawIds ? String(rawIds).split(',').map(s => s.trim()).filter(Boolean) : [];
+
+        const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
+
+        const MAX_CHIPS = 10;
+        const chipsHtml = ids.slice(0, MAX_CHIPS).map(id => {
+          const mailName = nameMap[normalizeIdKey(id)] || id;
+          return `<span class="mc${prStatus === 'active' ? ' live' : ''}">${escapeHtml(mailName)}</span>`;
+        }).join('') + (ids.length > MAX_CHIPS ? `<span class="mc more">+${ids.length - MAX_CHIPS}件</span>` : '');
+
+        const dateRange = (sd || ed) ? `${sd} — ${ed}` : '';
+
+        html += `
+          <div class="pr-card ${cardClass}">
+            <div class="pr-head">
+              <div class="pr-head-left">
+                ${prId ? `<div class="pr-id">PR ID: ${prId}</div>` : ''}
+                <div class="pr-title">${title}</div>
+                <div class="pr-meta">
+                  <span class="pr-status ${statusBadge}">${escapeHtml(statusLabel)}</span>
+                  ${dateRange ? `<span class="pr-date"><i class="ti ti-calendar" aria-hidden="true"></i>${dateRange}</span>` : ''}
+                </div>
+              </div>
+              <div class="pr-head-right">
+                <div class="pr-actions">
+                  <button type="button" class="act-btn" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
+                  ${prStatus !== 'end' ? `<button type="button" class="act-btn danger" data-action="delete-master-row" data-row-number="${escapeAttribute(String(row.__rowNumber))}" title="終了にする">終了</button>` : ''}
+                </div>
+                ${ids.length ? `<span class="pr-count">紐づき <b>${ids.length}</b> 件</span>` : ''}
+              </div>
+            </div>
+            ${prText ? `<div class="pr-body"><span class="pr-body-label">PR本文</span><div class="pr-body-text">${escapeHtml(prText)}</div></div>` : ''}
+            ${ids.length ? `<div class="pr-targets"><span class="pr-targets-label">紐づき先</span><div class="mail-chips">${chipsHtml}</div></div>` : ''}
+            ${notes ? `<div class="pr-notes"><span class="pr-notes-label">備考</span><span class="pr-notes-text">${escapeHtml(notes)}</span></div>` : ''}
+          </div>
+        `;
+      });
+    }
+
+    html += '</div>';
     container.innerHTML = html;
   }
 
