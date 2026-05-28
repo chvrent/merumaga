@@ -57,19 +57,15 @@
     const encodedItemId = encodeURIComponent(itemId).replace(/'/g, '%27');
     const logPayload = encodeURIComponent(JSON.stringify(buildCheckLogPayload(itemId, field, row))).replace(/'/g, '%27');
 
-    const actionAttr = archived || emptyChecker ? '' : 'data-action="toggle-check-status"';
-    const cursor = archived || emptyChecker ? 'default' : 'pointer';
-
     return `
       <div
-        class="${className} check-status-cell ${active && !emptyChecker ? 'is-active-red' : ''} ${hasPendingCheckStatus(itemId, field) ? 'is-pending-check' : ''} ${archived ? 'archived-cell' : ''} ${emptyChecker ? 'is-disabled-check' : ''}"
+        class="${className} check-status-cell ${active && !emptyChecker ? 'is-active-red' : ''} ${archived ? 'archived-cell' : ''} ${emptyChecker ? 'is-disabled-check' : ''}"
         data-item-id="${escapeAttribute(itemId)}"
         data-check-field="${escapeAttribute(field)}"
         data-log-payload="${escapeAttribute(logPayload)}"
         data-encoded-item-id="${escapeAttribute(encodedItemId)}"
-        ${actionAttr}
-        style="cursor: ${cursor}"
-        title="${archived ? '過去14日以上前のデータは編集できません' : 'クリックで赤塗りを切り替え'}"
+        style="cursor: default"
+        title="${archived ? '過去14日以上前のデータは編集できません' : '設定・確認はモーダル内のボタンから行えます'}"
       >${escapeHtml(displayValue)}</div>
     `;
   }
@@ -259,11 +255,7 @@
 
   function getPendingCheckStatusUpdates() {
     return Object.values(LOCAL_CHECK_CHANGES)
-      .filter(change => {
-        const assignee = String(change && change.payload && change.payload.assignee || '').trim();
-        if (assignee === 'R') return change.field === 'setter';
-        return change.field === 'checker';
-      })
+      .filter(change => change.field === 'setter' || change.field === 'checker')
       .map(change => ({
         itemId: change.itemId,
         field: change.field,

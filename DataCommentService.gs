@@ -24,8 +24,10 @@ function saveCommentUnlocked_(scheduleId, commentText, targetDate, user) {
   const headers = getCommentHeaders_(sheet);
   const timestamp = new Date();
   const commenter = normalizeCell_(user) || getCurrentUserLabel_();
+  
   const row = headers.map(header => {
-    switch (header) {
+    const key = getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, header) || String(header || '').trim();
+    switch (key) {
       case 'schedule_id':
         return safeScheduleId;
       case 'timestamp':
@@ -75,11 +77,7 @@ function getCommentsByScheduleId(scheduleId, targetDate) {
   if (values.length < 2) return [];
 
   const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
-  const dateIndex = findHeaderIndex_(headers, 'target_date');
-  const timestampIndex = findHeaderIndex_(headers, 'timestamp');
-  const userIndex = findHeaderIndex_(headers, 'user');
-  const textIndex = findHeaderIndex_(headers, 'comment_text');
+  const { scheduleIndex, dateIndex, timestampIndex, userIndex, textIndex } = getCommentColumnIndexes_(headers);
   if (scheduleIndex < 0 || dateIndex < 0) return [];
 
   const results = [];
@@ -127,8 +125,7 @@ function getCommentCounts_(dateRange) {
   if (values.length < 2) return counts;
 
   const headers = values[0].map(header => String(header || '').trim());
-  const scheduleIndex = findHeaderIndex_(headers, 'schedule_id');
-  const dateIndex = findHeaderIndex_(headers, 'target_date');
+  const { scheduleIndex, dateIndex } = getCommentColumnIndexes_(headers);
   if (scheduleIndex < 0 || dateIndex < 0) return counts;
 
   values.slice(1).forEach(row => {
@@ -159,22 +156,40 @@ function getCommentsSheet_() {
 }
 
 function getCommentHeaders_(sheet) {
-  const requiredHeaders = ['schedule_id', 'timestamp', 'user', 'comment_text', 'target_date'];
-  const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
-  let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(header => String(header || '').trim());
+  // システムメタデータ列（固定順・日本語/英語形式）
+  const requiredHeaders = [
+    'ID/schedule_id',
+    '投稿日時/timestamp',
+    '投稿者/user',
+    'コメント/comment_text',
+    '対象日/target_date'
+  ];
 
-  if (!headers.some(Boolean)) {
+  // 現在のシートのヘッダーを取得
+  const headers = trimTrailingEmptyHeaders_(getSheetTrimmedHeaders_(sheet));
+
+  // シートが空なら初期設定
+  if (headers.length === 0) {
     sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
     return requiredHeaders;
   }
 
-  requiredHeaders.forEach(header => {
-    if (headerExists_(headers, header)) return;
-    headers.push(header);
-    sheet.getRange(1, headers.length).setValue(header);
+  // 足りないヘッダーを canonical キー（COMMENTS_FIELD_ALIASES）で保証
+  ensureCanonicalHeaders_(sheet, headers, requiredHeaders, function(h) {
+    return getCanonicalKeyFromAliases_(COMMENTS_FIELD_ALIASES, h) || String(h || '').trim();
   });
 
   return headers;
+}
+
+function getCommentColumnIndexes_(headers) {
+  return {
+    scheduleIndex: findHeaderIndex_(headers, 'schedule_id'),
+    dateIndex: findHeaderIndex_(headers, 'target_date'),
+    timestampIndex: findHeaderIndex_(headers, 'timestamp'),
+    userIndex: findHeaderIndex_(headers, 'user'),
+    textIndex: findHeaderIndex_(headers, 'comment_text')
+  };
 }
 
 function buildCommentKey_(scheduleId, targetDate) {

@@ -20,22 +20,21 @@ function clearScheduleFixedFlags() {
   const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
   if (!sheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
 
-  const values = sheet.getDataRange().getValues();
-  if (!values.length) return { success: true, cleared: 0 };
+  const sheetData = getSheetValuesAndHeaders_(sheet);
+  if (!sheetData) return { success: true, cleared: 0 };
 
-  const headers = values[0].map(header => String(header || '').trim());
-  const fixedIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.is_fixed);
+  const fixedIndex = firstExistingHeaderIndex_(buildHeaderMap_(sheetData.headers), SCHEDULE_FIELD_ALIASES.is_fixed);
   if (fixedIndex == null) return { success: true, cleared: 0 };
 
   let cleared = 0;
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    if (values[rowIndex][fixedIndex] !== '') {
-      values[rowIndex][fixedIndex] = '';
+  for (let rowIndex = 1; rowIndex < sheetData.values.length; rowIndex++) {
+    if (sheetData.values[rowIndex][fixedIndex] !== '') {
+      sheetData.values[rowIndex][fixedIndex] = '';
       cleared++;
     }
   }
 
-  if (cleared) sheet.getDataRange().setValues(values);
+  if (cleared) sheetData.range.setValues(sheetData.values);
   return { success: true, cleared };
 }
 
@@ -75,19 +74,17 @@ function migrateSheetIds_(ss, sheetName, idAliases, prefix, dryRun) {
   const sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { sheetName, changed: 0, idMap: {}, skipped: true };
 
-  const range = sheet.getDataRange();
-  const values = range.getValues();
-  if (!values.length) return { sheetName, changed: 0, idMap: {} };
+  const sheetData = getSheetValuesAndHeaders_(sheet);
+  if (!sheetData) return { sheetName, changed: 0, idMap: {} };
 
-  const headers = values[0].map(header => String(header || '').trim());
-  const idIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), idAliases);
+  const idIndex = firstExistingHeaderIndex_(buildHeaderMap_(sheetData.headers), idAliases);
   if (idIndex == null) return { sheetName, changed: 0, idMap: {}, skipped: true };
 
   const idMap = {};
   const usedNumbers = new Set();
   const englishPattern = new RegExp(`^${prefix}_(\\d+)$`);
 
-  values.slice(1).forEach(row => {
+  sheetData.values.slice(1).forEach(row => {
     const currentId = normalizeCell_(row[idIndex]);
     const match = currentId.match(englishPattern);
     if (match) usedNumbers.add(Number(match[1]));
@@ -100,17 +97,17 @@ function migrateSheetIds_(ss, sheetName, idAliases, prefix, dryRun) {
     return `${prefix}_${String(nextNumber).padStart(3, '0')}`;
   };
 
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    const currentId = normalizeCell_(values[rowIndex][idIndex]);
+  for (let rowIndex = 1; rowIndex < sheetData.values.length; rowIndex++) {
+    const currentId = normalizeCell_(sheetData.values[rowIndex][idIndex]);
     if (!currentId || englishPattern.test(currentId)) continue;
 
     const newId = nextId();
     idMap[currentId] = newId;
-    values[rowIndex][idIndex] = newId;
+    sheetData.values[rowIndex][idIndex] = newId;
   }
 
   if (!dryRun && Object.keys(idMap).length) {
-    range.setValues(values);
+    sheetData.range.setValues(sheetData.values);
   }
 
   return { sheetName, changed: Object.keys(idMap).length, idMap };
@@ -119,56 +116,76 @@ function migrateSheetIds_(ss, sheetName, idAliases, prefix, dryRun) {
 function updateReferenceIds_(ss, sheetName, idAliases, idMap) {
   if (!idMap || !Object.keys(idMap).length) return;
 
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return;
+  const sheetData = getSheetValuesAndHeaders_(ss.getSheetByName(sheetName));
+  if (!sheetData) return;
 
-  const range = sheet.getDataRange();
-  const values = range.getValues();
-  if (!values.length) return;
-
-  const headers = values[0].map(header => String(header || '').trim());
-  const idIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), idAliases);
+  const idIndex = firstExistingHeaderIndex_(buildHeaderMap_(sheetData.headers), idAliases);
   if (idIndex == null) return;
 
   let changed = false;
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    const currentId = normalizeCell_(values[rowIndex][idIndex]);
+  for (let rowIndex = 1; rowIndex < sheetData.values.length; rowIndex++) {
+    const currentId = normalizeCell_(sheetData.values[rowIndex][idIndex]);
     if (Object.prototype.hasOwnProperty.call(idMap, currentId)) {
-      values[rowIndex][idIndex] = idMap[currentId];
+      sheetData.values[rowIndex][idIndex] = idMap[currentId];
       changed = true;
     }
   }
 
-  if (changed) range.setValues(values);
+  if (changed) sheetData.range.setValues(sheetData.values);
 }
 
 function updateItemIdReferences_(ss, sheetName, itemIdAliases, idMap) {
   if (!idMap || !Object.keys(idMap).length) return;
 
-  const sheet = ss.getSheetByName(sheetName);
-  if (!sheet) return;
+  const sheetData = getSheetValuesAndHeaders_(ss.getSheetByName(sheetName));
+  if (!sheetData) return;
 
-  const range = sheet.getDataRange();
-  const values = range.getValues();
-  if (!values.length) return;
-
-  const headers = values[0].map(header => String(header || '').trim());
-  const itemIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), itemIdAliases);
+  const itemIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(sheetData.headers), itemIdAliases);
   if (itemIdIndex == null) return;
 
   let changed = false;
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    const currentValue = normalizeCell_(values[rowIndex][itemIdIndex]);
+  for (let rowIndex = 1; rowIndex < sheetData.values.length; rowIndex++) {
+    const currentValue = normalizeCell_(sheetData.values[rowIndex][itemIdIndex]);
     const parts = currentValue.split('|');
     const currentId = parts[0];
     if (Object.prototype.hasOwnProperty.call(idMap, currentId)) {
       parts[0] = idMap[currentId];
-      values[rowIndex][itemIdIndex] = parts.join('|');
+      sheetData.values[rowIndex][itemIdIndex] = parts.join('|');
       changed = true;
     }
   }
 
-  if (changed) range.setValues(values);
+  if (changed) sheetData.range.setValues(sheetData.values);
+}
+
+function getSheetValuesAndHeaders_(sheet) {
+  if (!sheet) return null;
+  const range = sheet.getDataRange();
+  const values = range.getValues();
+  if (!values.length) return null;
+  const headers = values[0].map(header => String(header || '').trim());
+  return { sheet, range, values, headers };
+}
+
+function getDateIndexes_(headers, dateHeaders) {
+  return dateHeaders
+    .map(header => findHeaderIndex_(headers, header))
+    .filter(index => index >= 0);
+}
+
+function getArchiveRowsForOldRows_(values, headers, dateIndexes, cutoff) {
+  const archiveRows = [];
+  const deleteRowNumbers = [];
+
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    const row = values[rowIndex];
+    const rowDate = getArchiveCandidateDate_(row, dateIndexes);
+    if (!rowDate || rowDate >= cutoff) continue;
+    archiveRows.push([new Date()].concat(row.slice(0, headers.length)));
+    deleteRowNumbers.push(rowIndex + 1);
+  }
+
+  return { archiveRows, deleteRowNumbers };
 }
 
 // ---- 求人数自動更新 ----
@@ -182,16 +199,15 @@ function updateAllJobCountsUnlocked_() {
   const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
   if (!sheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
 
-  const range = sheet.getDataRange();
-  const values = range.getValues();
-  if (!values.length) return { success: true, updated: 0, failed: 0, skipped: 0 };
+  const sheetData = getSheetValuesAndHeaders_(sheet);
+  if (!sheetData) return { success: true, updated: 0, failed: 0, skipped: 0 };
 
-  const headers = values[0].map(header => String(header || '').trim());
+  const headers = sheetData.headers;
   let updated = 0;
   let skipped = 0;
 
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    const row = values[rowIndex];
+  for (let rowIndex = 1; rowIndex < sheetData.values.length; rowIndex++) {
+    const row = sheetData.values[rowIndex];
     if (isAutoJobFeatureRow_(headers, row)) {
       if (applyAutoJobCountFormulaForRow_(sheet, headers, rowIndex + 1)) updated++;
       else skipped++;
@@ -206,7 +222,7 @@ function updateAllJobCountsUnlocked_() {
 function updateJobCountForRowUnlocked_(sheet, rowNumber, force) {
   if (!sheet || rowNumber < 2) return { success: true, updated: 0, skipped: 1 };
 
-  const headers = sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), 18)).getValues()[0].map(header => String(header || '').trim());
+  const headers = trimTrailingEmptyHeaders_(getSheetTrimmedHeaders_(sheet));
   const row = sheet.getRange(rowNumber, 1, 1, sheet.getLastColumn()).getValues()[0];
   if (isAutoJobFeatureRow_(headers, row)) {
     const formulaResult = applyAutoJobCountFormulaForRow_(sheet, headers, rowNumber);
@@ -323,32 +339,22 @@ function archiveOldRowsByDate_(ss, sheetName, dateHeaders, cutoff) {
     return { archived: 0, skipped: sheet ? sheet.getLastRow() - 1 : 0, reason: sheet ? 'no_data' : 'missing_sheet' };
   }
 
-  const values = sheet.getDataRange().getValues();
-  const headers = values[0].map(header => String(header || '').trim());
-  const dateIndexes = dateHeaders
-    .map(header => findHeaderIndex_(headers, header))
-    .filter(index => index >= 0);
+  const sheetData = getSheetValuesAndHeaders_(sheet);
+  if (!sheetData) {
+    return { archived: 0, skipped: 0, reason: 'missing_data' };
+  }
 
+  const dateIndexes = getDateIndexes_(sheetData.headers, dateHeaders);
   if (!dateIndexes.length) {
-    return { archived: 0, skipped: Math.max(values.length - 1, 0), reason: 'date_header_missing' };
+    return { archived: 0, skipped: Math.max(sheetData.values.length - 1, 0), reason: 'date_header_missing' };
   }
 
-  const archiveRows = [];
-  const deleteRowNumbers = [];
-
-  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
-    const row = values[rowIndex];
-    const rowDate = getArchiveCandidateDate_(row, dateIndexes);
-    if (!rowDate || rowDate >= cutoff) continue;
-    archiveRows.push([new Date()].concat(row.slice(0, headers.length)));
-    deleteRowNumbers.push(rowIndex + 1);
-  }
-
+  const { archiveRows, deleteRowNumbers } = getArchiveRowsForOldRows_(sheetData.values, sheetData.headers, dateIndexes, cutoff);
   if (!archiveRows.length) {
-    return { archived: 0, skipped: Math.max(values.length - 1, 0), reason: 'no_old_rows' };
+    return { archived: 0, skipped: Math.max(sheetData.values.length - 1, 0), reason: 'no_old_rows' };
   }
 
-  const archiveSheet = getOrCreateLogArchiveSheet_(ss, sheetName, headers);
+  const archiveSheet = getOrCreateLogArchiveSheet_(ss, sheetName, sheetData.headers);
   archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, archiveRows.length, archiveRows[0].length).setValues(archiveRows);
   deleteRowNumbers.reverse().forEach(rowNumber => sheet.deleteRow(rowNumber));
 
@@ -370,15 +376,10 @@ function getOrCreateLogArchiveSheet_(ss, sourceSheetName, sourceHeaders) {
   let sheet = ss.getSheetByName(archiveSheetName);
   if (!sheet) sheet = ss.insertSheet(archiveSheetName);
 
-  const currentHeaders = sheet.getLastColumn()
-    ? sheet.getRange(1, 1, 1, Math.max(sheet.getLastColumn(), archiveHeaders.length)).getValues()[0].map(header => String(header || '').trim())
-    : [];
+  const currentHeaders = getSheetTrimmedHeaders_(sheet, archiveHeaders.length);
 
-  if (!currentHeaders.some(Boolean)) {
-    sheet.getRange(1, 1, 1, archiveHeaders.length).setValues([archiveHeaders]);
-  } else if (currentHeaders.slice(0, archiveHeaders.length).join('\t') !== archiveHeaders.join('\t')) {
-    sheet.getRange(1, 1, 1, archiveHeaders.length).setValues([archiveHeaders]);
-  }
+  trimTrailingEmptyHeaders_(currentHeaders);
+  ensureHeaders_(sheet, currentHeaders, archiveHeaders);
 
   return sheet;
 }

@@ -13,4 +13,3 @@ First command for Claude work:
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ai-start.ps1 -Agent Claude -Task <short-task-name>
 ```
-

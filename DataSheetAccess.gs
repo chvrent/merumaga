@@ -180,3 +180,45 @@ function ensureHeaderAtMinColumn_(sheet, headers, headerName, preferredIndex) {
   headers[newIndex] = headerName;
   return newIndex;
 }
+
+/**
+ * 配列の末尾にある空要素を削除する（共通化）
+ */
+function trimTrailingEmptyHeaders_(headers) {
+  if (!Array.isArray(headers)) return headers;
+  while (headers.length > 0 && headers[headers.length - 1] === '') {
+    headers.pop();
+  }
+  return headers;
+}
+
+/**
+ * 複数ヘッダーをまとめて保証する。存在しないものは末尾に追加する。
+ */
+function ensureHeaders_(sheet, headers, requiredHeaders) {
+  if (!sheet || !Array.isArray(headers) || !Array.isArray(requiredHeaders)) return headers;
+  requiredHeaders.forEach(header => {
+    if (findHeaderIndex_(headers, header) < 0) {
+      sheet.getRange(1, headers.length + 1).setValue(header);
+      headers.push(header);
+    }
+  });
+  return headers;
+}
+
+/**
+ * requiredHeaders を内部キー（canonical）で比較して存在を保証する。
+ * getCanonicalKeyFn はヘッダ文字列を受け取り内部キーを返す関数参照。
+ */
+function ensureCanonicalHeaders_(sheet, headers, requiredHeaders, getCanonicalKeyFn) {
+  if (!sheet || !Array.isArray(headers) || !Array.isArray(requiredHeaders) || typeof getCanonicalKeyFn !== 'function') return headers;
+  requiredHeaders.forEach(header => {
+    const canonicalKey = getCanonicalKeyFn(header) || String(header || '').trim();
+    const alreadyExists = headers.some(current => (getCanonicalKeyFn(current) || String(current || '').trim()) === canonicalKey);
+    if (!alreadyExists) {
+      sheet.getRange(1, headers.length + 1).setValue(header);
+      headers.push(header);
+    }
+  });
+  return headers;
+}

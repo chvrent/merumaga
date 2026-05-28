@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^git add ClientModals\\.html DataService\\.gs ; git commit -m \"Fix admin master display to use app_admin_master Abbreviation in edit modal\" ; git push$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
