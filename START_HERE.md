@@ -4,8 +4,7 @@
 
 - PR label `remove` must be displayed as `削除`, and `add` must be displayed as `追加` (changed from `開始`).
 - PR labels on the calendar have a unified chip-like style with specific colors for each status.
-- When multiple PRs are linked to one newsletter, labels are displayed individually for each newsletter entry on the calendar.
-- When multiple PRs are linked to one newsletter, show a summary such as `PR N件紐づき` and still show each PR ID/status label individually. Determine each status from that PR's own start/end dates, and hide PRs outside their date range.
+- When multiple PRs are linked to one newsletter, labels are displayed individually for each newsletter entry on the calendar. Determine each status from that PR's own start/end dates, and hide PRs outside their date range.
 
 このリポジトリを触る前に、必ずこのファイルを読むこと。
 

@@ -675,9 +675,6 @@
               })
               .map(prState => `<div class="pr-label pr-label-${prState.status}">${escapeHtml(prState.label)}</div>`)
               .join('');
-            const prSummary = prStates.length > 1
-              ? `<div class="pr-label pr-label-summary">PR ${escapeHtml(String(prStates.length))}件紐づき</div>`
-              : '';
             html += `
             <div class="delivery-row slot-item ${subCategoryClass} ${hasOccurrenceOverrides ? 'has-occurrence-overrides' : ''} ${fixed ? 'is-fixed' : ''} ${stopped ? 'is-stopped' : ''}" data-action="open-modal" data-entry="${payload}" data-item-id="${escapeAttribute(scheduleId)}" data-schedule-id="${escapeAttribute(scheduleId)}" data-target-date="${escapeAttribute(dateStr)}" data-original-date="${escapeAttribute(effectiveEntry.original_date || dateStr)}" style="background-color: ${itemBg};"${rowTitle}>
               <div class="col-name ${nameChanged ? 'is-occurrence-overridden' : ''}">
@@ -688,7 +685,6 @@
                   ${stoppedBadge}
                   ${renderCommentBadge(entryForDate)}
                 </div>
-                ${prSummary}
                 ${prLabel}
                 ${renderOccurrenceOverrideBadges(entryForDate)}
               </div>
