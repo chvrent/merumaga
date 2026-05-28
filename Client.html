@@ -78,6 +78,10 @@
     '毎日配信',
     '毎月配信',
     '月末増発',
+    '毎月第1週目',
+    '毎月第2週目',
+    '毎月第3週目',
+    '毎月第4週目',
     '特殊サイクル1',
     '特殊サイクル2',
     '特殊サイクル3',
@@ -758,6 +762,9 @@
       cycleMatch = monthEndInfo.isInWindow && weekday === dayLabel;
     } else if (scheduleCycleType === 'A' || scheduleCycleType === 'B') {
       cycleMatch = weekday === dayLabel && scheduleCycleType === getCycleForRow(row, date);
+    } else if (/^M[1-4]$/.test(scheduleCycleType)) {
+      const n = parseInt(scheduleCycleType.substring(1), 10);
+      cycleMatch = weekday === dayLabel && isNthWeekOfMonth(date, n);
     } else if (typeof scheduleCycleType === 'number') {
       const expectedCycle = getCycleForRow(row, date);
       cycleMatch = weekday === dayLabel && typeof expectedCycle === 'number' && cycleContains(row.cycle, expectedCycle);
@@ -1718,6 +1725,7 @@
     if (cycle === '毎日') return 'daily';
     if (cycle === '毎月') return 'monthly';
     if (cycle === '月末') return 'month_end';
+    if (/^M[1-4]$/.test(cycle)) return cycle;
     if (cycle === 'A' || cycle === 'B') return cycle;
     const cycleNumber = extractCycleNumber(cycle);
     if (cycleNumber != null) return cycleNumber;
