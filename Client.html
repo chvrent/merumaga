@@ -56,6 +56,7 @@
   let SORTABLES = [];
   let DATA_STATIC_READY = false;
   let DATA_LOAD_IN_FLIGHT_KEY = '';
+  let DATA_LOAD_GENERATION = 0;
   let LAST_SUCCESSFUL_LOAD_AT = 0;
   let RESUME_REFRESH_TIMER = null;
   let RENDER_GRID_FRAME = null;
@@ -64,7 +65,7 @@
   const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
-  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false };
+  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false };
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     default: '#FFFFFF',
     checkingSingle: '#d9e6fc',
@@ -249,6 +250,15 @@
   function applyLoadedData_(data, cacheKey, cacheable, options) {
     const applyOptions = options || {};
     const nextData = data || {};
+    // サーバーの getCheckStatuses_ は setter/checker フィールドを返さないため、
+    // loadData 後もセッション中に設定した setter/checker 状態(= true)が消えないよう維持する
+    if (DATA_STATIC_READY && nextData.checkStatuses && APP_DATA.checkStatuses) {
+      Object.keys(APP_DATA.checkStatuses).forEach(key => {
+        if (APP_DATA.checkStatuses[key] === true && !Object.prototype.hasOwnProperty.call(nextData.checkStatuses, key)) {
+          nextData.checkStatuses[key] = true;
+        }
+      });
+    }
     APP_DATA = DATA_STATIC_READY
       ? Object.assign({}, APP_DATA, nextData)
       : nextData;
@@ -315,16 +325,22 @@
       if (age < RESUME_REFRESH_COOLDOWN_MS) return;
     }
 
-    if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) return;
+    if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) {
+      if (!loadOptions.force) return;
+      DATA_LOAD_GENERATION++;
+    }
     DATA_LOAD_IN_FLIGHT_KEY = cacheKey;
+    const myGen = DATA_LOAD_GENERATION;
     if (!loadOptions.silent) showBusy('データを読み込み中...');
     const runner = google.script.run
       .withSuccessHandler(data => {
+        if (DATA_LOAD_GENERATION !== myGen) { if (!loadOptions.silent) hideBusy(); return; }
         applyLoadedData_(data, cacheKey, true);
         if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) DATA_LOAD_IN_FLIGHT_KEY = '';
         if (!loadOptions.silent) hideBusy();
       })
       .withFailureHandler(err => {
+        if (DATA_LOAD_GENERATION !== myGen) { if (!loadOptions.silent) hideBusy(); return; }
         if (DATA_LOAD_IN_FLIGHT_KEY === cacheKey) DATA_LOAD_IN_FLIGHT_KEY = '';
         document.getElementById('tableContainer').innerHTML =
           '<div class="empty-state">データの読み込みに失敗しました: ' + escapeHtml(err.message || String(err)) + '</div>';
@@ -394,32 +410,6 @@
       const style = window.getComputedStyle(modal);
       return style.display !== 'none' && style.visibility !== 'hidden';
     });
-  }
-
-  function fillRForDay(dateStr) {
-    const updates = [];
-    document.querySelectorAll(`#tableContainer td[data-date="${escapeCssValue(dateStr)}"] .check-status-cell[data-check-field="setter"]`).forEach(cell => {
-      if (String(cell.textContent || '').trim() !== 'R') return;
-      if (cell.classList.contains('archived-cell')) return;
-      const itemId = cell.dataset.itemId;
-      if (isCheckStatusActive(itemId, 'setter')) return;
-      updates.push({
-        itemId,
-        field: 'setter',
-        active: true,
-        payload: parseCheckLogPayload(cell.dataset.logPayload)
-      });
-    });
-
-    if (!updates.length) {
-      updatePendingCheckSaveButton();
-      return;
-    }
-
-    updates.forEach(update => setPendingCheckStatus(update.itemId, update.field, update.active, update.payload));
-    schedulePendingCheckPersist();
-    renderScheduleGrid();
-    updatePendingCheckSaveButton();
   }
 
   function escapeCssValue(value) {
@@ -555,7 +545,7 @@
         <div class="day-bulk-actions">
            <button type="button" class="bulk-stop-button" data-action="stop-all-for-day" data-date="${escapeAttribute(dateStr)}" title="この日の配信予定をすべて停止します">全停止</button>
            <button type="button" class="bulk-resume-button" data-action="resume-all-for-day" data-date="${escapeAttribute(dateStr)}" title="この日の停止設定をすべて解除します">再開</button>
-           <button type="button" class="bulk-r-button" data-action="fill-r-for-day" data-date="${escapeAttribute(dateStr)}" title="この日のR枠だけ設定済みにします">R一括設定</button>
+           <button type="button" class="bulk-r-button" data-action="fill-r-for-day" data-date="${escapeAttribute(dateStr)}" title="この日のR枠を一括確定します">R確定</button>
         </div>
       `;
 
@@ -656,9 +646,7 @@
             const checkerChanged = isOccurrenceFieldOverridden(entryForDate, ['reviewer']);
             const subCategoryClass = getSubCategoryClass(effectiveEntry);
             const itemBg = getBgColor(effectiveEntry);
-            const assigneeForFixed = String((effectiveEntry && effectiveEntry.assignee) || '').trim();
-            const fixed = isFixed(entry, dateStr) ||
-              (assigneeForFixed === 'R' ? isCheckStatusActive(checkItemId, 'setter') : isCheckStatusActive(checkItemId, 'checker'));
+            const fixed = isFixed(entry, dateStr) || isCheckStatusActive(checkItemId, 'checker');
             const stopped = !fixed && isStopped(entryForDate);
             const fixedBadge = fixed ? '<span class="fixed-badge">確定済</span>' : '';
             const stoppedBadge = stopped ? '<span class="stopped-badge">配信停止中</span>' : '';
@@ -730,9 +718,18 @@
     const moveOverride = getMoveOverrideForDate(row, dateStr);
 
     if (moveOverride) {
-      // 移動済みの発生分: 発生分上書き(時間変更)があればそちらを優先
-      const overrideHasHour = occurrenceOverride && String(occurrenceOverride.override_fields || '').split(',').includes('hour');
-      const rawHour = overrideHasHour ? occurrenceOverride.hour : moveOverride.hour;
+      // original_date で occurrence_override を引く（edit-then-move / move-then-edit 両対応）
+      const occItemId = `${String(row.schedule_id || '').trim()}|${String(moveOverride.original_date || '').trim()}`;
+      const occurrenceOverrideForMove = getOccurrenceOverrideForItemId(occItemId);
+      // occurrence_override が別の日付へ移動済みなら、ここには表示しない（コピー防止）
+      if (occurrenceOverrideForMove &&
+          occurrenceOverrideForMove.delivery_date &&
+          normalizeDateString(occurrenceOverrideForMove.delivery_date) !== dateStr) {
+        return null;
+      }
+      const overrideHasHour = occurrenceOverrideForMove &&
+        String(occurrenceOverrideForMove.override_fields || '').split(',').includes('hour');
+      const rawHour = overrideHasHour ? occurrenceOverrideForMove.hour : moveOverride.hour;
       return String(normalizeMasterHourValue(rawHour) || rawHour || '').split(':')[0].trim() || null;
     }
 
@@ -869,7 +866,7 @@
         MASTER_DATA = data || { sheetName, headers: [], rows: [] };
         if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
         if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
-        if (MASTER_DATA.sheetName === 'app_pr') masterFilters.status = '__all__';
+        if (MASTER_DATA.sheetName === 'app_pr') masterFilters.status = 'active';
         renderMasterFilterChips();
         renderMasterTable();
       } catch (error) {
@@ -910,8 +907,9 @@
   }
 
   function setMasterStatusFilter(value) {
-    masterFilters.status = value === '__all__' ? '__all__' : ((value === 'ended') ? 'ended' : 'active');
+    masterFilters.status = ['active', 'inactive', 'upcoming', '__all__'].includes(value) ? value : 'active';
     renderMasterTable();
+    renderMasterFilterChips();
   }
 
   function getActiveMasterSheetName() {
@@ -984,6 +982,23 @@
     `;
   }
 
+  function renderMasterStatusChips_() {
+    const s = masterFilters.status;
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      return [
+        `<button type="button" class="filter-chip ${s === 'active' ? 'active' : ''}" onclick="setMasterStatusFilter('active')">掲出中</button>`,
+        `<button type="button" class="filter-chip ${s === 'upcoming' ? 'active' : ''}" onclick="setMasterStatusFilter('upcoming')">開始予定</button>`,
+        `<button type="button" class="filter-chip ${s === '__all__' ? 'active' : ''}" onclick="setMasterStatusFilter('__all__')">すべて</button>`,
+        `<button type="button" class="filter-chip ${s === 'inactive' ? 'active' : ''}" onclick="setMasterStatusFilter('inactive')">終了済</button>`
+      ].join('');
+    }
+    return [
+      `<button type="button" class="filter-chip ${s === 'active' ? 'active' : ''}" onclick="setMasterStatusFilter('active')">配信中</button>`,
+      `<button type="button" class="filter-chip ${s === '__all__' ? 'active' : ''}" onclick="setMasterStatusFilter('__all__')">すべて</button>`,
+      `<button type="button" class="filter-chip ${s === 'inactive' ? 'active' : ''}" onclick="setMasterStatusFilter('inactive')">配信終了</button>`
+    ].join('');
+  }
+
   function renderMasterFilterChips() {
     const container = document.getElementById('masterFilterChips');
     if (!container) return;
@@ -998,6 +1013,7 @@
       masterFilters.status = 'active';
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
+      masterFilters.draftOnly = false;
       return;
     }
     if (isPrMasterSheet) {
@@ -1007,6 +1023,7 @@
       masterFilters.category = '__all__';
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
+      masterFilters.draftOnly = false;
       if (!masterFilters.status) masterFilters.status = '__all__';
       const prStatusChips = [
         { value: '__all__', label: 'すべて' },
@@ -1028,12 +1045,16 @@
     const mailTypeHeader = findMasterHeaderByAliases_(['mail_type', 'category', '種別']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
+    const isDraftHeader = findMasterHeaderByAliases_(['is_draft', '下書き', '下書き/is_draft']);
 
     const newOnlyChip = isNewHeader ? `
       <button type="button" class="filter-chip ${masterFilters.newOnly ? 'active' : ''}" onclick="setMasterNewOnly(!masterFilters.newOnly)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
     ` : '';
     const verifyingOnlyChip = verifyingHeader ? `
       <button type="button" class="filter-chip ${masterFilters.verifyingOnly ? 'active' : ''}" onclick="setMasterVerifyingOnly(!masterFilters.verifyingOnly)">${getMasterFilterLabel_(verifyingHeader, '検証中')}のみ</button>
+    ` : '';
+    const draftOnlyChip = isDraftHeader ? `
+      <button type="button" class="filter-chip ${masterFilters.draftOnly ? 'active' : ''}" onclick="setMasterDraftOnly(!masterFilters.draftOnly)">下書きのみ</button>
     ` : '';
     const subCategorySelect = renderMasterFilterSelect_(
       'masterSubCategorySelect',
@@ -1057,7 +1078,7 @@
       'setMasterCategoryFilter'
     );
 
-    container.innerHTML = [newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [renderMasterStatusChips_(), newOnlyChip, verifyingOnlyChip, draftOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterVerifyingOnly(checked) {
@@ -1195,7 +1216,14 @@
     container.innerHTML = html;
   }
 
+  function setMasterDraftOnly(checked) {
+    masterFilters.draftOnly = !!checked;
+    renderMasterTable();
+    renderMasterFilterChips();
+  }
+
   function renderMasterTable() {
+    if (MASTER_DATA.sheetName === 'app_pr') { renderPrCards(); return; }
     const container = document.getElementById('masterTableContainer');
     // PR管理はカードレイアウトを使用
     if (MASTER_DATA.sheetName === 'app_pr') {
@@ -1234,6 +1262,17 @@
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.verifyingOnly && verifyingHeader) {
         if (!isTruthyValue(getCellByHeader_(row, verifyingHeader))) return false;
+      }
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.draftOnly) {
+        if (!isDraft(row)) return false;
+        return true;
+      }
+      if (masterFilters.status !== '__all__') {
+        const rowEndDate = endDateHeader ? normalizeDateString(getCellByHeader_(row, endDateHeader)) : '';
+        const rowInactive = inactiveHeader ? isTruthyValue(getCellByHeader_(row, inactiveHeader)) : false;
+        const isEffectivelyInactive = rowInactive || (!!rowEndDate && rowEndDate < today);
+        if (masterFilters.status === 'active' && (isEffectivelyInactive || isDraft(row))) return false;
+        if (masterFilters.status === 'inactive' && !isEffectivelyInactive) return false;
       }
       return true;
     });
@@ -1290,6 +1329,122 @@
     });
 
     html += '</tbody></table>';
+    container.innerHTML = html;
+  }
+
+  function renderPrCards() {
+    const container = document.getElementById('masterTableContainer');
+    const rows = MASTER_DATA.rows || [];
+    const today = formatDate(new Date());
+    const keyword = String((document.getElementById('masterSearchInput') || {}).value || '').trim().toLowerCase();
+
+    const prIdHeader = findMasterHeaderByAliases_(['pr_id', 'PR ID', 'ID']);
+    const nameHeader = findMasterHeaderByAliases_(['name', 'pr_title', 'PRタイトル']);
+    const startDateHeader = findMasterHeaderByAliases_(['start_date', '開始日', '開始']);
+    const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日', '終了']);
+    const prTextHeader = findMasterHeaderByAliases_(['pr_text', 'PR本文']);
+    const targetIdsHeader = findMasterHeaderByAliases_(['target_ids', 'target_mails', 'PRが入るメルマガ', '紐づいたメルマガ']);
+    const notesHeader = findMasterHeaderByAliases_(['notes', '備考']);
+    const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止']);
+
+    function getPrStatus(row) {
+      const endDate = endDateHeader ? normalizeDateString(getCellByHeader_(row, endDateHeader)) : '';
+      const startDate = startDateHeader ? normalizeDateString(getCellByHeader_(row, startDateHeader)) : '';
+      const inactive = inactiveHeader ? isTruthyValue(getCellByHeader_(row, inactiveHeader)) : false;
+      if (inactive || (endDate && endDate < today)) return 'end';
+      if (startDate && startDate > today) return 'start';
+      return 'active';
+    }
+
+    const allActive = rows.filter(r => !isDraft(r) && getPrStatus(r) === 'active');
+    const allStart  = rows.filter(r => !isDraft(r) && getPrStatus(r) === 'start');
+    const allEnd    = rows.filter(r => !isDraft(r) && getPrStatus(r) === 'end');
+
+    const filteredRows = rows.filter(row => {
+      if (isDraft(row)) return false;
+      if (keyword && !Object.values(row).map(v => v == null ? '' : String(v)).join(' ').toLowerCase().includes(keyword)) return false;
+      const st = getPrStatus(row);
+      if (masterFilters.status === 'active'   && st !== 'active') return false;
+      if (masterFilters.status === 'upcoming'  && st !== 'start')  return false;
+      if (masterFilters.status === 'inactive'  && st !== 'end')    return false;
+      return true;
+    });
+
+    if (!rows.length) {
+      container.innerHTML = '<div class="empty-state">PRデータがありません。</div>';
+      return;
+    }
+
+    const nameMap = getNewsletterNameMap_();
+
+    const endHidden = masterFilters.status !== 'inactive' && masterFilters.status !== '__all__';
+    let html = `
+      <div class="pr-stats-bar">
+        <div class="pr-si"><div class="pr-si-dot" style="background:var(--pink)"></div>掲出中 <b>${allActive.length}</b> 件</div>
+        <div class="pr-si"><div class="pr-si-dot" style="background:var(--ok)"></div>開始予定 <b>${allStart.length}</b> 件</div>
+        <div class="pr-si"><div class="pr-si-dot" style="background:var(--border-strong)"></div>終了済 <b>${allEnd.length}</b> 件${endHidden ? '（非表示中）' : ''}</div>
+      </div>
+      <div class="pr-list">
+    `;
+
+    if (!filteredRows.length) {
+      html += '<div class="empty-state">該当するPRがありません。</div>';
+    } else {
+      filteredRows.forEach(row => {
+        const prStatus = getPrStatus(row);
+        const cardClass = prStatus === 'active' ? 's-active' : prStatus === 'start' ? 's-start' : 's-end';
+        const statusLabel = prStatus === 'active' ? '掲出中' : prStatus === 'start' ? '開始予定' : '終了済';
+        const statusBadge = prStatus === 'active' ? 'active' : prStatus === 'start' ? 'start' : 'end';
+
+        const prId    = prIdHeader    ? escapeHtml(getCellByHeader_(row, prIdHeader))    : '';
+        const title   = nameHeader    ? escapeHtml(getCellByHeader_(row, nameHeader))    : '(名称なし)';
+        const sdRaw   = startDateHeader ? getCellByHeader_(row, startDateHeader) : '';
+        const edRaw   = endDateHeader   ? getCellByHeader_(row, endDateHeader)   : '';
+        const sd      = sdRaw ? escapeHtml(sdRaw) : '';
+        const ed      = edRaw ? escapeHtml(edRaw) : '';
+        const prText  = prTextHeader  ? getCellByHeader_(row, prTextHeader)  : '';
+        const notes   = notesHeader   ? getCellByHeader_(row, notesHeader)   : '';
+        const rawIds  = targetIdsHeader ? getCellByHeader_(row, targetIdsHeader) : '';
+        const ids     = rawIds ? String(rawIds).split(',').map(s => s.trim()).filter(Boolean) : [];
+
+        const encodedRow = escapeAttribute(encodeURIComponent(JSON.stringify(row)));
+
+        const MAX_CHIPS = 10;
+        const chipsHtml = ids.slice(0, MAX_CHIPS).map(id => {
+          const mailName = nameMap[normalizeIdKey(id)] || id;
+          return `<span class="mc${prStatus === 'active' ? ' live' : ''}">${escapeHtml(mailName)}</span>`;
+        }).join('') + (ids.length > MAX_CHIPS ? `<span class="mc more">+${ids.length - MAX_CHIPS}件</span>` : '');
+
+        const dateRange = (sd || ed) ? `${sd} — ${ed}` : '';
+
+        html += `
+          <div class="pr-card ${cardClass}">
+            <div class="pr-head">
+              <div class="pr-head-left">
+                ${prId ? `<div class="pr-id">PR ID: ${prId}</div>` : ''}
+                <div class="pr-title">${title}</div>
+                <div class="pr-meta">
+                  <span class="pr-status ${statusBadge}">${escapeHtml(statusLabel)}</span>
+                  ${dateRange ? `<span class="pr-date"><i class="ti ti-calendar" aria-hidden="true"></i>${dateRange}</span>` : ''}
+                </div>
+              </div>
+              <div class="pr-head-right">
+                <div class="pr-actions">
+                  <button type="button" class="act-btn" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
+                  ${prStatus !== 'end' ? `<button type="button" class="act-btn danger" data-action="delete-master-row" data-row-number="${escapeAttribute(String(row.__rowNumber))}" title="終了にする">終了</button>` : ''}
+                </div>
+                ${ids.length ? `<span class="pr-count">紐づき <b>${ids.length}</b> 件</span>` : ''}
+              </div>
+            </div>
+            ${prText ? `<div class="pr-body"><span class="pr-body-label">PR本文</span><div class="pr-body-text">${escapeHtml(prText)}</div></div>` : ''}
+            ${ids.length ? `<div class="pr-targets"><span class="pr-targets-label">紐づき先</span><div class="mail-chips">${chipsHtml}</div></div>` : ''}
+            ${notes ? `<div class="pr-notes"><span class="pr-notes-label">備考</span><span class="pr-notes-text">${escapeHtml(notes)}</span></div>` : ''}
+          </div>
+        `;
+      });
+    }
+
+    html += '</div>';
     container.innerHTML = html;
   }
 
@@ -1999,6 +2154,16 @@
       return;
     }
 
+    if (action === 'modal-toggle-setting') {
+      handleModalToggleSetting_();
+      return;
+    }
+
+    if (action === 'modal-set-checking') {
+      handleModalSetChecking_();
+      return;
+    }
+
     if (action === 'save-pending-check-statuses') {
       savePendingCheckStatuses();
       return;
@@ -2189,6 +2354,49 @@
         loadData({ force: true });
       })
       .resumeAllDeliveriesForDay(dateStr);
+  }
+
+  function fillRForDay(dateStr) {
+    const updates = [];
+    document.querySelectorAll(`td[data-date="${dateStr}"] .delivery-row`).forEach(row => {
+      try {
+        const entry = JSON.parse(decodeURIComponent(row.dataset.entry || '{}'));
+        if (String(entry.assignee || '').trim() !== 'R') return;
+        const scheduleId = row.dataset.scheduleId || row.dataset.itemId;
+        const checkItemId = `${scheduleId}|${dateStr}`;
+        if (isCheckStatusActive(checkItemId, 'checker')) return;
+        updates.push({
+          itemId: checkItemId,
+          field: 'checker',
+          active: true,
+          payload: buildCheckLogPayload(checkItemId, 'checker', Object.assign({}, entry, { target_date: dateStr }))
+        });
+      } catch (e) {}
+    });
+
+    if (!updates.length) {
+      alert('確定対象のRエントリーが見つかりません（すでに確定済みの場合も含みます）。');
+      return;
+    }
+
+    if (!confirm(`${dateStr} のR枠${updates.length}件を一括確定しますか？`)) return;
+
+    showBusy('R一括確定中...');
+    google.script.run
+      .withSuccessHandler(results => {
+        (Array.isArray(results) ? results : []).forEach(result => {
+          if (!result || !result.success) return;
+          setLocalCheckStatus(result.item_id, result.field, !!result.active);
+          applyArchiveResult_(result.archive);
+        });
+        hideBusy();
+        renderScheduleGrid();
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        alert('R一括確定に失敗しました: ' + (err.message || String(err)));
+      })
+      .saveDailyCheckStatuses(updates);
   }
 
   window.addEventListener('beforeunload', event => {

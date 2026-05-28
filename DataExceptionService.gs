@@ -295,19 +295,18 @@ function getExceptionsSheet_() {
 
 function getExceptionHeaders_(sheet) {
   const requiredHeaders = ['schedule_id', 'target_date', 'status'];
-  const lastColumn = Math.max(sheet.getLastColumn(), requiredHeaders.length);
-  let headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(header => String(header || '').trim());
+  let headers = getSheetTrimmedHeaders_(sheet, requiredHeaders.length);
+
+  // 末尾の空要素をトリムして無駄な右側への挿入を防ぐ
+  trimTrailingEmptyHeaders_(headers);
 
   if (!headers.some(Boolean)) {
     sheet.getRange(1, 1, 1, requiredHeaders.length).setValues([requiredHeaders]);
     return requiredHeaders;
   }
 
-  requiredHeaders.forEach(header => {
-    if (headerExists_(headers, header)) return;
-    headers.push(header);
-    sheet.getRange(1, headers.length).setValue(header);
-  });
+  // 必要ヘッダーをまとめて保証
+  ensureHeaders_(sheet, headers, requiredHeaders);
 
   return headers;
 }

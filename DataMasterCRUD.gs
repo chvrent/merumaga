@@ -71,6 +71,38 @@ function getPrLinkIdFromTargetRow_(row) {
   return normalizeIdKey_(getObjectFieldByAliases_(row, ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'PR']));
 }
 
+function copyPayloadAlias_(payload, sourceKey, targetKey) {
+  if (Object.prototype.hasOwnProperty.call(payload, sourceKey) && !Object.prototype.hasOwnProperty.call(payload, targetKey)) {
+    payload[targetKey] = payload[sourceKey];
+  }
+}
+
+function clearBooleanTextPayloadKeys_(payload, keys) {
+  keys.forEach(function(key) {
+    if (Object.prototype.hasOwnProperty.call(payload, key) && isBooleanText_(payload[key])) {
+      payload[key] = '';
+    }
+  });
+}
+
+function normalizeBooleanStringPayloadKeys_(payload, keys) {
+  keys.forEach(function(key) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      payload[key] = isTruthy_(payload[key]) ? 'TRUE' : 'FALSE';
+    }
+  });
+}
+
+function getSheetTrimmedHeaders_(sheet, minColumns = 0) {
+  const lastCol = Math.max(sheet.getLastColumn(), minColumns);
+  if (lastCol <= 0) return [];
+  return sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
+}
+
+function getSheetHeaderMap_(sheet, minColumns = 0) {
+  return buildHeaderMap_(getSheetTrimmedHeaders_(sheet, minColumns));
+}
+
 function saveMasterData(sheetName, payload) {
   return withScriptLock_(() => saveMasterDataUnlocked_(sheetName, payload));
 }
@@ -80,33 +112,17 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (!payload || typeof payload !== 'object') throw new Error('payload is required');
 
   const normalizedPayload = Object.assign({}, payload);
-  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'setter') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'assignee')) {
-    normalizedPayload.assignee = normalizedPayload.setter;
-  }
-  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'checker') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'reviewer')) {
-    normalizedPayload.reviewer = normalizedPayload.checker;
-  }
-  ['assignee', 'reviewer'].forEach(function(key) {
-    if (Object.prototype.hasOwnProperty.call(normalizedPayload, key) && isBooleanText_(normalizedPayload[key])) {
-      normalizedPayload[key] = '';
-    }
-  });
-  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'mail_type') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'category')) {
-    normalizedPayload.category = normalizedPayload.mail_type;
-  }
-  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'category') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'mail_type')) {
-    normalizedPayload.mail_type = normalizedPayload.category;
-  }
-  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'new_flag') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new')) {
-    normalizedPayload.is_new = normalizedPayload.new_flag;
-  }
+  copyPayloadAlias_(normalizedPayload, 'setter', 'assignee');
+  copyPayloadAlias_(normalizedPayload, 'checker', 'reviewer');
+  clearBooleanTextPayloadKeys_(normalizedPayload, ['assignee', 'reviewer']);
+  copyPayloadAlias_(normalizedPayload, 'mail_type', 'category');
+  copyPayloadAlias_(normalizedPayload, 'category', 'mail_type');
+  copyPayloadAlias_(normalizedPayload, 'new_flag', 'is_new');
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new')) {
     normalizedPayload.is_new = isTruthy_(normalizedPayload.is_new) ? 'TRUE' : 'FALSE';
     delete normalizedPayload.new_flag;
   }
-  if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'verifying_flag') && !Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_verifying')) {
-    normalizedPayload.is_verifying = normalizedPayload.verifying_flag;
-  }
+  copyPayloadAlias_(normalizedPayload, 'verifying_flag', 'is_verifying');
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_verifying')) {
     normalizedPayload.is_verifying = isTruthy_(normalizedPayload.is_verifying) ? 'TRUE' : 'FALSE';
     delete normalizedPayload.verifying_flag;
@@ -114,11 +130,7 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_draft')) {
     normalizedPayload.is_draft = isTruthy_(normalizedPayload.is_draft) ? 'TRUE' : 'FALSE';
   }
-  ['is_fixed', 'is_inactive'].forEach(function(key) {
-    if (Object.prototype.hasOwnProperty.call(normalizedPayload, key)) {
-      normalizedPayload[key] = isTruthy_(normalizedPayload[key]) ? 'TRUE' : 'FALSE';
-    }
-  });
+  normalizeBooleanStringPayloadKeys_(normalizedPayload, ['is_fixed', 'is_inactive']);
   applySingleDeliveryPayloadRule_(normalizedPayload);
 
   const ss = getSourceSpreadsheet_();
@@ -169,15 +181,24 @@ function saveMasterDataUnlocked_(sheetName, payload) {
 
 function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload) {
   if (!payload || typeof payload !== 'object') return;
-  const optionalHeaders = [];
-  if (Object.prototype.hasOwnProperty.call(payload, 'is_draft')) optionalHeaders.push('is_draft');
-  if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) optionalHeaders.push('is_verifying');
-  optionalHeaders.forEach(header => {
-    const exists = headers.some(h => h === header || (h.includes('/') && h.split('/').map(s => s.trim()).includes(header)));
-    if (exists) return;
-    headers.push(header);
-    sheet.getRange(1, headers.length).setValue(header);
-  });
+
+  // 末尾の空要素を共通ユーティリティでトリム
+  trimTrailingEmptyHeaders_(headers);
+
+  // シートごとに必要なオプションヘッダーを定義
+  const optionalHeadersMap = {
+    [SCHEDULE_SHEET_NAME]: ['is_draft', 'is_verifying']
+  };
+
+  const allowedOptional = optionalHeadersMap[sheetName] || [];
+  
+  // payload に含まれる optional ヘッダーのみを追加（内部キーで照合）
+  const neededOptional = allowedOptional.filter(header => Object.prototype.hasOwnProperty.call(payload, header));
+  if (neededOptional.length) {
+    ensureCanonicalHeaders_(sheet, headers, neededOptional, function(h) {
+      return getCanonicalKeyForHeader_(sheetName, h) || String(h || '').trim();
+    });
+  }
 }
 
 function applySingleDeliveryPayloadRule_(payload) {
@@ -218,9 +239,7 @@ function deleteMasterDataUnlocked_(sheetName, rowNumber) {
 
   let deletedPrId = '';
   if (safeSheetName === 'app_pr') {
-    const lastCol = sheet.getLastColumn();
-    const prHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
-    const prIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(prHeaders), PR_FIELD_ALIASES.pr_id);
+    const prIdIndex = firstExistingHeaderIndex_(getSheetHeaderMap_(sheet), PR_FIELD_ALIASES.pr_id);
     deletedPrId = prIdIndex == null ? '' : normalizeCell_(sheet.getRange(targetRow, prIdIndex + 1).getDisplayValue());
   }
 
@@ -246,11 +265,10 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
 
   if (safeSheetName === SCHEDULE_SHEET_NAME) {
     // app_schedule: end_date = today で翌日以降をカレンダーから除外
-    const lastCol = sheet.getLastColumn();
-    const headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
-    const headerMap = buildHeaderMap_(headers);
+    const headerMap = getSheetHeaderMap_(sheet);
     let endDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.end_date);
     if (endDateIndex == null) {
+      const lastCol = sheet.getLastColumn();
       endDateIndex = lastCol;
       sheet.getRange(1, endDateIndex + 1).setValue('end_date');
     }
@@ -259,9 +277,7 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
     // app_pr 等: 従来通り is_inactive フラグ
     stopMasterRow_(sheet, safeSheetName, targetRow);
     if (safeSheetName === 'app_pr') {
-      const lastCol = sheet.getLastColumn();
-      const prHeaders = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
-      const prIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(prHeaders), PR_FIELD_ALIASES.pr_id);
+      const prIdIndex = firstExistingHeaderIndex_(getSheetHeaderMap_(sheet), PR_FIELD_ALIASES.pr_id);
       const prId = prIdIndex == null ? '' : normalizeCell_(sheet.getRange(targetRow, prIdIndex + 1).getDisplayValue());
       if (prId) {
         const targetsSheet = ss.getSheetByName('app_pr_targets');
@@ -269,8 +285,7 @@ function stopMasterDataUnlocked_(sheetName, rowNumber) {
           const targetInactiveIndex = getOrCreateInactiveColumn_(targetsSheet, PR_TARGET_FIELD_ALIASES.is_inactive);
           const targetValues = targetsSheet.getDataRange().getDisplayValues();
           if (targetValues.length >= 2) {
-            const targetHeaders = targetValues[0].map(h => String(h || '').trim());
-            const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_TARGET_FIELD_ALIASES.pr_id);
+            const targetPrIdIndex = firstExistingHeaderIndex_(getSheetHeaderMap_(targetsSheet), PR_TARGET_FIELD_ALIASES.pr_id);
             if (targetPrIdIndex != null) {
               for (let r = 2; r <= targetValues.length; r++) {
                 const rowPrId = normalizeCell_(targetValues[r - 1][targetPrIdIndex]);
@@ -301,9 +316,7 @@ function resumeMasterDataUnlocked_(sheetName, rowNumber) {
 
   if (safeSheetName === SCHEDULE_SHEET_NAME) {
     // app_schedule: end_date をクリア、start_date = 再開日
-    const lastCol = sheet.getLastColumn();
-    const headers = sheet.getRange(1, 1, 1, lastCol).getDisplayValues()[0].map(h => String(h || '').trim());
-    const headerMap = buildHeaderMap_(headers);
+    const headerMap = getSheetHeaderMap_(sheet);
     const endDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.end_date);
     if (endDateIndex != null) sheet.getRange(targetRow, endDateIndex + 1).clearContent();
     const startDateIndex = firstExistingHeaderIndex_(headerMap, SCHEDULE_FIELD_ALIASES.start_date);
@@ -321,8 +334,7 @@ function deletePrTargetRowsByPrId_(ss, prId) {
   if (!targetsSheet) return;
   const targetValues = targetsSheet.getDataRange().getDisplayValues();
   if (targetValues.length < 2) return;
-  const targetHeaders = targetValues[0].map(h => String(h || '').trim());
-  const targetPrIdIndex = firstExistingHeaderIndex_(buildHeaderMap_(targetHeaders), PR_TARGET_FIELD_ALIASES.pr_id);
+  const targetPrIdIndex = firstExistingHeaderIndex_(getSheetHeaderMap_(targetsSheet), PR_TARGET_FIELD_ALIASES.pr_id);
   if (targetPrIdIndex == null) return;
   const rowsToDelete = [];
   for (let r = 2; r <= targetValues.length; r++) {
@@ -341,20 +353,16 @@ function stopMasterRow_(sheet, sheetName, rowNumber) {
 
 function resumeMasterRow_(sheet, sheetName, rowNumber) {
   const aliases = getInactiveAliasesForMasterSheet_(sheetName);
-  const lastColumn = Math.max(sheet.getLastColumn(), 1);
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(h => String(h || '').trim());
-  const inactiveIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), aliases);
+  const inactiveIndex = firstExistingHeaderIndex_(getSheetHeaderMap_(sheet), aliases);
   if (inactiveIndex == null) return;
   sheet.getRange(rowNumber, inactiveIndex + 1).clearContent();
 }
 
 function getOrCreateInactiveColumn_(sheet, aliases) {
-  const lastColumn = Math.max(sheet.getLastColumn(), 1);
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getDisplayValues()[0].map(h => String(h || '').trim());
-  const inactiveIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), aliases);
+  const inactiveIndex = firstExistingHeaderIndex_(getSheetHeaderMap_(sheet), aliases);
   if (inactiveIndex != null) return inactiveIndex;
 
-  const nextColumn = lastColumn + 1;
+  const nextColumn = Math.max(sheet.getLastColumn(), 0) + 1;
   sheet.getRange(1, nextColumn).setValue('配信停止');
   return nextColumn - 1;
 }

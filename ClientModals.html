@@ -87,6 +87,7 @@
     // タブの初期化とルール適用
     populateModalFields(form, row, getModalFieldAliases_('masterModal'));
     refreshAdminSelects_();
+    bindMasterModalInteractions_(modal);
     bindFormatSelects_(modal);
     bindCycleButtons_(modal);
     bindSingleDeliveryDateSync_(modal);
@@ -102,6 +103,14 @@
       updateMasterActionButtons_(row);
       setModalVisible_(modal, true);
     }
+  }
+
+  function bindMasterModalInteractions_(modal) {
+    if (!modal) return;
+    bindChangeField_(modal, '[name="setter"]', () => {
+      syncReviewerLock_('masterModal');
+    });
+    syncReviewerLock_('masterModal');
   }
 
   function updateMasterActionButtons_(row) {
@@ -524,17 +533,20 @@
     }).join('');
   }
 
-  function syncReviewerLock_() {
-    const modal = document.getElementById('editModal');
+  function syncReviewerLock_(modalId = 'editModal') {
+    const modal = document.getElementById(modalId);
     const assigneeEl = modal ? modal.querySelector('[name="setter"]') : null;
     const reviewerEl = modal ? modal.querySelector('[name="checker"]') : null;
     if (!assigneeEl || !reviewerEl) return;
 
-    const locked = CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY));
-    if (locked) {
-      reviewerEl.disabled = true;
-      reviewerEl.required = false;
-      return;
+    // editModal の場合のみ確定・停止ロックを考慮
+    if (modalId === 'editModal') {
+      const locked = CURRENT_ENTRY && (isFixed(CURRENT_ENTRY) || isStopped(CURRENT_ENTRY));
+      if (locked) {
+        reviewerEl.disabled = true;
+        reviewerEl.required = false;
+        return;
+      }
     }
 
     const assignee = String(assigneeEl.value || '').trim();
@@ -627,7 +639,7 @@
     }
     bindCycleButtons_(modal);
     bindChangeField_(modal, '[name="setter"]', () => {
-      syncReviewerLock_();
+      syncReviewerLock_('editModal');
       updateEditChangeHighlights_(modal);
     });
     ['mail_type', 'category', 'sub_category', 'cycle'].forEach(name => {
@@ -639,7 +651,7 @@
     });
     bindEditChangeHighlights_(modal);
     bindSingleDeliveryDateSync_(modal);
-    syncReviewerLock_();
+    syncReviewerLock_('editModal');
   }
 
   function bindCycleButtons_(root) {
@@ -910,13 +922,7 @@
     if (MASTER_DATA.sheetName === 'app_pr') {
       const selectedNewsletters = [];
       document.querySelectorAll('#newsletterList input[type="checkbox"]:checked').forEach(cb => {
-        const mailName = cb.dataset.targetName;
-        // source_row は APP_DATA.schedule から検索
-        const rowData = APP_DATA.schedule.find(s => normalizeText(getValueByKeys(s, ['mail_name', 'メルマガ名'])) === mailName);
-        selectedNewsletters.push({
-          mail_name: mailName,
-          source_row: rowData ? rowData.source_row : ''
-        });
+        selectedNewsletters.push({ mail_name: cb.dataset.targetName });
       });
       payload.target_ids = selectedNewsletters.map(n => n.mail_name).join(',');
 
@@ -1133,6 +1139,13 @@
     }
     refreshAdminSelects_();
     setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
+    modal.classList.remove('is-locked-edit');
+    const _btnSave = document.getElementById('btnModalSave');
+    const _btnClose = document.getElementById('btnModalClose');
+    if (_btnSave) _btnSave.style.display = '';
+    if (_btnClose) _btnClose.style.display = 'none';
+    applySettingLock_(modal);
+    initEditModalCheckButtons_();
 
     const editCoreFields = modal.querySelector('#editCoreFields');
     if (editCoreFields) editCoreFields.innerHTML = '<div class="empty-state">項目を読み込み中...</div>';
@@ -1670,7 +1683,7 @@
         .withSuccessHandler(() => {
           hideBusy();
           closeModal();
-          loadData({ force: true });
+          loadData({ force: true, includeStatic: true });
         })
         .withFailureHandler(err => {
           hideBusy();
@@ -1688,7 +1701,8 @@
   }
 
   function chooseScheduleEditScope_(overrideFields) {
-    return Promise.resolve('single');
+    if (!overrideFields || !overrideFields.length) return Promise.resolve('single');
+    return openScheduleEditScopeModal_();
   }
 
   function ensureScheduleEditScopeModal_() {
@@ -1819,6 +1833,214 @@
         return { value: resolved, label: label && label !== resolved ? `${resolved} (${label})` : resolved };
       })
       .filter(Boolean);
+  }
+
+  // ── 設定・確認ボタン管理 ──────────────────────────────────────
+
+  function initEditModalCheckButtons_() {
+    const modal = document.getElementById('editModal');
+    if (!modal || !CURRENT_ENTRY) return;
+    const checkItemId = getCheckItemId(CURRENT_ENTRY);
+    const setterActive = isCheckStatusActive(checkItemId, 'setter');
+    const checkerActive = isCheckStatusActive(checkItemId, 'checker');
+
+    const btnSetting = document.getElementById('btnModalSetting');
+    const btnChecking = document.getElementById('btnModalChecking');
+    if (!btnSetting || !btnChecking) return;
+
+    btnSetting.textContent = setterActive ? '設定取り消し' : '設定';
+    btnSetting.classList.toggle('is-cancel-mode', setterActive);
+    btnSetting.disabled = false;
+
+    btnChecking.disabled = checkerActive;
+    btnChecking.textContent = checkerActive ? '確認済み' : '確認';
+  }
+
+  function applySettingLock_(modal) {
+    if (!modal || !CURRENT_ENTRY) return;
+    const checkItemId = getCheckItemId(CURRENT_ENTRY);
+    const setterActive = isCheckStatusActive(checkItemId, 'setter');
+    const checkerActive = isCheckStatusActive(checkItemId, 'checker');
+    if (!setterActive && !checkerActive) return;
+
+    modal.querySelectorAll('input, select, textarea').forEach(el => {
+      if (el.id === 'new-comment') return;
+      if (el.name === 'mail_name') return;
+      if (el.tagName === 'SELECT') {
+        el.disabled = true;
+      } else {
+        el.readOnly = true;
+      }
+    });
+
+    modal.classList.add('is-locked-edit');
+    const saveBtn = document.getElementById('btnModalSave');
+    const closeBtn = document.getElementById('btnModalClose');
+    if (saveBtn) saveBtn.style.display = 'none';
+    if (closeBtn) closeBtn.style.display = '';
+  }
+
+  function saveCheckStatusFromModal_(itemId, field, active) {
+    return new Promise((resolve, reject) => {
+      const update = { itemId, field, active, payload: {} };
+      google.script.run
+        .withSuccessHandler(results => {
+          const list = Array.isArray(results) ? results : [];
+          const result = list.find(item => item && item.item_id === itemId && item.field === field) || list[0];
+          if (!result || !result.success) {
+            reject(new Error('保存結果を確認できませんでした'));
+            return;
+          }
+          setLocalCheckStatus(result.item_id, result.field, !!result.active);
+          applyArchiveResult_(result.archive);
+          resolve(result);
+        })
+        .withFailureHandler(err => reject(err))
+        .saveDailyCheckStatuses([update]);
+    });
+  }
+
+  function hasEditFormChanges_() {
+    if (!CURRENT_ENTRY) return false;
+    const modal = document.getElementById('editModal');
+    if (!modal) return false;
+    const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
+    const nextValues = normalizeMasterSubmissionPayload_(
+      collectNamedFormValues(modal, { exclude: ['schedule_id', 'current_job_count'] })
+    );
+    return Object.keys(nextValues).some(key => {
+      const next = getEntryFieldComparableValue_(nextValues, key);
+      const prev = getEntryFieldComparableValue_(base, key);
+      return next !== prev;
+    });
+  }
+
+  function saveEditForSetting_() {
+    return new Promise((resolve, reject) => {
+      if (!CURRENT_ENTRY) { resolve(false); return; }
+      const modal = document.getElementById('editModal');
+      if (!validateRequiredFields_(modal)) { resolve(false); return; }
+
+      const base = CURRENT_ENTRY_BASE || CURRENT_ENTRY || {};
+      const occurrenceDate = CURRENT_ENTRY.original_date || CURRENT_ENTRY.target_date;
+      const itemId = [CURRENT_ENTRY.schedule_id, occurrenceDate]
+        .map(v => String(v || '').trim().replace(/\s+/g, ' ')).join('|');
+
+      const nextValues = normalizeMasterSubmissionPayload_(
+        collectNamedFormValues(modal, { exclude: ['schedule_id', 'current_job_count'] })
+      );
+      if (String(nextValues.assignee || '').trim() === 'R') nextValues.reviewer = '';
+
+      const overrideFields = [];
+      const nextWeekday = Object.prototype.hasOwnProperty.call(nextValues, 'weekday')
+        ? nextValues.weekday : CURRENT_ENTRY.weekday;
+      const nextDeliveryDate = nextWeekday
+        ? getDateForWeekdayInCalendarWeek(CURRENT_ENTRY.target_date, nextWeekday)
+        : CURRENT_ENTRY.target_date;
+      const nextHour = Object.prototype.hasOwnProperty.call(nextValues, 'hour')
+        ? nextValues.hour : CURRENT_ENTRY.hour;
+
+      const payload = {
+        item_id: itemId,
+        schedule_id: CURRENT_ENTRY.schedule_id,
+        original_date: occurrenceDate,
+        delivery_date: nextDeliveryDate || CURRENT_ENTRY.target_date,
+        hour: nextHour,
+        weekday: nextWeekday || getWeekdayLabelForDateString(nextDeliveryDate),
+        mail_name: CURRENT_ENTRY.mail_name
+      };
+
+      Object.keys(nextValues).forEach(key => {
+        const next = getEntryFieldComparableValue_(nextValues, key);
+        const prev = getEntryFieldComparableValue_(base, key);
+        if (next !== prev) {
+          overrideFields.push(key);
+          payload[key] = nextValues[key];
+        }
+      });
+      payload.override_fields = overrideFields.join(',');
+      if (CURRENT_ENTRY.original_date && CURRENT_ENTRY.original_date !== CURRENT_ENTRY.target_date) {
+        const movedDate = CURRENT_ENTRY.target_date;
+        if (!overrideFields.includes('start_date')) { overrideFields.push('start_date'); payload.start_date = movedDate; }
+        if (!overrideFields.includes('end_date')) { overrideFields.push('end_date'); payload.end_date = movedDate; }
+        payload.override_fields = overrideFields.join(',');
+      }
+      applySingleDeliveryPayloadRule_(payload);
+
+      chooseScheduleEditScope_(overrideFields).then(saveScope => {
+        if (!saveScope) { resolve(false); return; }
+        showBusy('配信内容を保存中...');
+        flushPendingCheckStatusesBefore(() => {
+          const runner = google.script.run
+            .withSuccessHandler(() => { hideBusy(); resolve(true); })
+            .withFailureHandler(err => { hideBusy(); reject(err); });
+          if (saveScope === 'future') {
+            runner.saveScheduleFromDate(CURRENT_ENTRY.schedule_id, payload.delivery_date || occurrenceDate, payload);
+          } else {
+            runner.saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
+          }
+        }, err => { hideBusy(); reject(err); });
+      });
+    });
+  }
+
+  async function handleModalToggleSetting_() {
+    if (!CURRENT_ENTRY) return;
+    const checkItemId = getCheckItemId(CURRENT_ENTRY);
+    const setterActive = isCheckStatusActive(checkItemId, 'setter');
+
+    if (!setterActive) {
+      if (hasEditFormChanges_()) {
+        try {
+          const saved = await saveEditForSetting_();
+          if (!saved) return;
+        } catch (err) {
+          alert('配信内容の保存に失敗しました: ' + (err.message || err));
+          return;
+        }
+      }
+      try {
+        showBusy('設定中...');
+        await saveCheckStatusFromModal_(checkItemId, 'setter', true);
+        hideBusy();
+      } catch (err) {
+        hideBusy();
+        alert('設定の保存に失敗しました: ' + (err.message || err));
+        return;
+      }
+    } else {
+      try {
+        showBusy('設定取り消し中...');
+        await saveCheckStatusFromModal_(checkItemId, 'setter', false);
+        await saveCheckStatusFromModal_(checkItemId, 'checker', false);
+        hideBusy();
+      } catch (err) {
+        hideBusy();
+        alert('設定取り消しに失敗しました: ' + (err.message || err));
+        return;
+      }
+    }
+
+    closeModal();
+    loadData({ force: true });
+  }
+
+  async function handleModalSetChecking_() {
+    if (!CURRENT_ENTRY) return;
+    const checkItemId = getCheckItemId(CURRENT_ENTRY);
+
+    try {
+      showBusy('確認中...');
+      await saveCheckStatusFromModal_(checkItemId, 'checker', true);
+      hideBusy();
+    } catch (err) {
+      hideBusy();
+      alert('確認の保存に失敗しました: ' + (err.message || err));
+      return;
+    }
+
+    closeModal();
+    loadData({ force: true });
   }
 
 </script>
