@@ -65,7 +65,7 @@
   const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
-  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false };
+  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false };
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     default: '#FFFFFF',
     checkingSingle: '#d9e6fc',
@@ -1037,6 +1037,7 @@
       masterFilters.status = 'active';
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
+      masterFilters.draftOnly = false;
       return;
     }
     if (isPrMasterSheet) {
@@ -1046,6 +1047,7 @@
       masterFilters.category = '__all__';
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
+      masterFilters.draftOnly = false;
       container.innerHTML = renderMasterStatusChips_();
       return;
     }
@@ -1056,12 +1058,16 @@
     const mailTypeHeader = findMasterHeaderByAliases_(['mail_type', 'category', '種別']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
+    const isDraftHeader = findMasterHeaderByAliases_(['is_draft', '下書き', '下書き/is_draft']);
 
     const newOnlyChip = isNewHeader ? `
       <button type="button" class="filter-chip ${masterFilters.newOnly ? 'active' : ''}" onclick="setMasterNewOnly(!masterFilters.newOnly)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
     ` : '';
     const verifyingOnlyChip = verifyingHeader ? `
       <button type="button" class="filter-chip ${masterFilters.verifyingOnly ? 'active' : ''}" onclick="setMasterVerifyingOnly(!masterFilters.verifyingOnly)">${getMasterFilterLabel_(verifyingHeader, '検証中')}のみ</button>
+    ` : '';
+    const draftOnlyChip = isDraftHeader ? `
+      <button type="button" class="filter-chip ${masterFilters.draftOnly ? 'active' : ''}" onclick="setMasterDraftOnly(!masterFilters.draftOnly)">下書きのみ</button>
     ` : '';
     const subCategorySelect = renderMasterFilterSelect_(
       'masterSubCategorySelect',
@@ -1085,7 +1091,7 @@
       'setMasterCategoryFilter'
     );
 
-    container.innerHTML = [renderMasterStatusChips_(), newOnlyChip, verifyingOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    container.innerHTML = [renderMasterStatusChips_(), newOnlyChip, verifyingOnlyChip, draftOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
   }
 
   function setMasterVerifyingOnly(checked) {
@@ -1096,6 +1102,12 @@
 
   function setMasterNewOnly(checked) {
     masterFilters.newOnly = !!checked;
+    renderMasterTable();
+    renderMasterFilterChips();
+  }
+
+  function setMasterDraftOnly(checked) {
+    masterFilters.draftOnly = !!checked;
     renderMasterTable();
     renderMasterFilterChips();
   }
@@ -1135,11 +1147,15 @@
       if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.verifyingOnly && verifyingHeader) {
         if (!isTruthyValue(getCellByHeader_(row, verifyingHeader))) return false;
       }
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.draftOnly) {
+        if (!isDraft(row)) return false;
+        return true;
+      }
       if (masterFilters.status !== '__all__') {
         const rowEndDate = endDateHeader ? normalizeDateString(getCellByHeader_(row, endDateHeader)) : '';
         const rowInactive = inactiveHeader ? isTruthyValue(getCellByHeader_(row, inactiveHeader)) : false;
         const isEffectivelyInactive = rowInactive || (!!rowEndDate && rowEndDate < today);
-        if (masterFilters.status === 'active' && isEffectivelyInactive) return false;
+        if (masterFilters.status === 'active' && (isEffectivelyInactive || isDraft(row))) return false;
         if (masterFilters.status === 'inactive' && !isEffectivelyInactive) return false;
       }
       return true;
