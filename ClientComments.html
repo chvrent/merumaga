@@ -40,20 +40,39 @@
   function renderComments(comments) {
     const thread = document.getElementById('comment-thread');
     const countLabel = document.getElementById('comment-count-label');
-    countLabel.textContent = `${comments.length}件`;
+    if (countLabel) countLabel.textContent = `${comments.length}件`;
 
     if (!comments.length) {
       thread.innerHTML = '<div class="empty-state">コメントはまだありません。</div>';
       return;
     }
 
-    thread.innerHTML = comments.map(comment => `
-      <div class="comment-item">
-        <div class="comment-meta">${escapeHtml(comment.timestamp)} - ${escapeHtml(comment.user || 'ユーザー')}</div>
-        <div class="comment-text">${escapeHtml(comment.comment_text).replace(/\n/g, '<br>')}</div>
-      </div>
-    `).join('');
+    thread.innerHTML = comments.map(comment => {
+      const user = String(comment.user || 'ユーザー');
+      const initial = user.charAt(0) || '?';
+      const ts = String(comment.timestamp || '');
+      // 日付を短縮表示 (e.g. "2026/05/29 10:30" → "5/29 10:30")
+      const shortTs = ts.replace(/^\d{4}\/(\d{1,2}\/\d{1,2})\s*(\d{2}:\d{2}).*$/, '$1 $2');
+      return `
+        <div class="comment">
+          <div class="avatar" title="${escapeHtml(user)}">${escapeHtml(initial)}</div>
+          <div class="ctext">
+            <div class="cmeta">
+              <span class="cname">${escapeHtml(user)}</span>
+              <span class="cdate">${escapeHtml(shortTs || ts)}</span>
+            </div>
+            <div class="cbody">${escapeHtml(comment.comment_text || '')}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
     thread.scrollTop = thread.scrollHeight;
+
+    // アバター初期の更新（入力エリア）
+    const commentAvatar = document.getElementById('comment-avatar');
+    if (commentAvatar && comments.length > 0) {
+      // 直近コメントのユーザーを使用（自分のアバターは別途管理）
+    }
   }
 
   function renderCommentBadge(row) {
