@@ -1041,7 +1041,34 @@ thead th {
   accent-color: var(--text);
 }
 .form-group.full-width { grid-column: span 2; }
-.form-group.disabled { opacity: 0.4; pointer-events: none; background: transparent; }
+/* ロック表現: 半透明フェードではなく、グレーボックス + 鍵アイコンで
+   「編集できないこと」を明確に伝える (UI/modal_linear.html .locked 相当)。
+   pointer-events: none は維持して操作不能を保証する。 */
+.form-group.disabled { opacity: 1; pointer-events: none; background: transparent; }
+.form-group.disabled label { color: var(--text-3); }
+.form-group.disabled input,
+.form-group.disabled select,
+.form-group.disabled textarea {
+  background-color: var(--bg-sub);
+  color: var(--text-3);
+  border-color: var(--border);
+  /* tabler ti-lock を SVG 背景画像で埋め込む。色は var(--text-3) #999794。 */
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23999794' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6z'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 6px center;
+  padding-left: 22px;
+}
+/* select はネイティブ矢印が左パディングを食ってしまうので位置を維持しつつ詰める */
+.form-group.disabled select { padding-right: 18px; }
+.form-group.disabled textarea {
+  background-position: 6px 7px;
+  padding-left: 22px;
+}
+.form-group.disabled input[type="checkbox"] {
+  background-image: none;
+  padding-left: 0;
+  opacity: 0.6;
+}
 
 /* overridden fields: red text + border only, no background tint */
 .form-group.is-overridden {
@@ -1487,7 +1514,9 @@ thead th {
 .close-btn { background: transparent; border: none; cursor: pointer; color: var(--ui-text-3); font-size: 16px; padding: 2px 4px; line-height: 1; flex-shrink: 0; }
 .close-btn:hover { color: var(--ui-text); }
 .change-banner { background: var(--warn-bg); border-bottom: 1px solid var(--warn-border); padding: 4px 12px; font-size: 11px; color: var(--warn); display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
-.modal-section-head { padding: 5px 12px; background: var(--ui-bg-sub); font-size: 10px; font-weight: 500; color: var(--ui-text-3); letter-spacing: 0.5px; text-transform: uppercase; border-top: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); margin: 0 -15px; width: calc(100% + 30px); }
+/* セクション見出しバー (基本設定 / 抽出内容 / メルマガ内容 / ステータス)。
+   form-grid の padding(12px) と合わせて左右にきっちりはみ出させる。 */
+.modal-section-head { padding: 5px 12px; background: var(--ui-bg-sub); font-size: 10px; font-weight: 600; color: var(--ui-text-3); letter-spacing: 0.5px; border-top: 1px solid var(--ui-border); border-bottom: 1px solid var(--ui-border); margin: 4px -12px 2px; width: calc(100% + 24px); }
 
 /* ===== Compact modal footer (.mfoot) ===== */
 .mfoot { border-top: 1px solid var(--border-strong); padding: 7px 10px; flex-shrink: 0; background: var(--bg-sub); }

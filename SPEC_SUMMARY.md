@@ -64,6 +64,8 @@
 - サイクルの「毎月第1〜4週目」(内部コード `M1〜M4`) は `weekday` 一致 AND `isNthWeekOfMonth(date, n)` で判定。第N週は `Math.floor((date.getDate() - 1) / 7) + 1` で決定 (1日〜7日=第1週、8日〜14日=第2週…)。詳細は `SPEC.md` 4.3 参照。
 - 編集モーダルの「通数(万)」は `mhead` 内の `<input type="number" name="delivery_count">` で直接編集する (動的フォーム body には出さない・`hiddenKeys` で抑止済)。`collectNamedFormValues` がそのまま回収する。
 - 編集モーダルのヘッダー左端 `#mhead-id-time` は `YYYY/MM/DD/HH` 表示 (例: `2026/06/01/21`)。`CURRENT_ENTRY.target_date` を `-`→`/` 置換、`CURRENT_ENTRY.hour` の HH 部分のみ採用。スケジュールID (SCH_xxx) はメルマガ名 (`name-copy`) で識別するためヘッダーには出さない。
+- 編集モーダル / マスタモーダルの形式タブは `抽出 → フリー → 自動求人特集 → その他` の順 (`index.html` `modal-tabs-container`)。実際に開かれるタブは `CURRENT_ENTRY.format` に基づいて `setModalFormatState` が active クラスを差し替えるので HTML 上の並び順は表示順だけを決める。
+- ロックされたフィールドは `.form-group.disabled` で表現する。半透明フェード (opacity:0.4) は使わず、グレー背景 + 鍵アイコン (`Styles.html` 内に tabler ti-lock を SVG data URI で埋め込み) + `pointer-events:none` を組み合わせて「触れない」状態を視覚化する。チェックボックスは opacity 0.6 で代用。
 - カレンダーPRラベルは `.pr-labels-row` (flex) で横並びバッジ表示。`pr-label-add`=緑、`pr-label-remove`=赤、`pr-label-active`=ミュート。取り消し線は使わない。
 - カレンダーのバッジ凡例とカレンダー本体のバッジは同じ CSS クラス (`pr-label pr-label-*`) を共有する。`SCHEDULE_LEGEND_ITEMS` の `type:'badge'` 項目で凡例側を生成し、`.legend-badge` で凡例内サイズだけ微調整する。色を変えるときは CSS 側 (`.pr-label-add`/`.pr-label-remove`/`.pr-label-active`) を1箇所だけ書き換える。
 - 月末配信の色は CSS変数 `--color-month-end-bg: #d9d2e9` が正本。`.date-note` (ヘッダーの「月末配信期間」タグ) と JS の `SCHEDULE_BACKGROUND_COLORS.monthEnd` を同色に揃える (片方変えるとき他方も合わせる)。
