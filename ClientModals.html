@@ -1866,8 +1866,9 @@
     btnSetting.classList.toggle('is-cancel-mode', setterActive);
     btnSetting.disabled = false;
 
-    btnChecking.disabled = checkerActive;
-    btnChecking.textContent = checkerActive ? '確認済み' : '確認';
+    btnChecking.disabled = false;
+    btnChecking.textContent = checkerActive ? '確認取り消し' : '確認';
+    btnChecking.classList.toggle('is-cancel-mode', checkerActive);
   }
 
   function applySettingLock_(modal) {
@@ -2040,17 +2041,36 @@
   }
 
   async function handleModalSetChecking_() {
+    return handleModalToggleChecking_();
+  }
+
+  async function handleModalToggleChecking_() {
     if (!CURRENT_ENTRY) return;
     const checkItemId = getCheckItemId(CURRENT_ENTRY);
+    const checkerActive = isCheckStatusActive(checkItemId, 'checker');
 
-    try {
-      showBusy('確認中...');
-      await saveCheckStatusFromModal_(checkItemId, 'checker', true);
-      hideBusy();
-    } catch (err) {
-      hideBusy();
-      alert('確認の保存に失敗しました: ' + (err.message || err));
-      return;
+    if (!checkerActive) {
+      // 確認をセット
+      try {
+        showBusy('確認中...');
+        await saveCheckStatusFromModal_(checkItemId, 'checker', true);
+        hideBusy();
+      } catch (err) {
+        hideBusy();
+        alert('確認の保存に失敗しました: ' + (err.message || err));
+        return;
+      }
+    } else {
+      // 確認を取り消し（setter は保持）
+      try {
+        showBusy('確認取り消し中...');
+        await saveCheckStatusFromModal_(checkItemId, 'checker', false);
+        hideBusy();
+      } catch (err) {
+        hideBusy();
+        alert('確認取り消しに失敗しました: ' + (err.message || err));
+        return;
+      }
     }
 
     closeModal();
