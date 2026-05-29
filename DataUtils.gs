@@ -116,6 +116,12 @@ function getSourceSpreadsheetId_() {
     || DEFAULT_SOURCE_SPREADSHEET_ID;
 }
 
+// 全データアクセスの起点。リファクタ (45be46e) で誤って定義が削除され、
+// 約25箇所の呼び出しが ReferenceError になっていたため復元。
+function getSourceSpreadsheet_() {
+  return SpreadsheetApp.openById(getSourceSpreadsheetId_());
+}
+
 function setSourceSpreadsheetIdForEnvironment(spreadsheetId) {
   if (!spreadsheetId || typeof spreadsheetId !== 'string') {
     throw new Error('spreadsheetId is required.');
