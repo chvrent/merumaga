@@ -1,9 +1,15 @@
 <script>
   function getCheckItemId(row) {
+    // schedule_id / target_date を正規化してキーの正本にする。
+    // ライブ(app_schedule)とアーカイブ(app_schedule_archive)で同じ発生分でも
+    // Sheets の表示値が `5` / `5.0` のようにブレることがあり、正規化しないと
+    // 設定時に保存したキーと、確定(アーカイブ)後の描画時に検索するキーが食い違い、
+    // active=TRUE なのに赤(is-active-red)にならない。normalizeIdKey で `5.0`→`5`、
+    // normalizeDateString で日付表記を YYYY-MM-DD に揃える。
     return [
-      row && row.schedule_id,
-      row && row.target_date,
-    ].map(value => String(value || '').trim().replace(/\s+/g, ' ')).join('|');
+      normalizeIdKey(row && row.schedule_id),
+      normalizeDateString(row && row.target_date),
+    ].join('|');
   }
 
   function isPastDateString(dateStr) {

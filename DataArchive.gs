@@ -168,6 +168,12 @@ function getArchivedOccurrenceRows_(dateRange) {
   if (!meta || meta.sourceRowIndex < 0 || meta.weekStartIndex < 0 || meta.weekEndIndex < 0) return archived;
 
   const values = archiveSheet.getDataRange().getDisplayValues();
+  // 確定発生分の設定/確認 active フラグはアーカイブシートに保存されている
+  // (saveDailyArchiveDiffsUnlocked_)。archive-specific 列のため scheduleColumnIndices には
+  // 含まれず record に乗らないので、ここで明示的にインデックスを引いて surface する。
+  // これがないと、フルリロード後にクライアント側で「確定済みなのに赤くならない」状態になる。
+  const checkSetterIndex = findHeaderIndex_(meta.headers, 'check_setter_active');
+  const checkCheckerIndex = findHeaderIndex_(meta.headers, 'check_checker_active');
   values.slice(1).forEach(row => {
     const sourceRow = normalizeCell_(row[meta.sourceRowIndex]);
     const start = parseScheduleDate_(row[meta.weekStartIndex]);
@@ -176,6 +182,11 @@ function getArchivedOccurrenceRows_(dateRange) {
     if (dateRange && (end < dateRange.start || start > dateRange.end)) return;
 
     const scheduleRow = meta.scheduleColumnIndices.map(i => row[i]);
+    // 空欄(=明示的な diff 未保存)は surface しない。プロパティを付けてしまうと
+    // クライアントの getArchivedCheckStatusActive が false 確定で短絡し、
+    // セッション中に APP_DATA.checkStatuses で保持している値を隠してしまうため。
+    const setterCell = checkSetterIndex >= 0 ? normalizeCell_(row[checkSetterIndex]) : '';
+    const checkerCell = checkCheckerIndex >= 0 ? normalizeCell_(row[checkCheckerIndex]) : '';
     const isSingleDayArchive = formatDate_(start) === formatDate_(end);
     for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
       const dateStr = formatDate_(date);
@@ -186,6 +197,8 @@ function getArchivedOccurrenceRows_(dateRange) {
       record.source_row = sourceRow;
       record.target_date = dateStr;
       record.is_archived_occurrence = true;
+      if (setterCell !== '') record.check_setter_active = setterCell;
+      if (checkerCell !== '') record.check_checker_active = checkerCell;
       archived[buildFixedOccurrenceKey_(record.schedule_id || sourceRow, dateStr)] = record;
     }
   });

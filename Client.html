@@ -2400,8 +2400,9 @@
       try {
         const entry = JSON.parse(decodeURIComponent(row.dataset.entry || '{}'));
         if (String(entry.assignee || '').trim() !== 'R') return;
-        const scheduleId = row.dataset.scheduleId || row.dataset.itemId;
-        const checkItemId = `${scheduleId}|${dateStr}`;
+        // getCheckItemId で正規化キーに揃える (raw な scheduleId|dateStr だと
+        // 描画/保存時の正規化キーと食い違い、確定済み判定や赤塗りがズレる)
+        const checkItemId = getCheckItemId(Object.assign({}, entry, { target_date: dateStr }));
         if (isCheckStatusActive(checkItemId, 'checker')) return;
         updates.push({
           itemId: checkItemId,
