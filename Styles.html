@@ -341,6 +341,13 @@ body {
 }
 .legend-line { width: 6px; height: 14px; display: inline-block; border-radius: 1px; }
 .legend-color { width: 11px; height: 11px; display: inline-block; }
+/* 凡例内の PR バッジ: カレンダー本体のバッジと同サイズ/同配色を維持しつつ、
+   凡例のラベル文字としても判読できるよう最小限の余白だけ確保する。 */
+.legend-badge {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 0 6px;
+}
 
 /* filter chips bar */
 .filter-chips-bar {

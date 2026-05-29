@@ -1140,9 +1140,16 @@
     if (mheadDelivery) mheadDelivery.value = CURRENT_ENTRY.delivery_count != null ? String(CURRENT_ENTRY.delivery_count) : '';
     const mheadIdTime = modal.querySelector('#mhead-id-time');
     if (mheadIdTime) {
-      const sid = CURRENT_ENTRY.schedule_id || '';
-      const hr = CURRENT_ENTRY.hour || '';
-      mheadIdTime.textContent = [sid ? `#${sid}` : '', hr].filter(Boolean).join(' · ');
+      // ヘッダーは「YYYY/MM/DD/HH」形式で配信日時を表示する (例: 2026/06/01/21)。
+      // target_date(YYYY-MM-DD) を /区切りに直し、hour(HH:MM) の HH 部分のみ採用する。
+      const td = String(CURRENT_ENTRY.target_date || '').trim();
+      const hr = String(CURRENT_ENTRY.hour || '').trim();
+      const datePart = td ? td.replace(/-/g, '/') : '';
+      const hourMatch = hr.match(/^(\d{1,2})/);
+      const hourPart = hourMatch ? String(hourMatch[1]).padStart(2, '0') : '';
+      const combined = [datePart, hourPart].filter(Boolean).join('/');
+      mheadIdTime.textContent = combined;
+      mheadIdTime.title = combined ? `配信日時 ${combined}` : '';
     }
     refreshAdminSelects_();
     setEditState(isFixed(CURRENT_ENTRY), isStopped(CURRENT_ENTRY));
