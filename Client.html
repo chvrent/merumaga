@@ -2154,7 +2154,21 @@
 
   function handleActionClick(event) {
     const actionElement = event.target.closest('[data-action]');
-    if (!actionElement) return;
+    if (!actionElement) {
+      // ⑫ カレンダー時間枠の隙間クリックで新規メルマガ追加（空セル・既存エントリの隙間どちらも対応）
+      if (!IS_MOVE_MODE) {
+        const cell = event.target.closest('#tableContainer td[data-date][data-hour]');
+        // delivery-row の上でなく、セル本体またはセル直下の隙間をクリックした場合
+        if (cell && !event.target.closest('.delivery-row')) {
+          const clickDate = cell.dataset.date;
+          const clickHour = cell.dataset.hour;
+          if (clickDate && clickHour) {
+            openSlotAddPicker_(clickDate, clickHour);
+          }
+        }
+      }
+      return;
+    }
 
     const action = String(actionElement.dataset.action || '').trim();
     if (!action) return;
@@ -2297,6 +2311,167 @@
       copyCreateMaster();
       return;
     }
+  }
+
+  // ⑫ カレンダー時間枠クリック → 既存メルマガ選択 or 新規作成ピッカーを表示
+  function openSlotAddPicker_(clickDate, clickHour) {
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    const d = new Date(clickDate + 'T00:00:00');
+    const wdLabel = weekdays[d.getDay()];
+
+    // ピッカーモーダルを構築
+    let picker = document.getElementById('slotAddPicker');
+    if (!picker) {
+      picker = document.createElement('div');
+      picker.id = 'slotAddPicker';
+      picker.className = 'modal slot-add-picker-modal';
+      picker.setAttribute('aria-hidden', 'true');
+      picker.style.display = 'none';
+      picker.innerHTML = `
+        <div class="modal-card slot-add-picker-card" role="dialog" aria-modal="true">
+          <div class="modal-header">
+            <h2 id="slotAddPickerTitle"></h2>
+            <button type="button" class="icon-button" data-slot-picker-close aria-label="閉じる">×</button>
+          </div>
+          <div class="slot-add-picker-body">
+            <input type="text" id="slotAddPickerSearch" placeholder="メルマガ名で検索..." class="slot-add-picker-search" />
+            <div id="slotAddPickerList" class="slot-add-picker-list"></div>
+            <button type="button" class="primary-button slot-add-picker-new" id="slotAddPickerNew">＋ 新規メルマガを作成</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(picker);
+    }
+
+    // タイトル設定
+    const title = picker.querySelector('#slotAddPickerTitle');
+    title.textContent = clickDate.replace(/-/g, '/') + ' ' + clickHour + ' に追加';
+
+    // 既存メルマガリスト構築（下書き含む、停止除外なし）
+    const schedules = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
+    const listEl = picker.querySelector('#slotAddPickerList');
+    const searchEl = picker.querySelector('#slotAddPickerSearch');
+    searchEl.value = '';
+
+    function renderList(keyword) {
+      const kw = String(keyword || '').trim().toLowerCase();
+      const items = schedules.filter(function(row) {
+        if (!row || !row.schedule_id) return false;
+        if (kw && String(row.mail_name || '').toLowerCase().indexOf(kw) === -1) return false;
+        return true;
+      });
+      // 名前順ソート、重複除去(schedule_id)
+      const seen = new Set();
+      const unique = [];
+      items.sort(function(a, b) { return String(a.mail_name || '').localeCompare(String(b.mail_name || '')); });
+      items.forEach(function(row) {
+        var id = String(row.schedule_id || '').trim();
+        if (seen.has(id)) return;
+        seen.add(id);
+        unique.push(row);
+      });
+      if (unique.length === 0) {
+        listEl.innerHTML = '<div class="slot-add-picker-empty">該当するメルマガがありません</div>';
+        return;
+      }
+      listEl.innerHTML = unique.map(function(row) {
+        var cycle = String(row.cycle || '').trim();
+        var draft = isDraft(row) ? '<span class="slot-add-picker-badge draft">下書き</span>' : '';
+        var inactive = isInactive(row) ? '<span class="slot-add-picker-badge stopped">停止中</span>' : '';
+        return '<div class="slot-add-picker-item" data-schedule-id="' + escapeAttribute(row.schedule_id) + '">'
+          + '<span class="slot-add-picker-name">' + escapeHtml(row.mail_name || '(名前なし)') + '</span>'
+          + '<span class="slot-add-picker-meta">' + escapeHtml(cycle) + draft + inactive + '</span>'
+          + '</div>';
+      }).join('');
+    }
+    renderList('');
+
+    searchEl.oninput = function() { renderList(searchEl.value); };
+
+    // イベント
+    var cleanup = function() {
+      picker.removeEventListener('click', handlePickerClick);
+      document.removeEventListener('keydown', handlePickerKey);
+      setModalVisible_(picker, false);
+    };
+
+    var handlePickerClick = function(event) {
+      // 閉じるボタン or 背景クリック
+      if (event.target.closest('[data-slot-picker-close]') || event.target === picker) {
+        cleanup();
+        return;
+      }
+      // 新規作成
+      if (event.target.closest('#slotAddPickerNew')) {
+        cleanup();
+        openMasterModalFromSlot_(clickDate, clickHour, {});
+        return;
+      }
+      // 既存メルマガ選択
+      var item = event.target.closest('.slot-add-picker-item');
+      if (item) {
+        var scheduleId = item.dataset.scheduleId;
+        var source = schedules.find(function(r) { return String(r.schedule_id || '').trim() === scheduleId; });
+        if (source) {
+          cleanup();
+          openMasterModalFromSlot_(clickDate, clickHour, source);
+        }
+      }
+    };
+    var handlePickerKey = function(event) {
+      if (event.key === 'Escape') cleanup();
+    };
+
+    picker.addEventListener('click', handlePickerClick);
+    document.addEventListener('keydown', handlePickerKey);
+    setModalVisible_(picker, true);
+    searchEl.focus();
+  }
+
+  // ⑫ 選択後にマスタ新規追加モーダルを開く（既存メルマガベース or 空白）
+  function openMasterModalFromSlot_(clickDate, clickHour, sourceRow) {
+    var weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    var d = new Date(clickDate + 'T00:00:00');
+    var wdLabel = weekdays[d.getDay()];
+
+    // sourceRow があれば既存メルマガの値をコピー（IDと管理フィールドは除外）
+    var prefill = {};
+    if (sourceRow && sourceRow.schedule_id) {
+      var exclude = ['__rowNumber', 'schedule_id', 'pr_id', 'is_fixed', 'is_inactive', 'is_draft',
+                     'source_sheet', 'source_row', 'current_job_count', 'job_count_updated_at'];
+      Object.keys(sourceRow).forEach(function(key) {
+        if (exclude.indexOf(key) === -1 && key.indexOf('__') !== 0) {
+          prefill[key] = sourceRow[key];
+        }
+      });
+    }
+    // 日付・時間・曜日・サイクルを上書き
+    prefill.start_date = clickDate;
+    prefill.end_date = clickDate;
+    prefill.hour = clickHour;
+    prefill.weekday = wdLabel;
+    prefill.cycle = '単発';
+
+    // MASTER_DATA が app_schedule でロード済みなら即座に開く
+    if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_DATA.headers && MASTER_DATA.headers.length) {
+      openMasterModal(encodeURIComponent(JSON.stringify(prefill)));
+      return;
+    }
+    // 未ロードなら非同期でロードしてから開く
+    showBusy('マスタデータを読み込み中...');
+    google.script.run
+      .withSuccessHandler(function(data) {
+        hideBusy();
+        MASTER_DATA = data || { sheetName: 'app_schedule', headers: [], rows: [] };
+        if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
+        if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
+        openMasterModal(encodeURIComponent(JSON.stringify(prefill)));
+      })
+      .withFailureHandler(function(err) {
+        hideBusy();
+        alert('マスタデータの読み込みに失敗しました: ' + (err.message || err));
+      })
+      .getMasterData('app_schedule');
   }
 
   function toggleCheckStatusFromCell(cell, event) {
