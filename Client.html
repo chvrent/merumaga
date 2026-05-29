@@ -2292,6 +2292,11 @@
       deleteCurrentMasterRow();
       return;
     }
+
+    if (action === 'copy-create-master') {
+      copyCreateMaster();
+      return;
+    }
   }
 
   function toggleCheckStatusFromCell(cell, event) {
