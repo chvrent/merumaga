@@ -63,10 +63,13 @@
 - ID参照は `normalizeIdKey()` で揃える。Sheetsが数値IDを `5.0` で返すケースで、片側が `5.0` 片側が `5` だとマップが引けず raw ID 表示になる (例: `getNewsletterNameMap_`)。
 - サイクルの「毎月第1〜4週目」(内部コード `M1〜M4`) は `weekday` 一致 AND `isNthWeekOfMonth(date, n)` で判定。第N週は `Math.floor((date.getDate() - 1) / 7) + 1` で決定 (1日〜7日=第1週、8日〜14日=第2週…)。詳細は `SPEC.md` 4.3 参照。
 - 編集モーダルの「通数(万)」は `mhead` 内の `<input type="number" name="delivery_count">` で直接編集する (動的フォーム body には出さない・`hiddenKeys` で抑止済)。`collectNamedFormValues` がそのまま回収する。
+- 編集モーダルのヘッダー左端 `#mhead-id-time` は `YYYY/MM/DD/HH` 表示 (例: `2026/06/01/21`)。`CURRENT_ENTRY.target_date` を `-`→`/` 置換、`CURRENT_ENTRY.hour` の HH 部分のみ採用。スケジュールID (SCH_xxx) はメルマガ名 (`name-copy`) で識別するためヘッダーには出さない。
 - カレンダーPRラベルは `.pr-labels-row` (flex) で横並びバッジ表示。`pr-label-add`=緑、`pr-label-remove`=赤、`pr-label-active`=ミュート。取り消し線は使わない。
+- カレンダーのバッジ凡例とカレンダー本体のバッジは同じ CSS クラス (`pr-label pr-label-*`) を共有する。`SCHEDULE_LEGEND_ITEMS` の `type:'badge'` 項目で凡例側を生成し、`.legend-badge` で凡例内サイズだけ微調整する。色を変えるときは CSS 側 (`.pr-label-add`/`.pr-label-remove`/`.pr-label-active`) を1箇所だけ書き換える。
 - 月末配信の色は CSS変数 `--color-month-end-bg: #d9d2e9` が正本。`.date-note` (ヘッダーの「月末配信期間」タグ) と JS の `SCHEDULE_BACKGROUND_COLORS.monthEnd` を同色に揃える (片方変えるとき他方も合わせる)。
 - カレンダーの sticky thead は 1行目 `height: 70px` / 2行目 `top: 70px` で揃える。`.month-end-header` は背景を透明にしない (sticky 時に表が透けるため)。
 - PR管理一覧は終了済みPRもマスタから隠さず表示する。PR保存時は `end_date` が本日より前なら `is_inactive=TRUE`、それ以外なら `FALSE` に同期し、一覧のデフォルト表示は「状態: すべて」。
+- PR管理カードのアクションは「編集」のみ。終了処理は編集モーダル (`open-master-modal`) 経由で `end_date`/`is_inactive` を更新する。カード上の `終了` 赤ボタンは 1.17 で廃止 (`Client.html` `renderPrCards()`)。
 - メルマガ一覧の `is_inactive` / `配信終了` 列は配信終了フラグとして扱い、`end_date` が本日以前なら `TRUE`、空または未来日なら `FALSE` に同期する。日別の手動停止は occurrence 側の停止データで管理し、この列とは別ロジックにする。
 
 ## ドキュメント

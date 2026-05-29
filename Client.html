@@ -99,7 +99,10 @@
     { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.product, label: '担当部署: 商品' },
     { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyA, label: '隔週配信A' },
     { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyB, label: '隔週配信B' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.specialCycle, label: 'サイクル:特殊サイクル●' }
+    { type: 'line', color: SCHEDULE_LINE_COLORS.specialCycle, label: 'サイクル:特殊サイクル●' },
+    { type: 'badge', badgeClass: 'pr-label-add', label: 'PR追加' },
+    { type: 'badge', badgeClass: 'pr-label-remove', label: 'PR削除' },
+    { type: 'badge', badgeClass: 'pr-label-active', label: 'PR掲出中' }
   ]);
   const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
   const WEEKDAY_OPTIONS = Object.freeze(['月', '火', '水', '木', '金', '土', '日']);
@@ -1456,7 +1459,6 @@
               <div class="pr-head-right">
                 <div class="pr-actions">
                   <button type="button" class="act-btn" data-action="open-master-modal" data-row="${encodedRow}">編集</button>
-                  ${prStatus !== 'end' ? `<button type="button" class="act-btn danger" data-action="delete-master-row" data-row-number="${escapeAttribute(String(row.__rowNumber))}" title="終了にする">終了</button>` : ''}
                 </div>
                 ${ids.length ? `<span class="pr-count">紐づき <b>${ids.length}</b> 件</span>` : ''}
               </div>
@@ -1775,6 +1777,12 @@
     const container = document.getElementById('scheduleLegend');
     if (!container) return;
     container.innerHTML = SCHEDULE_LEGEND_ITEMS.map(item => {
+      if (item.type === 'badge') {
+        // PR バッジ凡例。カレンダー本体のバッジと同じクラスを使うことで
+        // 「ヘッダーの凡例 = カレンダーのバッジ」を視覚的に統一する。
+        const cls = escapeHtml(String(item.badgeClass || ''));
+        return `<div class="legend-item"><span class="pr-label ${cls} legend-badge">${escapeHtml(item.label)}</span></div>`;
+      }
       const className = item.type === 'line' ? 'legend-line' : 'legend-color';
       return `<div class="legend-item"><span class="${className}" style="background-color: ${item.color};"></span>${escapeHtml(item.label)}</div>`;
     }).join('');
