@@ -101,6 +101,17 @@
       }
       window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || '抽出'), 'masterModal');
       updateMasterActionButtons_(row);
+      // 新規作成時、自動採番IDの仮値をロック枠に表示する。
+      // populateModalFields / openAndInitModalWithTab が値を空で上書きするため、ここ(表示直前)で最後に設定する。
+      if (mode === 'master') {
+        const schField = modal.querySelector('[name="schedule_id"]');
+        if (schField && !String(schField.value || '').trim() && typeof computeTentativeScheduleId_ === 'function') {
+          schField.value = computeTentativeScheduleId_();
+        }
+        if (prIdField && !String(prIdField.value || '').trim() && typeof computeTentativePrId_ === 'function') {
+          prIdField.value = computeTentativePrId_();
+        }
+      }
       setModalVisible_(modal, true);
     }
   }
