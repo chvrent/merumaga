@@ -285,6 +285,10 @@
     return key === 'hour' || key === 'time' || key.includes('時間') || key.includes('時刻');
   }
 
+  /**
+   * 日付文字列を YYYY-MM-DD 形式に正規化
+   * （注：DataStringUtils.gs の normalizeDateString_() が正本。クライアント側ローカル実装も同期。）
+   */
   function normalizeDateString(value) {
     const text = String(value == null ? '' : value).trim();
     if (!text) return '';
@@ -336,6 +340,10 @@
     return new Date(parts[0], parts[1] - 1, parts[2]).getTime();
   }
 
+  /**
+   * 曜日ラベルを日本語に正規化
+   * （注：DataStringUtils.gs の normalizeWeekdayLabel_() が正本。クライアント側ローカル実装も同期。）
+   */
   function normalizeWeekdayLabel(value) {
     const text = String(value == null ? '' : value).trim();
     if (!text) return '';
@@ -373,6 +381,10 @@
     return Math.floor((date.getDate() - 1) / 7) + 1 === n;
   }
 
+  /**
+   * サイクルラベルを正規化
+   * （注：DataStringUtils.gs の normalizeCycleLabel_() が正本。クライアント側ローカル実装も同期。）
+   */
   function normalizeCycleLabel(value) {
     const text = String(value == null ? '' : value).trim();
     if (!text || text === '毎週' || text === '毎週配信') return '';
