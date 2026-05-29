@@ -126,6 +126,7 @@
 
   function updateMasterActionButtons_(row) {
     const deleteButton = document.getElementById('delete-master-button');
+    const copyCreateButton = document.getElementById('copy-create-master-button');
     const draftButton = document.getElementById('draft-master-button');
     const stoppedNote = document.getElementById('masterStoppedNote');
     const hasExistingRow = !!(row && row.__rowNumber);
@@ -138,6 +139,8 @@
       deleteButton.style.display = hasExistingRow ? '' : 'none';
       deleteButton.title = 'シートからこの行を完全に削除します。取り消せません。';
     }
+    // ⑧ コピーして作成ボタンは編集(既存行)時のみ表示
+    if (copyCreateButton) copyCreateButton.style.display = hasExistingRow ? '' : 'none';
     if (draftButton) draftButton.style.display = hasExistingRow ? 'none' : '';
     if (stoppedNote) stoppedNote.hidden = !ended;
   }
@@ -292,6 +295,40 @@
   function closeMasterModal() {
     const modal = document.getElementById('masterModal');
     setModalVisible_(modal, false);
+  }
+
+  /**
+   * ⑧ 現在のマスタ編集モーダルの内容をコピーし、新規作成モーダルとして開き直す。
+   * - フォームの現在値を取得し、__rowNumber を消して新規扱いにする。
+   * - schedule_id / pr_id を消す（新規採番用）。
+   * - 未保存の変更がある可能性をユーザーに確認する。
+   */
+  function copyCreateMaster() {
+    if (!confirm('現在のモーダルの内容をコピーして新規メルマガを作成します。\n未保存の変更は破棄されます。よろしいですか？')) return;
+
+    const modal = document.getElementById('masterModal');
+    // フォームの現在の入力値を取得（disabled以外）
+    const values = collectNamedFormValues(modal);
+    // disabled フィールド（schedule_id, pr_id 等）も明示的にコピー元から取得
+    const format = modal ? (modal.dataset.format || '') : '';
+
+    // 新規として開くためのrowオブジェクトを構築
+    // __rowNumber を付けないことで新規モード(mode='master')になる
+    const newRow = Object.assign({}, values);
+    delete newRow.__rowNumber;
+    // IDは自動採番なので消す
+    delete newRow.schedule_id;
+    delete newRow.pr_id;
+    // 下書きフラグ・確定済みなどはリセット
+    delete newRow.is_fixed;
+    delete newRow.is_inactive;
+    // フォーマットはdatasetから
+    newRow.format = format;
+
+    // 一度閉じてから新規モーダルとして開く
+    closeMasterModal();
+    const encoded = encodeURIComponent(JSON.stringify(newRow));
+    openMasterModal(encoded);
   }
 
   function buildUniqueScheduleValues_(key) {
