@@ -20,6 +20,31 @@ function updateItemDate(scheduleId, oldDate, newDateStr, newHour) {
   return withScriptLock_(() => updateItemDateUnlocked_(scheduleId, oldDate, newDateStr, newHour));
 }
 
+/**
+ * ⑦ D&D移動の一括適用。移動モードOFF時にクライアントが貯めた複数件を
+ * 単一ロック内で順に処理する（各 updateItemDateUnlocked_ はシートを都度読むため逐次整合する）。
+ * @param {Array<{scheduleId:string, oldDate:string, newDate:string, newHour:string}>} moves
+ */
+function updateItemDates(moves) {
+  return withScriptLock_(() => {
+    const list = Array.isArray(moves) ? moves : [];
+    const results = [];
+    const errors = [];
+    list.forEach(move => {
+      if (!move) return;
+      try {
+        results.push(updateItemDateUnlocked_(move.scheduleId, move.oldDate, move.newDate, move.newHour));
+      } catch (err) {
+        errors.push({ move: move, message: err && err.message ? err.message : String(err) });
+      }
+    });
+    if (errors.length) {
+      throw new Error(`一括移動で${errors.length}/${list.length}件が失敗しました: ${errors.map(e => e.message).join(' / ')}`);
+    }
+    return { success: true, count: results.length, results: results };
+  });
+}
+
 function saveScheduleFromDate(scheduleId, effectiveDate, payload) {
   return withScriptLock_(() => saveScheduleFromDateUnlocked_(scheduleId, effectiveDate, payload));
 }
