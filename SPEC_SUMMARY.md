@@ -71,6 +71,7 @@
 - マスタモーダルの「削除」ボタン (`.modal-row-actions`) は保存/キャンセル行 (`.modal-actions`) の**後ろ** = スクロール最下部に配置する。フッターとして追従させない (通常フロー配置・`index.html`) (1.26)。
 - マスタ編集モーダルに「コピーして作成」ボタンあり。フォーム現在値をコピーし `__rowNumber`/ID/確定済み等を除外して新規モーダルとして開き直す。編集(既存行)時のみ表示 (1.34)。
 - `app_schedule` のメルマガ新規作成・下書き保存(action==='insert')時に `saveCommentUnlocked_` でコメント「メルマガを新規作成しました」/「下書き保存しました」を自動投稿する。サーバ側1ロック内で完結。投稿失敗は保存をエラーにしない (1.34)。
+- マスタ更新(update)時に旧行→新行の差分を `[マスタ変更]` プレフィックス付きコメントとして自動記録する (`logMasterChangeDiff_`)。マスタ編集モーダル(既存行)にはフォーム下部に「マスタ変更履歴」セクション (`#masterChangeHistory`) を表示。`getMasterChangeHistory(scheduleId)` で `[マスタ変更]` コメントを抽出 (1.35)。
 - **最新構造 (1.29)**: 保存/下書き保存/キャンセル (`.modal-actions`) は**固定フッター**（カード最下部に追従）。フォーム (`#masterForm`) と削除 (`.modal-row-actions`) は新ラッパー `.master-scroll-body{flex:1 1 auto;min-height:0;overflow-y:auto}` に入れて一緒にスクロールし、削除はスクロール内コンテンツ最下部・追従させない。`#masterModal .modal-card{overflow:hidden}` でカードをクリップ、`#masterModal .form-grid{overflow-y:visible}` で二重スクロールを防ぐ (`index.html`/`Styles.html`)。1.28の単一スクロール（保存も一緒に流れる）は誤りだったため置き換え。
 - ロックされたフィールドは `.form-group.disabled` で表現する。半透明フェード (opacity:0.4) は使わず、グレー背景 + 鍵アイコン (`Styles.html` 内に tabler ti-lock を SVG data URI で埋め込み) + `pointer-events:none` を組み合わせて「触れない」状態を視覚化する。チェックボックスは opacity 0.6 で代用。
 - 設定済 / 確認済 時に mhead 内の `設定` / `確認` select はそれぞれ紫 (`#f0f0fa`) / 緑 (`var(--ok-bg)`) の塗りを維持する。`applySettingLock_` で disabled にされてもブラウザ既定の washout が出ないよう、`.hf-ctrl.setter:disabled` / `.hf-ctrl.checker:disabled` に `!important` で `color`/`background-color`/`border-color` を明示し、`opacity:1` + `-webkit-text-fill-color` で固定する (1.19)。

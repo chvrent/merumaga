@@ -160,8 +160,11 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   ensureOptionalMasterPayloadHeaders_(sheet, headers, safeSheetName, normalizedPayload);
   const rowNumber = Number(payload.__rowNumber || 0);
   const idIndex = getMasterIdIndex_(safeSheetName, headers);
-  const row = rowNumber >= 2 && rowNumber <= sheet.getLastRow()
-    ? values[rowNumber - 1].slice(0, headers.length)
+  const isExistingRow = rowNumber >= 2 && rowNumber <= sheet.getLastRow();
+  // ③ 差分ログ用に更新前の行をコピー（row は後で上書きされる）
+  const oldRow = isExistingRow ? values[rowNumber - 1].slice(0, headers.length) : null;
+  const row = isExistingRow
+    ? oldRow.slice()
     : headers.map(() => '');
 
   const headerCanonicalKeys = headers.map(header => getCanonicalKeyForHeader_(safeSheetName, header));
@@ -185,6 +188,14 @@ function saveMasterDataUnlocked_(sheetName, payload) {
     sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
     if (safeSheetName === SCHEDULE_SHEET_NAME) updateJobCountForRowUnlocked_(sheet, rowNumber, true);
     invalidateInitialDataCaches_([safeSheetName]);
+    // ③ マスタ更新時の差分をコメントとして記録する
+    if (safeSheetName === SCHEDULE_SHEET_NAME && oldRow) {
+      try {
+        logMasterChangeDiff_(headers, oldRow, row, idIndex);
+      } catch (e) {
+        console.error('Master change log failed: ' + (e && e.message ? e.message : e));
+      }
+    }
     return { success: true, action: 'update', rowNumber, id: idIndex != null ? normalizeCell_(row[idIndex]) : '' };
   }
 
@@ -394,6 +405,99 @@ function getInactiveAliasesForMasterSheet_(sheetName) {
     default:
       return ['is_inactive', '配信停止', '停止', '無効'];
   }
+}
+
+/**
+ * ③ マスタ更新時の差分をコメントとして記録する。
+ * [マスタ変更] プレフィックス付きで、変更されたフィールド名と旧→新を記録。
+ */
+function logMasterChangeDiff_(headers, oldRow, newRow, idIndex) {
+  const scheduleId = idIndex != null ? normalizeCell_(newRow[idIndex]) : '';
+  if (!scheduleId) return;
+
+  // 差分を収集（内部管理フィールドは除外）
+  const skipKeys = new Set(['source_sheet', 'source_row', 'schedule_action', 'current_job_count', 'job_count_updated_at']);
+  const diffs = [];
+  headers.forEach(function(header, i) {
+    if (skipKeys.has(header)) return;
+    const oldVal = normalizeCell_(oldRow[i]);
+    const newVal = normalizeCell_(newRow[i]);
+    if (oldVal === newVal) return;
+    const label = header || ('列' + (i + 1));
+    const oldDisplay = oldVal || '(空)';
+    const newDisplay = newVal || '(空)';
+    diffs.push(label + ': ' + oldDisplay + ' → ' + newDisplay);
+  });
+
+  if (!diffs.length) return;
+
+  // 最大10件まで表示（長すぎる場合は省略）
+  const maxDiffs = 10;
+  const displayDiffs = diffs.length > maxDiffs
+    ? diffs.slice(0, maxDiffs).concat(['... 他' + (diffs.length - maxDiffs) + '件'])
+    : diffs;
+  const commentText = '[マスタ変更]\n' + displayDiffs.join('\n');
+
+  // target_date は start_date があれば使う、なければ今日
+  const startDateIndex = headers.indexOf('start_date');
+  const targetDate = (startDateIndex >= 0 ? normalizeCommentTargetDate_(newRow[startDateIndex]) : '')
+    || Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy-MM-dd');
+
+  saveCommentUnlocked_(scheduleId, commentText, targetDate);
+}
+
+/**
+ * ③ メルマガ別のマスタ変更履歴を取得する（コメントから [マスタ変更] を抽出）。
+ * クライアントから呼ばれる。
+ */
+function getMasterChangeHistory(scheduleId) {
+  const safeId = normalizeCell_(scheduleId);
+  if (!safeId) return [];
+
+  const sheet = getCommentsSheet_();
+  if (!sheet) return [];
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+
+  const headers = values[0].map(function(h) { return String(h || '').trim(); });
+  const idIndex = findCommentHeaderIndex_(headers, 'schedule_id');
+  const textIndex = findCommentHeaderIndex_(headers, 'comment_text');
+  const userIndex = findCommentHeaderIndex_(headers, 'user');
+  const tsIndex = findCommentHeaderIndex_(headers, 'timestamp');
+
+  if (idIndex < 0 || textIndex < 0) return [];
+
+  var results = [];
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (normalizeCell_(row[idIndex]) !== safeId) continue;
+    var text = String(row[textIndex] || '');
+    if (text.indexOf('[マスタ変更]') !== 0) continue;
+    results.push({
+      user: userIndex >= 0 ? String(row[userIndex] || '') : '',
+      timestamp: tsIndex >= 0 ? formatTimestamp_(row[tsIndex]) : '',
+      text: text.replace('[マスタ変更]\n', '').replace('[マスタ変更]', '')
+    });
+  }
+  // 新しい順
+  results.reverse();
+  return results;
+}
+
+function findCommentHeaderIndex_(headers, key) {
+  var aliases = COMMENTS_FIELD_ALIASES[key] || [key];
+  for (var i = 0; i < headers.length; i++) {
+    if (aliases.indexOf(headers[i]) >= 0 || headers[i] === key) return i;
+  }
+  return -1;
+}
+
+function formatTimestamp_(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+  }
+  return String(value);
 }
 
 // 配信日別操作・スケジュール操作・行正規化 → DataScheduleOps.gs
