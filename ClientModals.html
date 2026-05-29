@@ -691,8 +691,13 @@
       }
     }
 
-    const assignee = String(assigneeEl.value || '').trim();
-    if (assignee === 'R') {
+    // select値 と CURRENT_ENTRY の両方から設定者を判定（select が未populated の場合に備える）
+    const selectAssignee = String(assigneeEl.value || '').trim();
+    const entryAssignee = (modalId === 'editModal' && CURRENT_ENTRY)
+      ? String(getValueByKeys(CURRENT_ENTRY, ['assignee', '設定者', 'setter']) || '').trim()
+      : '';
+    const isR = selectAssignee.toUpperCase() === 'R' || entryAssignee.toUpperCase() === 'R';
+    if (isR) {
       reviewerEl.value = '';
       reviewerEl.disabled = true;
       reviewerEl.required = false;
@@ -703,7 +708,7 @@
     reviewerEl.removeAttribute('required');
 
     // 設定者がRのときは「設定」ボタンを非活性にし、「確認」のみ押下可能にする
-    if (modalId === 'editModal') applyRSetterButtonLock_(assignee === 'R');
+    if (modalId === 'editModal') applyRSetterButtonLock_(isR);
   }
 
   // 設定者Rのとき editModal の「設定」ボタンを非活性化する。
@@ -2031,10 +2036,9 @@
     // 設定者Rは「設定」非活性（確認のみ可）。
     // select値 / CURRENT_ENTRY の両方から判定（キー名違い・大文字小文字に対応）
     const setterSelect = modal.querySelector('[name="setter"]');
-    const setterVal = String(
-      (setterSelect && setterSelect.value) ||
-      getValueByKeys(CURRENT_ENTRY, ['assignee', '設定者', 'setter']) || ''
-    ).trim().toUpperCase();
+    const selectVal = (setterSelect && setterSelect.value) || '';
+    const entryVal = getValueByKeys(CURRENT_ENTRY, ['assignee', '設定者', 'setter']) || '';
+    const setterVal = String(selectVal || entryVal).trim().toUpperCase();
     applyRSetterButtonLock_(setterVal === 'R');
 
     btnChecking.disabled = false;
