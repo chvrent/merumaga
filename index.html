@@ -282,6 +282,12 @@
             <!-- 項目は JS で動的生成 -->
           </form>
 
+          <!-- ③ マスタ変更履歴 -->
+          <div id="masterChangeHistory" class="master-change-history" hidden>
+            <h3 class="history-heading">マスタ変更履歴</h3>
+            <div id="masterChangeHistoryList" class="history-list"></div>
+          </div>
+
           <div class="modal-row-actions">
             <button type="button" id="copy-create-master-button" class="secondary-button" data-action="copy-create-master" title="この内容をコピーして新規メルマガを作成します">コピーして作成</button>
             <button type="button" id="delete-master-button" class="danger-button" data-action="delete-master-current">削除</button>

@@ -113,7 +113,55 @@
         }
       }
       setModalVisible_(modal, true);
+      // ③ 既存行(編集モード)ならマスタ変更履歴を非同期ロード
+      loadMasterChangeHistory_(mode, row);
     }
+  }
+
+  // ③ マスタ変更履歴をロードして表示する
+  function loadMasterChangeHistory_(mode, row) {
+    const section = document.getElementById('masterChangeHistory');
+    const list = document.getElementById('masterChangeHistoryList');
+    if (!section || !list) return;
+
+    if (mode !== 'edit' || !row || !row.__rowNumber) {
+      section.hidden = true;
+      list.innerHTML = '';
+      return;
+    }
+
+    const scheduleId = getValueByKeys(row, ['schedule_id', 'ID', 'id']) || '';
+    if (!scheduleId) {
+      section.hidden = true;
+      list.innerHTML = '';
+      return;
+    }
+
+    list.innerHTML = '<div class="empty-state" style="font-size:11px;padding:4px 0;">読み込み中...</div>';
+    section.hidden = false;
+
+    google.script.run
+      .withSuccessHandler(function(entries) {
+        if (!entries || !entries.length) {
+          section.hidden = true;
+          list.innerHTML = '';
+          return;
+        }
+        section.hidden = false;
+        list.innerHTML = entries.map(function(entry) {
+          return '<div class="history-entry">'
+            + '<div class="history-meta">'
+            + escapeHtml(entry.timestamp || '') + '　' + escapeHtml(entry.user || '')
+            + '</div>'
+            + '<div class="history-diff">' + escapeHtml(entry.text || '') + '</div>'
+            + '</div>';
+        }).join('');
+      })
+      .withFailureHandler(function() {
+        section.hidden = true;
+        list.innerHTML = '';
+      })
+      .getMasterChangeHistory(scheduleId);
   }
 
   function bindMasterModalInteractions_(modal) {
