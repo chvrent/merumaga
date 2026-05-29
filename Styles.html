@@ -1511,6 +1511,28 @@ thead th {
 .hf-ctrl:focus { outline: none; border-color: var(--ui-text); }
 .hf-ctrl.setter { color: #3a3a8a; background: #f0f0fa; border-color: #b0b0d8; }
 .hf-ctrl.checker { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-border); }
+/* 設定済 / 確認済 でモーダル全体がロックされると applySettingLock_ が
+   header の select も disabled にする。ブラウザ既定の disabled スタイルでは
+   背景塗りが薄まり「設定の塗りが消えた」ように見えるため、ここで明示的に
+   塗りと文字色を保持する。opacity は 1 のまま、pointer-events で操作だけ抑止。 */
+.hf-ctrl.setter:disabled,
+.hf-ctrl.setter[disabled] {
+  color: #3a3a8a !important;
+  background-color: #f0f0fa !important;
+  border-color: #b0b0d8 !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: #3a3a8a; /* Safari: disabled select の文字色フォールバック */
+  cursor: default;
+}
+.hf-ctrl.checker:disabled,
+.hf-ctrl.checker[disabled] {
+  color: var(--ok) !important;
+  background-color: var(--ok-bg) !important;
+  border-color: var(--ok-border) !important;
+  opacity: 1 !important;
+  -webkit-text-fill-color: var(--ok);
+  cursor: default;
+}
 .close-btn { background: transparent; border: none; cursor: pointer; color: var(--ui-text-3); font-size: 16px; padding: 2px 4px; line-height: 1; flex-shrink: 0; }
 .close-btn:hover { color: var(--ui-text); }
 .change-banner { background: var(--warn-bg); border-bottom: 1px solid var(--warn-border); padding: 4px 12px; font-size: 11px; color: var(--warn); display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
