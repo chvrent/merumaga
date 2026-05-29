@@ -1235,37 +1235,11 @@ thead th {
   pointer-events: none;
 }
 
-/* action footer — pinned to bottom of modal-card via flex layout */
-.modal-action-footer {
-  display: flex;
-  gap: 0;
-  background: var(--bg);
-  border-top: 2px solid var(--border-strong);
-  overflow: hidden;
-  flex-shrink: 0;
-}
-.modal-footer-btn {
-  flex: 1;
-  padding: 13px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  border: none;
-  border-right: 1px solid var(--border);
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.1s;
-}
-#btnModalSave, #btnModalClose { border-right: none; }
-.modal-footer-btn.state-btn { background: var(--bg-sub); color: var(--text); }
-.modal-footer-btn.state-btn:hover:not(:disabled) { background: var(--bg-hover); }
-.modal-footer-btn.state-btn.is-cancel-mode { color: var(--alert); background: var(--alert-bg); }
-.modal-footer-btn.state-btn.is-cancel-mode:hover:not(:disabled) { background: #fde6e4; }
-.modal-footer-btn.checking-btn:disabled { opacity: 0.4; cursor: default; }
-.modal-footer-btn.checking-btn.is-cancel-mode { color: var(--alert); background: var(--alert-bg); border-color: #e8a89e; }
-.modal-footer-btn.checking-btn.is-cancel-mode:hover:not(:disabled) { background: #fde6e4; }
-.modal-footer-btn.primary-btn { flex: 2; background: var(--text); color: #fff; }
-.modal-footer-btn.primary-btn:hover:not(:disabled) { background: #333; }
-.modal-footer-btn.primary-btn:disabled { background: var(--border); color: var(--text-3); cursor: default; }
+/* NOTE: 旧 .modal-action-footer + .modal-footer-btn の全幅セグメント定義はここにあったが、
+   HTMLは .mfoot / .mfoot-btns（コンパクトフッター, 後方の 1540番台ブロック）へ移行済み。
+   この重複定義が flex:1 / flex:2 / padding:13px / border:none をボタンへ漏らし、
+   UI案のコンパクトボタンを全幅化していたため削除した（SPEC 1.25）。
+   フッターボタンCSSの正本は「Compact modal footer (.mfoot)」ブロックのみ。 */
 
 /* master modal actions */
 .modal-actions {
@@ -1565,7 +1539,8 @@ thead th {
 .modal-footer-btn.primary-btn:hover { background: #333; }
 
 /* ===== 配信停止エリア（スクロール内） ===== */
-.stop-resume-row { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-top: 1px solid var(--border); background: var(--bg-sub); }
+/* 配信停止/再開はフッター(.mfoot-btns)左端にインライン配置。独立バンドのchrome(padding/border/bg)は持たせない。 */
+.stop-resume-row { display: flex; align-items: center; gap: 6px; }
 .stop-resume-row .stop-btn { background: transparent; border: 1px solid var(--border); padding: 4px 9px; font-size: 11px; color: var(--text-2); cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 4px; }
 .stop-resume-row .stop-btn:hover { border-color: #e8a89e; color: var(--alert); }
 .stop-resume-row .resume-btn { background: transparent; border: 1px solid var(--ok-border); padding: 4px 9px; font-size: 11px; color: var(--ok); cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 4px; }
