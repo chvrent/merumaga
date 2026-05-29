@@ -20,6 +20,33 @@ function saveDailyArchiveDiffs(updates) {
   return withScriptLock_(() => saveDailyArchiveDiffsUnlocked_(updates));
 }
 
+/**
+ * 複数の occurrence_override を一括保存する。
+ * クライアントの「●/●〜まで」スコープで使用。
+ * overrides: [{itemId, payload}, ...]
+ */
+function saveOccurrenceOverrideRange(overrides) {
+  return withScriptLock_(function() {
+    var items = Array.isArray(overrides) ? overrides : [];
+    if (!items.length) return;
+    var succeeded = 0;
+    var errors = [];
+    for (var i = 0; i < items.length; i++) {
+      try {
+        var item = items[i];
+        var hasOverride = item.payload && item.payload.override_fields && item.payload.override_fields.length > 0;
+        saveCheckStatusUnlocked_(item.itemId, 'occurrence_override', hasOverride, item.payload);
+        succeeded++;
+      } catch (e) {
+        errors.push((item && item.itemId || i) + ': ' + (e.message || e));
+      }
+    }
+    if (errors.length > 0) {
+      throw new Error('一括保存: ' + succeeded + '/' + items.length + '件成功。失敗: ' + errors.join('; '));
+    }
+  });
+}
+
 function saveDailyArchiveDiffsUnlocked_(updates) {
   const rows = Array.isArray(updates) ? updates : [];
   if (!rows.length) return [];

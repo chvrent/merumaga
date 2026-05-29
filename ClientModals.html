@@ -1875,6 +1875,22 @@
         })
       if (saveScope === 'future') {
         runner.saveScheduleFromDate(CURRENT_ENTRY.schedule_id, payload.delivery_date || occurrenceDate, payload);
+      } else if (saveScope.indexOf('range:') === 0) {
+        const endDate = saveScope.substring(6);
+        const rangeDates = computeOccurrenceDatesInRange_(CURRENT_ENTRY, occurrenceDate, endDate);
+        const rangeOverrides = rangeDates.map(function(d) {
+          var rid = normalizeIdKey(CURRENT_ENTRY.schedule_id) + '|' + d;
+          return {
+            itemId: rid,
+            payload: Object.assign({}, payload, {
+              item_id: rid,
+              original_date: d,
+              delivery_date: d,
+              weekday: getWeekdayLabelForDateString(d)
+            })
+          };
+        });
+        runner.saveOccurrenceOverrideRange(rangeOverrides);
       } else {
         runner.saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
       }
@@ -1907,6 +1923,14 @@
           <p>この変更をどの範囲に反映しますか？</p>
           <div class="scope-choice-actions">
             <button type="button" class="primary-button" data-scope-choice="single">この日だけ変更</button>
+            <div class="scope-range-row">
+              <span class="scope-range-label" id="scopeRangeFromLabel"></span>
+              <span class="scope-range-label">〜</span>
+              <input type="date" id="scopeRangeEndDate" />
+              <span class="scope-range-label">まで</span>
+              <button type="button" class="primary-button scope-range-apply" id="scopeRangeApply" disabled>適用</button>
+            </div>
+            <div class="scope-range-count" id="scopeRangeCount"></div>
             <button type="button" class="secondary-button" data-scope-choice="">キャンセル</button>
           </div>
         </div>
@@ -1920,15 +1944,56 @@
     return new Promise(resolve => {
       const modal = ensureScheduleEditScopeModal_();
       let resolved = false;
+
+      // 現在のエントリの日付をラベルとピッカー初期値に反映
+      const currentDate = CURRENT_ENTRY && CURRENT_ENTRY.target_date
+        ? normalizeDateString(CURRENT_ENTRY.target_date) : '';
+      const fromLabel = modal.querySelector('#scopeRangeFromLabel');
+      if (fromLabel) fromLabel.textContent = currentDate ? currentDate.replace(/-/g, '/') : '';
+      const endInput = modal.querySelector('#scopeRangeEndDate');
+      const applyBtn = modal.querySelector('#scopeRangeApply');
+      const countEl = modal.querySelector('#scopeRangeCount');
+      if (endInput) {
+        endInput.value = '';
+        endInput.min = currentDate || '';
+        if (applyBtn) applyBtn.disabled = true;
+        if (countEl) countEl.textContent = '';
+      }
+
+      // 日付変更時にプレビュー件数を表示
+      const handleDateChange = () => {
+        if (!endInput || !applyBtn || !countEl) return;
+        const endDate = endInput.value;
+        if (!endDate || !currentDate || endDate < currentDate) {
+          applyBtn.disabled = true;
+          countEl.textContent = '';
+          return;
+        }
+        const dates = computeOccurrenceDatesInRange_(CURRENT_ENTRY, currentDate, endDate);
+        applyBtn.disabled = dates.length === 0;
+        countEl.textContent = dates.length > 0
+          ? '対象: ' + dates.length + '回の配信'
+          : '対象の配信がありません';
+      };
+      if (endInput) endInput.addEventListener('input', handleDateChange);
+
       const finish = choice => {
         if (resolved) return;
         resolved = true;
+        if (endInput) endInput.removeEventListener('input', handleDateChange);
         modal.removeEventListener('click', handleClick);
         document.removeEventListener('keydown', handleKeydown);
         setModalVisible_(modal, false);
         resolve(choice || '');
       };
       const handleClick = event => {
+        // 範囲適用ボタン
+        if (event.target.id === 'scopeRangeApply' || event.target.closest('#scopeRangeApply')) {
+          if (endInput && endInput.value && currentDate) {
+            finish('range:' + endInput.value);
+          }
+          return;
+        }
         const choiceButton = event.target.closest('[data-scope-choice]');
         if (choiceButton) {
           finish(choiceButton.dataset.scopeChoice || '');
@@ -1945,6 +2010,59 @@
       const firstButton = modal.querySelector('[data-scope-choice="single"]');
       if (firstButton) firstButton.focus();
     });
+  }
+
+  /**
+   * 指定エントリのサイクル定義に基づいて、startDate〜endDate の範囲内で
+   * 配信が発生する日付(YYYY-MM-DD)の配列を返す。
+   */
+  function computeOccurrenceDatesInRange_(entry, startDate, endDate) {
+    if (!entry || !startDate || !endDate) return [];
+    const results = [];
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    const scheduleCycleType = getScheduleCycleType(entry);
+    const entryWeekday = normalizeWeekdayLabel(entry.weekday);
+    const schedStart = normalizeDateString(entry.start_date);
+    const schedEnd = normalizeDateString(entry.end_date);
+
+    // 日付をイテレート
+    const cur = new Date(startDate + 'T00:00:00');
+    const end = new Date(endDate + 'T00:00:00');
+    while (cur <= end) {
+      const dateStr = formatDate(cur);
+      const dayLabel = weekdays[cur.getDay()];
+
+      // マスタの start_date/end_date 範囲チェック
+      if ((!schedStart || schedStart <= dateStr) && (!schedEnd || schedEnd >= dateStr)) {
+        const monthEndInfo = getMonthEndInfo(cur);
+        let match = false;
+
+        if (scheduleCycleType === 'single') {
+          match = !!schedStart && schedStart === dateStr;
+        } else if (scheduleCycleType === 'daily') {
+          match = true;
+        } else if (scheduleCycleType === 'monthly') {
+          match = isMonthlyCycleDate_(schedStart, cur);
+        } else if (scheduleCycleType === 'month_end') {
+          match = monthEndInfo.isInWindow && entryWeekday === dayLabel;
+        } else if (scheduleCycleType === 'A' || scheduleCycleType === 'B') {
+          match = entryWeekday === dayLabel && scheduleCycleType === getCycleForRow(entry, cur);
+        } else if (/^M[1-4]$/.test(scheduleCycleType)) {
+          const n = parseInt(scheduleCycleType.substring(1), 10);
+          match = entryWeekday === dayLabel && isNthWeekOfMonth(cur, n);
+        } else if (typeof scheduleCycleType === 'number') {
+          const expectedCycle = getCycleForRow(entry, cur);
+          match = entryWeekday === dayLabel && typeof expectedCycle === 'number' && cycleContains(entry.cycle, expectedCycle);
+        } else {
+          // weekly
+          match = entryWeekday === dayLabel;
+        }
+
+        if (match) results.push(dateStr);
+      }
+      cur.setDate(cur.getDate() + 1);
+    }
+    return results;
   }
 
   function stopCurrentDelivery() {
@@ -2185,6 +2303,22 @@
             .withFailureHandler(err => { hideBusy(); reject(err); });
           if (saveScope === 'future') {
             runner.saveScheduleFromDate(CURRENT_ENTRY.schedule_id, payload.delivery_date || occurrenceDate, payload);
+          } else if (saveScope.indexOf('range:') === 0) {
+            const endDate = saveScope.substring(6);
+            const rangeDates = computeOccurrenceDatesInRange_(CURRENT_ENTRY, occurrenceDate, endDate);
+            const rangeOverrides = rangeDates.map(function(d) {
+              var rid = normalizeIdKey(CURRENT_ENTRY.schedule_id) + '|' + d;
+              return {
+                itemId: rid,
+                payload: Object.assign({}, payload, {
+                  item_id: rid,
+                  original_date: d,
+                  delivery_date: d,
+                  weekday: getWeekdayLabelForDateString(d)
+                })
+              };
+            });
+            runner.saveOccurrenceOverrideRange(rangeOverrides);
           } else {
             runner.saveCheckStatus(itemId, 'occurrence_override', overrideFields.length > 0, payload);
           }
