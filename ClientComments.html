@@ -37,6 +37,14 @@
       .saveComment(CURRENT_ENTRY.schedule_id, commentText, CURRENT_ENTRY.target_date);
   }
 
+  function linkifyText_(text) {
+    const escaped = escapeHtml(text);
+    return escaped.replace(
+      /(https?:\/\/[^\s<>"'&]+)/g,
+      '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+    );
+  }
+
   function renderComments(comments) {
     const thread = document.getElementById('comment-thread');
     const countLabel = document.getElementById('comment-count-label');
@@ -61,7 +69,7 @@
               <span class="cname">${escapeHtml(user)}</span>
               <span class="cdate">${escapeHtml(shortTs || ts)}</span>
             </div>
-            <div class="cbody">${escapeHtml(comment.comment_text || '')}</div>
+            <div class="cbody">${linkifyText_(comment.comment_text || '')}</div>
           </div>
         </div>
       `;

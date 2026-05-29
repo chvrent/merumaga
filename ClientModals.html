@@ -54,7 +54,7 @@
     if (modal) {
       modal.dataset.modalType = isPrMaster ? 'pr-master' : 'master';
       modal.dataset.mode = mode;
-      modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || 'フリー');
+      modal.dataset.format = isPrMaster ? 'PRマスタ' : (row.format || '抽出');
       const impactNote = modal.querySelector('#masterImpactNote');
       if (impactNote) {
         impactNote.hidden = isPrMaster || mode !== 'edit';
@@ -99,7 +99,7 @@
         prIdField.disabled = true;
         prIdField.placeholder = '保存時に自動採番';
       }
-      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || 'フリー'), 'masterModal');
+      window.openAndInitModalWithTab(isPrMaster ? 'PRマスタ' : (row.format || '抽出'), 'masterModal');
       updateMasterActionButtons_(row);
       setModalVisible_(modal, true);
     }
@@ -143,7 +143,6 @@
       'target_index',
       'is_inactive',
       'is_draft',
-      'schedule_id',
       'delivery_count',
       'assignee',
       'reviewer',

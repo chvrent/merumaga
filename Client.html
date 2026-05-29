@@ -1584,13 +1584,38 @@
     return `<input type="${escapeAttribute(config.type)}" name="${escapeAttribute(config.name)}" value="${escapeAttribute(config.value)}">`;
   }
 
+  function computeTentativeScheduleId_() {
+    const schedule = Array.isArray(APP_DATA && APP_DATA.schedule) ? APP_DATA.schedule : [];
+    let max = 0;
+    schedule.forEach(function(r) {
+      const m = String(r.schedule_id || '').match(/^SCH_(\d+)$/);
+      if (m) max = Math.max(max, Number(m[1]));
+    });
+    return 'SCH_' + String(max + 1).padStart(3, '0');
+  }
+
+  function computeTentativePrId_() {
+    const prData = Array.isArray(APP_DATA && APP_DATA.prData) ? APP_DATA.prData : [];
+    let max = 0;
+    prData.forEach(function(r) {
+      const m = String(getValueByKeys(r, ['pr_id', 'PR ID']) || '').match(/^(\d+)(?:\.0+)?$/);
+      if (m) max = Math.max(max, Number(m[1]));
+    });
+    return String(max + 1);
+  }
+
   function getMasterSpecialFieldConfig_(key, value, mode) {
     const textValue = value == null ? '' : String(value);
     if (key === 'mail_name') {
       return { kind: 'input', html: `<textarea name="mail_name" ${mode === 'edit' ? 'readonly' : ''}>${escapeHtml(textValue)}</textarea>` };
     }
+    if (key === 'schedule_id') {
+      const displayVal = textValue || (mode === 'master' ? computeTentativeScheduleId_() : '');
+      return { kind: 'input', html: `<input type="text" name="schedule_id" value="${escapeAttribute(displayVal)}" readonly disabled>` };
+    }
     if (key === 'pr_id') {
-      return { kind: 'input', html: `<input type="text" name="pr_id" value="${escapeAttribute(textValue)}" readonly disabled placeholder="保存時に自動採番">` };
+      const displayVal = textValue || (mode !== 'edit' ? computeTentativePrId_() : '');
+      return { kind: 'input', html: `<input type="text" name="pr_id" value="${escapeAttribute(displayVal)}" readonly disabled placeholder="自動採番">` };
     }
     if (key === 'assignee') {
       return { kind: 'input', html: renderNamedSelectInput('setter', textValue, getAdminSelectOptions_()) };
