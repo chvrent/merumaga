@@ -68,6 +68,9 @@
 - ロックされたフィールドは `.form-group.disabled` で表現する。半透明フェード (opacity:0.4) は使わず、グレー背景 + 鍵アイコン (`Styles.html` 内に tabler ti-lock を SVG data URI で埋め込み) + `pointer-events:none` を組み合わせて「触れない」状態を視覚化する。チェックボックスは opacity 0.6 で代用。
 - 設定済 / 確認済 時に mhead 内の `設定` / `確認` select はそれぞれ紫 (`#f0f0fa`) / 緑 (`var(--ok-bg)`) の塗りを維持する。`applySettingLock_` で disabled にされてもブラウザ既定の washout が出ないよう、`.hf-ctrl.setter:disabled` / `.hf-ctrl.checker:disabled` に `!important` で `color`/`background-color`/`border-color` を明示し、`opacity:1` + `-webkit-text-fill-color` で固定する (1.19)。
 - フッターの「確認」ボタンは確認済み (`checkerActive=true`) 時に「確認取り消し」(赤系 `is-cancel-mode`) に切り替わり、クリックで checker=false にできる。setter は保持される。`handleModalToggleChecking_` が双方向で処理する (1.20)。
+- 配信編集モーダルの項目は4セクションに分ける: `基本設定`(ID〜担当部署) / `メルマガ内容`(メルマガ内容〜パラメータ) / `ステータス`(新規〜検証中) / `抽出内容`(USER_年齢〜JOB_フリーワード)。`renderEditModalFields_` の `sectionMap` がキー→セクションを定義し、バケット振り分けでシート列順に依存せずグループ化する。見出しは `updateSectionHeadingVisibility_` が「そのセクションの可視フィールドが0件なら非表示」にする (入力制御で全部隠れた場合の空見出し防止)。新しい列を増やしたら `sectionMap` に必ず追記する (未登録キーは見出しなしで末尾にまとめて出る) (1.21)。
+- 形式タブ (`.modal-tab`) はセグメントコントロール型 (`.modal-tabs-container` = 角丸グレー枠、アクティブタブは白背景+微影)。配色変更は `Styles.html` 953-982 付近を編集 (1.21)。
+- mhead のメルマガ名 (`.name-text`) は折り返して全文表示 (`white-space:normal`/`overflow-wrap:anywhere`)。`.hf` (通数/設定/確認ボックス) は幅 84px・テキスト左寄せ (1.21)。
 - カレンダーPRラベルは `.pr-labels-row` (flex) で横並びバッジ表示。`pr-label-add`=緑、`pr-label-remove`=赤、`pr-label-active`=ミュート。取り消し線は使わない。
 - カレンダーのバッジ凡例とカレンダー本体のバッジは同じ CSS クラス (`pr-label pr-label-*`) を共有する。`SCHEDULE_LEGEND_ITEMS` の `type:'badge'` 項目で凡例側を生成し、`.legend-badge` で凡例内サイズだけ微調整する。色を変えるときは CSS 側 (`.pr-label-add`/`.pr-label-remove`/`.pr-label-active`) を1箇所だけ書き換える。
 - 月末配信の色は CSS変数 `--color-month-end-bg: #d9d2e9` が正本。`.date-note` (ヘッダーの「月末配信期間」タグ) と JS の `SCHEDULE_BACKGROUND_COLORS.monthEnd` を同色に揃える (片方変えるとき他方も合わせる)。
