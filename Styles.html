@@ -1289,9 +1289,24 @@ thead th {
   flex-shrink: 0;
 }
 
-/* ⑫ 空セルクリックで新規追加 */
-#tableContainer td[data-date][data-hour]:not(:has(.delivery-row)) { cursor: pointer; }
-#tableContainer td[data-date][data-hour]:not(:has(.delivery-row)):hover { background-color: rgba(26, 115, 232, 0.06); }
+/* ⑫ カレンダー時間枠クリックで追加 */
+#tableContainer td[data-date][data-hour] { cursor: pointer; }
+
+/* ⑫ スロット追加ピッカー */
+.slot-add-picker-card { width: min(480px, 95vw); max-height: 80vh; display: flex; flex-direction: column; }
+.slot-add-picker-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; min-height: 0; }
+.slot-add-picker-search { min-height: 32px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; padding: 0 10px; }
+.slot-add-picker-list { flex: 1 1 auto; overflow-y: auto; max-height: 350px; border: 1px solid var(--border); border-radius: 4px; }
+.slot-add-picker-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); gap: 8px; }
+.slot-add-picker-item:last-child { border-bottom: none; }
+.slot-add-picker-item:hover { background: rgba(26, 115, 232, 0.06); }
+.slot-add-picker-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.slot-add-picker-meta { font-size: 11px; color: var(--muted); white-space: nowrap; display: flex; align-items: center; gap: 4px; }
+.slot-add-picker-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
+.slot-add-picker-badge.draft { background: #fff3cd; color: #856404; }
+.slot-add-picker-badge.stopped { background: #f8d7da; color: #721c24; }
+.slot-add-picker-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 12px; }
+.slot-add-picker-new { margin-top: 4px; }
 
 /* scope choice modal */
 .scope-choice-body { display: grid; gap: 12px; padding: 12px; }
