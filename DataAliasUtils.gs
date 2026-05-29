@@ -75,8 +75,12 @@ function getObjectFieldByAliases_(obj, aliases) {
 }
 
 /**
- * getObjectFieldByAliases_ のセグメント対応版。
+ * getObjectFieldByAliases_ のセグメント対応版。【こちらが正本】
  * キーが「日本語/英語」形式でも各セグメントを alias と照合する。
+ * 例: row["mail_name/メルマガ名"] で alias="mail_name" も alias="メルマガ名" も両方マッチ。
+ * 
+ * ※ 2026-05-29 以降は、新規コード・修正は getObjectFieldByAliasesSegment_ を優先使用すること。
+ *   getObjectFieldByAliases_ は非セグメント環境のみで使用。
  */
 function getObjectFieldByAliasesSegment_(obj, aliases) {
   if (!obj) return '';

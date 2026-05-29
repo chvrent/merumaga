@@ -158,6 +158,11 @@ function updateItemIdReferences_(ss, sheetName, itemIdAliases, idMap) {
   if (changed) sheetData.range.setValues(sheetData.values);
 }
 
+/**
+ * スプシから値・ヘッダー・範囲を一括取得
+ * ※ DataUtils.gs にも同じ実装がある。本来はどちらか一方に統一するべき。
+ *    現在は両ファイルで使用されているため、当面は保持する（2026-05-29 リファクタリング計画参照）。
+ */
 function getSheetValuesAndHeaders_(sheet) {
   if (!sheet) return null;
   const range = sheet.getDataRange();

@@ -76,6 +76,39 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
   const appendRows = [];
   const results = [];
 
+  // Compute diffs using extracted helper
+  computeArchiveDiffs_(grouped, scheduleValues, scheduleHeaders, archiveHeaders, archiveHeaderMap, scheduleHeaderMap, archiveValues, archiveRowByKey, results, appendRows, touchedIndexes, timestamp);
+
+  if (touchedIndexes.size) {
+    const sortedIndexes = Array.from(touchedIndexes).sort((a, b) => a - b);
+    let groupStart = sortedIndexes[0];
+    let previous = sortedIndexes[0];
+    for (let index = 1; index <= sortedIndexes.length; index++) {
+      const current = sortedIndexes[index];
+      if (current === previous + 1) {
+        previous = current;
+        continue;
+      }
+      const groupRows = archiveValues.slice(groupStart, previous + 1).map(row => row.slice(0, archiveHeaders.length));
+      archiveSheet.getRange(groupStart + 1, 1, groupRows.length, archiveHeaders.length).setValues(groupRows);
+      groupStart = current;
+      previous = current;
+    }
+  }
+  if (appendRows.length) {
+    archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, appendRows.length, archiveHeaders.length).setValues(appendRows);
+  }
+
+  return results;
+}
+
+function computeArchiveDiffs_(grouped, scheduleValues, scheduleHeaders, archiveHeaders, archiveHeaderMap, scheduleHeaderMap, archiveValues, archiveRowByKey, results, appendRows, touchedIndexes, timestamp) {
+  const timestampText = Utilities.formatDate(timestamp, Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy/MM/dd HH:mm');
+
+  const startIndex = findHeaderIndex_(archiveHeaders, 'fixed_week_start');
+  const endIndex = findHeaderIndex_(archiveHeaders, 'fixed_week_end');
+  const sourceRowIndex = findHeaderIndex_(archiveHeaders, 'source_row');
+
   Object.keys(grouped).forEach(key => {
     const change = grouped[key];
     const sourceRow = getSourceRowByScheduleId_(change.scheduleId);
@@ -90,9 +123,9 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
       : new Array(archiveHeaders.length).fill('');
 
     nextRow[0] = timestamp;
-    nextRow[startIndex] = change.targetDate;
-    nextRow[endIndex] = change.targetDate;
-    nextRow[sourceRowIndex] = sourceRow;
+    if (startIndex != null) nextRow[startIndex] = change.targetDate;
+    if (endIndex != null) nextRow[endIndex] = change.targetDate;
+    if (sourceRowIndex != null) nextRow[sourceRowIndex] = sourceRow;
 
     const scheduleRow = scheduleValues[sourceRowNumber - 1];
     scheduleHeaders.forEach(header => {
@@ -156,28 +189,6 @@ function saveDailyArchiveDiffsUnlocked_(updates) {
       });
     });
   });
-
-  if (touchedIndexes.size) {
-    const sortedIndexes = Array.from(touchedIndexes).sort((a, b) => a - b);
-    let groupStart = sortedIndexes[0];
-    let previous = sortedIndexes[0];
-    for (let index = 1; index <= sortedIndexes.length; index++) {
-      const current = sortedIndexes[index];
-      if (current === previous + 1) {
-        previous = current;
-        continue;
-      }
-      const groupRows = archiveValues.slice(groupStart, previous + 1).map(row => row.slice(0, archiveHeaders.length));
-      archiveSheet.getRange(groupStart + 1, 1, groupRows.length, archiveHeaders.length).setValues(groupRows);
-      groupStart = current;
-      previous = current;
-    }
-  }
-  if (appendRows.length) {
-    archiveSheet.getRange(archiveSheet.getLastRow() + 1, 1, appendRows.length, archiveHeaders.length).setValues(appendRows);
-  }
-
-  return results;
 }
 
 function validateCheckStatusUpdate_(itemId, field, payload) {
