@@ -22,6 +22,7 @@
 | 2026-05-27 | 1.12 | `confirmed_by` / `confirmed_at` フィールドの廃止。アプリ内で使用されていないため、ロジックから削除。本番デプロイ済み（@572）。 | Gemini |
 | 2026-05-27 | 1.13 | PR管理「紐づいたメルマガ」バグ修正。`savePRDataUnlocked_` を delete-and-reinsert 方式に変更し、チェックを外したメルマガが残存し続ける問題を解消。`app_pr_targets` スキーマ・採番仕様・PRラベル紐付けロジックを仕様書に明文化。 | Claude Sonnet |
 | 2026-05-28 | 1.14 | 下書き機能の仕様整備。一覧に「下書きのみ」フィルターチップを追加。「配信中」ビューから下書きを除外（これまで混入していた）。カレンダー・PR判定への非掲出は既存仕様を維持。 | Claude Sonnet |
+| 2026-05-29 | 1.22.1 | **仕様書本文の整備（1.21/1.22 のあるべき姿を明文化）** — 4.5.2「設定・確認の赤塗りキー体系 ※あるべき姿」を新設し、`getCheckItemId` 正規化キーの正本・厳密一致のみ・`5.0` のサーバー書込失敗・アーカイブ列がフルリロード後の永続正本である点・検証手順を記載。3.2/3.3 にモーダルの4セクション分け（`sectionMap` 正本・空見出し非表示・新列は要追記）、形式タブのセグメントコントロール型、ヘッダーのメルマガ名全文表示と `.hf` 左寄せ/幅84pxを明文化。挙動変更なしのドキュメントのみ。 | Claude Opus |
 | 2026-05-29 | 1.22 | **確定(is_fixed)後に「確認」赤(`is-active-red`)が消える不具合をキー体系の整合で修正** — 根本原因は2つ。①クライアント `getCheckItemId` (`ClientCheckStatus.html`) が `schedule_id`/`target_date` を正規化せず、ライブ(`app_schedule`)とアーカイブ(`app_schedule_archive`) で同じ発生分でも Sheets 表示値が `5`/`5.0` のようにブレるとキーが食い違い、設定時に保存したキーと確定後の描画時に検索するキーが不一致になっていた。さらに `5.0` 形式の itemId はサーバー `getSourceRowByScheduleId_` (getValues で `5`、`normalizeScheduleIdForMove_` は `.0` 非除去) で行を引けず、`saveDailyArchiveDiffsUnlocked_` のアーカイブ書き込み自体が失敗していた。→ `getCheckItemId` を `normalizeIdKey(schedule_id)` + `normalizeDateString(target_date)` の正規化キーに統一し、`fillRForDay` (`Client.html`) の raw キー構築も `getCheckItemId` 経由に変更。WIPの曖昧フォールバック (`key.includes`) は誤検出リスクのため撤去し厳密一致へ戻した。②サーバー `getArchivedOccurrenceRows_` (`DataArchive.gs`) がアーカイブシートの `check_setter_active`/`check_checker_active` を archive-specific 列として除外しており、フルリロード後 (メモリ上の `APP_DATA.checkStatuses` 保持が消える) に赤の唯一の根拠が失われていた。→ 両列のインデックスを引いて record に surface (空欄は付与せずクライアントの短絡を防ぐ)。①②は相補的で両方必須。 | Claude Opus |
 | 2026-05-29 | 1.21 | **配信編集モーダルの①セクション再編 / ②形式タブ刷新 / ③ヘッダー調整** — ①`renderEditModalFields_` (`ClientModals.html`) の `sectionMap` を実キーで全面再定義 (旧定義は `user_age`/`user_area` 等の存在しないキーで大半が見出しなしだった)。`基本設定`(ID〜担当部署) / `メルマガ内容`(メルマガ内容〜パラメータ) / `ステータス`(新規〜検証中) / `抽出内容`(USER_年齢〜JOB_フリーワード) の4セクションへバケット振り分け方式で確実にグループ化 (シート列順非依存)。各 form-group に `data-section`、見出しに `data-section-head` を付与し、入力制御で全フィールド非表示になったセクションは `updateSectionHeadingVisibility_` で見出しごと隠す (`applyDynamicInputControl` 末尾で実行)。②形式タブを下線型からセグメントコントロール型 (角丸コンテナ + アクティブ白背景 + 微影、`.modal-tabs-container` / `.modal-tab` 刷新, `Styles.html`)。③`.name-text` を `white-space:normal` + `overflow-wrap:anywhere` でメルマガ名全文折り返し表示、`.hf` 幅 66→84px、`.hf-label`/`.hf-ctrl` を `text-align:left` に。 | Claude Sonnet |
 | 2026-05-29 | 1.20 | **確認取り消し機能を追加** — 配信編集モーダルフッターの「確認」ボタンを確認済み時に「確認取り消し」(赤系) に切り替えられるよう変更。`initEditModalCheckButtons_` の `btnChecking.disabled` を撤廃し `is-cancel-mode` クラスで表現。`handleModalToggleChecking_` を新設し checker=false を保存（setter は保持）。`Styles.html` に `.checking-btn.is-cancel-mode` を追加 (通常サイズ・タブレットサイズ両方)。 | Claude Sonnet |
@@ -79,15 +80,26 @@
 オペレーションのミス防止のため、共通して上・中・下の3層構造を採用する。
 
 #### ［最上部：固定ヘッダーエリア（基本項目）］
-- **メルマガ名（`mail_name`）**: テキスト入力欄。`readonly`（完全編集不可）。枠内またはアイコンクリックでクリップボードへコピー（`navigator.clipboard.writeText`）。
+- **メルマガ名（`mail_name`）**: テキスト表示。`readonly`（完全編集不可）。枠内またはアイコンクリックでクリップボードへコピー（`navigator.clipboard.writeText`）。
+    - **全文表示**: メルマガ名は省略（`…`）せず**全文を折り返して表示**する（`.name-text` = `white-space:normal` / `overflow-wrap:anywhere`）。長名でも内容を隠さない（2026-05-29 / SPEC 1.21）。
 - **設定者（`assignee`） / 確認者（`reviewer`）**: ドロップダウン（`<select>`）。`app_admin_master` から同期。
     - 設定者が `R` の場合、確認者は空欄にし、`disabled` かつ `required=false` とする。R枠は確認者入力を要求しない。
     - 設定者が `R` 以外の場合、確認者は有効化し、通常の必須選択に戻す。
+- **ヘッダーボックス（`.hf` = 通数 / 設定 / 確認）**: 幅 84px・ラベルと値は**左寄せ**（`text-align:left`）。設定済/確認済で `applySettingLock_` により `disabled` になっても、設定は紫（`#f0f0fa`）・確認は緑（`var(--ok-bg)`）の塗りを `!important` + `-webkit-text-fill-color` で維持する（SPEC 1.19）。
+- **日時表示（`#mhead-id-time`）**: `YYYY/MM/DD/HH` 形式（例 `2026/06/01/21`）。スケジュールID（`SCH_xxx`）はヘッダーに出さない（メルマガ名で識別）。
 
 #### ［中央部：2カラム・グリッドエリア (`.form-grid`)（基本項目）］
 - **新規（`is_new`）**: **【重要】必ずチェックボックス（`<input type="checkbox">`）として実装。** テキストエリアやテキストボックスは禁止。ラベルは「新規」。内部キー名は `is_new` とし、スプレッドシートの `is_new` 列と連動させる。
 - **メルマガ内容 / 備考**: テキストエリア（`textarea`）。`grid-column: span 2;` で全幅表示。
 - **その他項目**: 曜日、時間、通数、サイクル、形式、開始日、終了日、ターゲット属性等。
+- **【項目のセクション分け】**（2026-05-29 / SPEC 1.21）: 配信編集モーダルの項目は次の4セクションに分けて見出し（`.modal-section-head`）付きで表示する。実装は `ClientModals.html` の `renderEditModalFields_` 内 `sectionMap`（キー→セクション名）が正本。
+    1. **基本設定**: ID 〜 担当部署（`schedule_id` / `mail_type` / `format` / `cycle` / `weekday` / `hour` / `start_date` / `end_date` / `sub_category`）
+    2. **メルマガ内容**: メルマガ内容 〜 パラメータ（`mail_content` / `mail_content_extract` / `mail_content_free` / `notes` / `pr` / `job_url` / `auto_job_feature_id` / `parameter`）
+    3. **ステータス**: 新規 〜 検証中（`is_new` / `is_verifying`）
+    4. **抽出内容**: USER_年齢 〜 JOB_フリーワード（`target_age` ほか USER_* / JOB_* / `current_job_count` / `auto_job_other_condition`）
+    - **グループ化はシート列順に依存しない**: 各フィールドを所属セクションのバケットへ振り分けてから `sectionOrder` 順に描画する。
+    - **空セクションの見出しは隠す**: 入力制御で全フィールドが非表示になったセクションは、見出しごと非表示にする（`updateSectionHeadingVisibility_` を `applyDynamicInputControl` 末尾で実行。form-group に `data-section`、見出しに `data-section-head` を付与して照合）。
+    - **【注意】新しい列を追加したら `sectionMap` に必ず追記する**。未登録キーは見出しなしで末尾にまとめて出る（旧実装では存在しないキー名で大半が見出しなしになっていた）。
 
 #### ［最下部：独自機能エリア（配信編集モーダル専用）］
 配信編集モーダルでは、マスタ項目に加えて以下の動的・操作的機能が追加される。
@@ -97,8 +109,11 @@
 4. **アラート表示**: 自動求人特集などで求人数が 0 件の場合、モーダル内やカレンダー上に警告アイコン（`[!]`）を表示する。
 
 ### 3.3 各モーダルの個別仕様
+- **形式タブの共通デザイン**（配信編集・マスタ共通 / 2026-05-29 SPEC 1.21）:
+    - 並び順は `抽出 → フリー → 自動求人特集 → その他`（`index.html` の `modal-tabs-container`）。HTML 上の並びは表示順のみを決め、実際に開くタブは `setModalFormatState` が `CURRENT_ENTRY.format` に基づき active クラスを差し替える。
+    - スタイルは**セグメントコントロール型**: コンテナ（`.modal-tabs-container`）= 角丸グレー枠、アクティブタブ（`.modal-tab.active`）= 白背景 + 微影。配色を変える場合は `Styles.html` の `.modal-tabs-container` / `.modal-tab` を編集する。
 - **マスタ新規追加 (#addMasterModal)**:
-    - 最上部に「形式」タブ（フリー/抽出/自動求人特集/その他）を配置。選択中は青背景（`#1a73e8`）。
+    - 最上部に「形式」タブ（上記共通デザイン）を配置。
     - **タブクリック時の連動ルール**:
         1. タブクリック時、即座に該当タブの名称を内部キー `format` に書き込む。
         2. 入力制限関数 `applyDynamicInputControl(format)` を即座に実行し、形式に応じたグレーアウト（有効/無効）を再評価する。
@@ -366,6 +381,20 @@ PR管理画面の新規追加・編集における専用の制御ルール。
 - 「設定者（`setter`）」プルダウンで `R` を選択した場合、システムは即座に「確認者（`checker`）」を入力不可（`disabled`）にし、選択値をクリアする。
 - R選択時の確認者は必須入力ではない。`required` は必ず外し、保存時バリデーションでブロックしてはならない。
 - 「設定者」が `R` 以外に変更された場合、確認者のロックを解除し、通常の必須選択に戻す。
+
+### 4.5.2 設定・確認の赤塗り（`is-active-red`）キー体系 ※あるべき姿（2026-05-29 追記 / SPEC 1.22）
+
+設定・確認の赤塗りは「キーで状態を引く」仕組みのため、**保存時のキーと描画時のキーが完全一致**していなければ赤が消える。過去、確定（is_fixed）後にキーが食い違って赤が消える不具合が発生したため、以下を正本として固定する。
+
+- **キーの正本は `getCheckItemId(row)` （`ClientCheckStatus.html`）**: `normalizeIdKey(schedule_id) + "|" + normalizeDateString(target_date)` を返す。設定/確認の itemId を組むあらゆる箇所（カレンダー描画・モーダル・`fillRForDay` 等）は**必ずこの関数を通す**こと。`` `${scheduleId}|${dateStr}` `` のような raw 連結を新規に書かない。
+    - **理由**: 同じ発生分でも、ライブ（`app_schedule`）とアーカイブ（`app_schedule_archives`）で Sheets の表示値が `5` / `5.0` のようにブレる。正規化しないと「設定時に保存したキー」と「確定後にアーカイブ由来エントリで描画する際に検索するキー」が食い違い、`active=TRUE` なのに赤くならない。
+    - **`normalizeIdKey`**: `5.0` → `5` のように末尾 `.0` を除去。**`normalizeDateString`**: 日付表記を `YYYY-MM-DD` に統一。
+- **判定は厳密一致のみ**: `isCheckStatusActive` は `LOCAL_CHECK_CHANGES` → アーカイブ → `APP_DATA.checkStatuses` の順に**完全一致キー**で引く。`key.includes(itemId)` のような部分一致フォールバックは**禁止**（`5` が `15|...` に誤マッチするため）。キーがずれるなら正規化側を直す。
+- **`5.0` はサーバー書き込みも壊す**: 設定/確認保存は payload 空で itemId のみ送るため、サーバーは `itemId` から `schedule_id` を導く。`5.0` 形式だと `getSourceRowByScheduleId_`（`getValues()` で `5`、`normalizeScheduleIdForMove_` は `.0` を除去しない）が行を引けず、`saveDailyArchiveDiffsUnlocked_` のアーカイブ書き込みが**無言で失敗**する。クライアントが `getCheckItemId` で正規化して `5` で送ることでこの経路も成立する。
+- **確定発生分の active はアーカイブ列が永続正本**: サーバー `getCheckStatuses_` は `setter` / `checker` を返さない（仕様）。セッション中はクライアントが `APP_DATA.checkStatuses` をメモリ保持して維持するが、**フルリロード（F5）するとメモリ保持は消える**。そのため確定後の赤の唯一の根拠は `app_schedule_archives` の `check_setter_active` / `check_checker_active` 列となる。
+    - サーバー `getArchivedOccurrenceRows_`（`DataArchive.gs`）はこの2列を各 record に surface すること。これらは archive-specific 列のため `scheduleColumnIndices` から除外されており、明示的にインデックスを引いて付与する必要がある（surface しないとフルリロード後に赤が消える）。
+    - **空欄は付与しない**: 明示的な diff 未保存（空セル）の発生分には `check_*_active` プロパティを付けない。付けるとクライアント `getArchivedCheckStatusActive` が `false` 確定で短絡し、セッション中の `APP_DATA.checkStatuses` 保持を隠してしまう。
+- **検証手順**: ①設定/確認を赤にする → ②確定 → ③ブラウザを完全リロード → ④赤が維持されること。`5.0` になりやすい数値ID枠でも消えないこと。
 
 ### 4.6 停止・例外制御ロジック
 - **例外データ管理**: 特定の日付・配信枠の停止状態は `app_exceptions` シートで管理される。
