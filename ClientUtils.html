@@ -44,16 +44,20 @@
       if (['source_sheet', 'source_row', 'schedule_action'].includes(h)) return false;
       return true;
     });
+    const hasHeaderAlias = (aliases) => visible.some(h => {
+      const s = String(h || '').trim();
+      if (aliases.includes(s)) return true;
+      if (s.includes('/')) return s.split('/').map(seg => seg.trim()).some(seg => aliases.includes(seg));
+      return false;
+    });
     if (MASTER_DATA.sheetName === 'app_pr') {
       const prIdAliases = ['pr_id', 'PR ID', 'ＰＲ ID', 'PR_ID', 'PRID', 'ID'];
-      const hasPrId = visible.some(h => {
-        const s = String(h || '').trim();
-        if (prIdAliases.includes(s)) return true;
-        if (s.includes('/')) return s.split('/').map(seg => seg.trim()).some(seg => prIdAliases.includes(seg));
-        return false;
-      });
-      if (!hasPrId) visible.unshift('pr_id');
+      if (!hasHeaderAlias(prIdAliases)) visible.unshift('pr_id');
       if (!visible.includes('target_mails')) visible.push('target_mails');
+    } else if (MASTER_DATA.sheetName === 'app_schedule') {
+      // ID列がヘッダーに無い場合でも仮ID(SCH_NNN)表示欄を出すため schedule_id を補完する
+      const scheduleIdAliases = ['schedule_id', 'ID', 'id'];
+      if (!hasHeaderAlias(scheduleIdAliases)) visible.unshift('schedule_id');
     }
     return visible;
   }

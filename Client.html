@@ -1595,7 +1595,7 @@
   }
 
   function computeTentativePrId_() {
-    const prData = Array.isArray(APP_DATA && APP_DATA.prData) ? APP_DATA.prData : [];
+    const prData = Array.isArray(APP_DATA && APP_DATA.pr) ? APP_DATA.pr : [];
     let max = 0;
     prData.forEach(function(r) {
       const m = String(getValueByKeys(r, ['pr_id', 'PR ID']) || '').match(/^(\d+)(?:\.0+)?$/);
