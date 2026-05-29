@@ -10,6 +10,9 @@
   let LOCAL_CHECK_CHANGES = {};
   let PENDING_CHECK_SAVE_TIMER = null;
   let SORTABLES = [];
+  // ⑦ 移動モード中のドラッグ結果を貯めるバッファ。OFF押下時に一括送信する。
+  // キーは `scheduleId|originalDate`。同一アイテムの再移動は最終移動先で上書きされる。
+  let PENDING_MOVES = new Map();
   let DATA_STATIC_READY = false;
   let DATA_LOAD_IN_FLIGHT_KEY = '';
   let DATA_LOAD_GENERATION = 0;
@@ -319,20 +322,53 @@
 
   function toggleMoveMode() {
     IS_MOVE_MODE = !IS_MOVE_MODE;
-    const btn = document.getElementById('moveModeToggle');
     const shell = document.querySelector('.app-shell');
 
-    if (btn) {
-      btn.textContent = `移動: ${IS_MOVE_MODE ? 'ON' : 'OFF'}`;
-      btn.classList.toggle('is-active', IS_MOVE_MODE);
-    }
     if (shell) shell.classList.toggle('is-move-mode', IS_MOVE_MODE);
 
     if (IS_MOVE_MODE) {
       initDragAndDrop();
+      updateMoveModeToggleLabel_();
     } else {
       destroyDragAndDrop();
+      // ⑦ OFF時に貯めた移動をまとめて送信する。
+      flushPendingMoves_();
+      updateMoveModeToggleLabel_();
     }
+  }
+
+  // 移動モードトグルの表示更新（保留件数も表示）
+  function updateMoveModeToggleLabel_() {
+    const btn = document.getElementById('moveModeToggle');
+    if (!btn) return;
+    const pending = PENDING_MOVES.size;
+    if (IS_MOVE_MODE) {
+      btn.textContent = pending > 0 ? `移動: ON (${pending}件保留)` : '移動: ON';
+    } else {
+      btn.textContent = '移動: OFF';
+    }
+    btn.classList.toggle('is-active', IS_MOVE_MODE);
+    btn.classList.toggle('has-pending', IS_MOVE_MODE && pending > 0);
+  }
+
+  // ⑦ バッファした移動を一括送信する。
+  function flushPendingMoves_() {
+    const moves = Array.from(PENDING_MOVES.values());
+    PENDING_MOVES.clear();
+    if (!moves.length) return;
+
+    showBusy(`配信日時を移動中... (${moves.length}件)`);
+    google.script.run
+      .withSuccessHandler(() => {
+        hideBusy();
+        loadData({ force: true });
+      })
+      .withFailureHandler(err => {
+        hideBusy();
+        alert('移動に失敗しました: ' + (err && err.message ? err.message : err));
+        loadData({ force: true });
+      })
+      .updateItemDates(moves);
   }
 
   function showBusy(message) {
@@ -411,19 +447,13 @@
 
           if (!scheduleId || !newDate || !newHour) return;
 
-          showBusy('配信日時を移動中...');
-          google.script.run
-            .withSuccessHandler(() => {
-              console.log('移動完了');
-              hideBusy();
-              loadData({ force: true });
-            })
-            .withFailureHandler(err => {
-              hideBusy();
-              alert('移動に失敗しました: ' + err.message);
-              loadData({ force: true });
-            })
-            .updateItemDate(scheduleId, oldDate, newDate, newHour);
+          // ⑦ 即時送信せずバッファに貯める。送信は移動モードOFF時にまとめて行う。
+          // oldDate(=originalDate) はサーバ側の発生分識別子なので、同一アイテムを
+          // 複数回動かしてもキーは不変。最終移動先で上書きされる。
+          const moveKey = `${scheduleId}|${oldDate}`;
+          PENDING_MOVES.set(moveKey, { scheduleId, oldDate, newDate, newHour });
+          itemEl.classList.add('is-pending-move');
+          updateMoveModeToggleLabel_();
         }
       });
       SORTABLES.push(s);

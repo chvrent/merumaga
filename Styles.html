@@ -241,6 +241,11 @@ body {
   border-color: var(--text);
   font-weight: 600;
 }
+/* ⑦ 未送信の移動があるとき、OFFで一括反映できることを示す */
+#moveModeToggle.has-pending {
+  background: var(--warn);
+  border-color: var(--warn);
+}
 
 /* topbar search */
 .topbar-search {
@@ -635,6 +640,8 @@ thead th {
   opacity: 0.6;
 }
 .sortable-ghost { opacity: 0.35; border: 2px dashed var(--border-strong); }
+/* ⑦ 未送信(保留中)の移動アイテム */
+.delivery-row.is-pending-move { box-shadow: inset 0 0 0 2px var(--warn); }
 .sortable-drag {
   opacity: 0.9 !important;
   transform: rotate(1deg);
