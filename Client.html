@@ -2154,7 +2154,20 @@
 
   function handleActionClick(event) {
     const actionElement = event.target.closest('[data-action]');
-    if (!actionElement) return;
+    if (!actionElement) {
+      // ⑫ 空のカレンダー時間枠クリックで新規マスタ追加
+      if (!IS_MOVE_MODE) {
+        const cell = event.target.closest('#tableContainer td[data-date][data-hour]');
+        if (cell && !cell.querySelector('.delivery-row')) {
+          const clickDate = cell.dataset.date;
+          const clickHour = cell.dataset.hour;
+          if (clickDate && clickHour) {
+            openMasterModalFromSlot_(clickDate, clickHour);
+          }
+        }
+      }
+      return;
+    }
 
     const action = String(actionElement.dataset.action || '').trim();
     if (!action) return;
@@ -2297,6 +2310,41 @@
       copyCreateMaster();
       return;
     }
+  }
+
+  // ⑫ 空のカレンダー時間枠クリック → 新規マスタ追加モーダルを開く
+  function openMasterModalFromSlot_(clickDate, clickHour) {
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    const d = new Date(clickDate + 'T00:00:00');
+    const wdLabel = weekdays[d.getDay()];
+    const prefill = {
+      start_date: clickDate,
+      end_date: clickDate,
+      hour: clickHour,
+      weekday: wdLabel,
+      cycle: '単発'
+    };
+
+    // MASTER_DATA が app_schedule でロード済みなら即座に開く
+    if (MASTER_DATA.sheetName === 'app_schedule' && MASTER_DATA.headers && MASTER_DATA.headers.length) {
+      openMasterModal(encodeURIComponent(JSON.stringify(prefill)));
+      return;
+    }
+    // 未ロードなら非同期でロードしてから開く
+    showBusy('マスタデータを読み込み中...');
+    google.script.run
+      .withSuccessHandler(function(data) {
+        hideBusy();
+        MASTER_DATA = data || { sheetName: 'app_schedule', headers: [], rows: [] };
+        if (!Array.isArray(MASTER_DATA.headers)) MASTER_DATA.headers = [];
+        if (!Array.isArray(MASTER_DATA.rows)) MASTER_DATA.rows = [];
+        openMasterModal(encodeURIComponent(JSON.stringify(prefill)));
+      })
+      .withFailureHandler(function(err) {
+        hideBusy();
+        alert('マスタデータの読み込みに失敗しました: ' + (err.message || err));
+      })
+      .getMasterData('app_schedule');
   }
 
   function toggleCheckStatusFromCell(cell, event) {
