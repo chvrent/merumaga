@@ -606,6 +606,22 @@
       reviewerEl.required = false;
     }
     reviewerEl.removeAttribute('required');
+
+    // 設定者がRのときは「設定」ボタンを非活性にし、「確認」のみ押下可能にする
+    if (modalId === 'editModal') applyRSetterButtonLock_(assignee === 'R');
+  }
+
+  // 設定者Rのとき editModal の「設定」ボタンを非活性化する。
+  // R判定は CURRENT_ENTRY ではなくフォーム上の現在値で行い、設定者を変えた瞬間も追従させる。
+  function applyRSetterButtonLock_(isR) {
+    const btnSetting = document.getElementById('btnModalSetting');
+    if (!btnSetting) return;
+    if (isR) {
+      btnSetting.disabled = true;
+      btnSetting.title = '設定者がRの配信は「設定」を使用しません。「確認」で確定してください。';
+    } else if (btnSetting.title && btnSetting.title.indexOf('設定者がR') === 0) {
+      btnSetting.title = '';
+    }
   }
 
   function collectNamedFormValues(form, options = {}) {
@@ -1914,6 +1930,9 @@
     btnSetting.textContent = setterActive ? '設定取り消し' : '設定';
     btnSetting.classList.toggle('is-cancel-mode', setterActive);
     btnSetting.disabled = false;
+    // 設定者Rは「設定」非活性（確認のみ可）。フォーム未生成時は CURRENT_ENTRY を見る
+    const initialAssignee = String((CURRENT_ENTRY && CURRENT_ENTRY.assignee) || '').trim();
+    applyRSetterButtonLock_(initialAssignee === 'R');
 
     btnChecking.disabled = false;
     btnChecking.textContent = checkerActive ? '確認取り消し' : '確認';
@@ -1944,9 +1963,26 @@
     if (closeBtn) closeBtn.style.display = '';
   }
 
-  function saveCheckStatusFromModal_(itemId, field, active) {
+  // editModal フォーム上の現在の設定者/確認者を返す。設定者Rなら確認者は空に揃える。
+  // アーカイブ確定判定 (isArchiveDiffConfirmed_) がマスタ行の旧値ではなく
+  // ユーザーが変更した実効値を見るようにするため、設定トグルの payload に載せる。
+  function getCurrentPersonPayload_() {
+    const modal = document.getElementById('editModal');
+    if (!modal) return {};
+    const setterEl = modal.querySelector('[name="setter"]');
+    const checkerEl = modal.querySelector('[name="checker"]');
+    const assignee = setterEl ? String(setterEl.value || '').trim() : '';
+    let reviewer = checkerEl ? String(checkerEl.value || '').trim() : '';
+    if (assignee === 'R') reviewer = '';
+    const payload = {};
+    if (setterEl) payload.assignee = assignee;
+    if (checkerEl) payload.reviewer = reviewer;
+    return payload;
+  }
+
+  function saveCheckStatusFromModal_(itemId, field, active, extraPayload) {
     return new Promise((resolve, reject) => {
-      const update = { itemId, field, active, payload: {} };
+      const update = { itemId, field, active, payload: extraPayload || {} };
       google.script.run
         .withSuccessHandler(results => {
           const list = Array.isArray(results) ? results : [];
@@ -2065,7 +2101,9 @@
       }
       try {
         showBusy('設定中...');
-        await saveCheckStatusFromModal_(checkItemId, 'setter', true);
+        // 設定者・確認者を変更してから設定した場合、アーカイブ確定判定が
+        // マスタ行のR値を見て誤って確定済化しないよう、現在のフォーム値を payload で渡す。
+        await saveCheckStatusFromModal_(checkItemId, 'setter', true, getCurrentPersonPayload_());
         hideBusy();
       } catch (err) {
         hideBusy();

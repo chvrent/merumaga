@@ -279,10 +279,6 @@
           <!-- 項目は JS で動的生成 -->
         </form>
 
-        <div class="modal-row-actions">
-          <button type="button" id="delete-master-button" class="danger-button" data-action="delete-master-current">削除</button>
-        </div>
-
         <div class="modal-actions">
           <button
             type="button"
@@ -298,6 +294,11 @@
             title="変更を保存します。開始日・終了日の変更はカレンダーに即反映されます。"
           >保存</button>
           <button type="button" class="secondary-button" data-action="close-master-modal">キャンセル</button>
+        </div>
+
+        <!-- 削除はスクロール最下部に配置（追従させない） -->
+        <div class="modal-row-actions">
+          <button type="button" id="delete-master-button" class="danger-button" data-action="delete-master-current">削除</button>
         </div>
 
       </div><!-- /.modal-card -->
