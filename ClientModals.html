@@ -486,51 +486,98 @@
       'delivery_count'
     ]);
 
-    // Section grouping (rough)
+    // セクション分け: キー → セクション名 (1.21 でユーザー要望に合わせ再定義)
+    //   基本設定 : ID 〜 担当部署
+    //   メルマガ内容 : メルマガ内容 〜 パラメータ
+    //   ステータス : 新規 〜 検証中
+    //   抽出内容 : USER_年齢 〜 JOB_フリーワード
     const sectionMap = {
-      'weekday': '基本設定', 'hour': '基本設定', 'start_date': '基本設定', 'end_date': '基本設定',
-      'mail_type': '基本設定', 'category': '基本設定', 'sub_category': '基本設定',
-      'cycle': '基本設定', 'format': '基本設定',
-      'user_age': '抽出内容', 'user_area': '抽出内容', 'user_other_condition': '抽出内容',
-      'job_keyword': '抽出内容', 'is_new': '抽出内容', 'auto_job_other_condition': '抽出内容',
-      'current_job_count': '抽出内容',
+      // 基本設定
+      'schedule_id': '基本設定', 'mail_type': '基本設定', 'category': '基本設定',
+      'format': '基本設定', 'cycle': '基本設定', 'weekday': '基本設定', 'hour': '基本設定',
+      'start_date': '基本設定', 'end_date': '基本設定', 'sub_category': '基本設定',
+      // メルマガ内容
       'mail_content': 'メルマガ内容', 'mail_content_extract': 'メルマガ内容',
-      'mail_content_free': 'メルマガ内容', 'notes': 'メルマガ内容',
-      'is_verifying': 'ステータス', 'parameter': 'ステータス',
+      'mail_content_free': 'メルマガ内容', 'notes': 'メルマガ内容', 'pr': 'メルマガ内容',
+      'job_url': 'メルマガ内容', 'auto_job_feature_id': 'メルマガ内容', 'parameter': 'メルマガ内容',
+      // ステータス
+      'is_new': 'ステータス', 'is_verifying': 'ステータス',
+      // 抽出内容
+      'target_age': '抽出内容', 'target_address': '抽出内容',
+      'user_desired_location': '抽出内容', 'user_experience_job': '抽出内容',
+      'user_desired_job': '抽出内容', 'user_other_condition': '抽出内容',
+      'job_location': '抽出内容', 'job_type': '抽出内容', 'job_keyword': '抽出内容',
+      'current_job_count': '抽出内容', 'auto_job_other_condition': '抽出内容',
     };
-    const sectionOrder = ['基本設定', '抽出内容', 'メルマガ内容', 'ステータス'];
-    let lastSection = '';
+    const sectionOrder = ['基本設定', 'メルマガ内容', 'ステータス', '抽出内容'];
+    const fullWidthKeys = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword']);
 
     const headers = getScheduleEditHeaders_().filter(header => {
       const key = normalizeScheduleEditKey_(header);
       return !excludedKeys.has(key);
     });
 
-    container.innerHTML = headers.map(header => {
+    // セクション順に確実にグループ化する。シート列順に依存せず、
+    // 各フィールドを所属セクションのバケットへ振り分けてから order 順に描画。
+    const buckets = {};
+    sectionOrder.forEach(name => { buckets[name] = []; });
+    const unmapped = [];
+
+    headers.forEach(header => {
       const key = normalizeScheduleEditKey_(header);
       const value = getEntryFieldValue_(entry, header, key);
-      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword'].includes(key);
       const input = renderEditInput_(header, key, value);
-      if (input === '') return '';
+      if (input === '') return;
       const jobAlert = key === 'current_job_count' && typeof getJobCountAlert === 'function'
         ? getJobCountAlert(entry)
         : null;
       const jobAlertText = jobAlert ? `<div class="job-count-alert-message">${escapeHtml(jobAlert.message)}</div>` : '';
-      const section = sectionMap[key] || '';
-      let sectionHeading = '';
-      if (section && section !== lastSection) {
-        lastSection = section;
-        sectionHeading = `<div class="modal-section-head full-width">${escapeHtml(section)}</div>`;
-      }
-      return `
-        ${sectionHeading}
-        <div class="form-group ${isFullWidth ? 'full-width' : ''} ${jobAlert ? 'has-job-count-alert' : ''}" data-field="${escapeAttribute(key)}">
+      const isFullWidth = fullWidthKeys.has(key);
+      const section = sectionMap[key];
+      const sectionAttr = section ? ` data-section="${escapeAttribute(section)}"` : '';
+      const fieldHtml = `
+        <div class="form-group ${isFullWidth ? 'full-width' : ''} ${jobAlert ? 'has-job-count-alert' : ''}" data-field="${escapeAttribute(key)}"${sectionAttr}>
           <label>${escapeHtml(getModalFieldLabel_(header, key))}</label>
           ${input}
           ${jobAlertText}
         </div>
       `;
-    }).join('');
+      if (section && buckets[section]) {
+        buckets[section].push(fieldHtml);
+      } else {
+        unmapped.push(fieldHtml);
+      }
+    });
+
+    const parts = [];
+    sectionOrder.forEach(name => {
+      const fields = buckets[name];
+      if (!fields.length) return;
+      parts.push(`<div class="modal-section-head full-width" data-section-head="${escapeAttribute(name)}">${escapeHtml(name)}</div>`);
+      parts.push(fields.join(''));
+    });
+    if (unmapped.length) parts.push(unmapped.join(''));
+
+    container.innerHTML = parts.join('');
+  }
+
+  // 入力制御で全フィールドが非表示になったセクションの見出しを隠す
+  function updateSectionHeadingVisibility_(modal) {
+    if (!modal) return;
+    modal.querySelectorAll('.modal-section-head[data-section-head]').forEach(head => {
+      const name = head.getAttribute('data-section-head');
+      const fields = modal.querySelectorAll(`.form-group[data-section="${cssAttrEscape_(name)}"]`);
+      let anyVisible = false;
+      fields.forEach(group => {
+        const hidden = group.hidden || group.style.display === 'none';
+        if (!hidden) anyVisible = true;
+      });
+      head.style.display = anyVisible ? '' : 'none';
+    });
+  }
+
+  function cssAttrEscape_(value) {
+    return String(value == null ? '' : value).replace(/["\\]/g, '\\$&');
   }
 
   function syncReviewerLock_(modalId = 'editModal') {
@@ -1533,6 +1580,8 @@
       const sheetState = getInputControlStateFromSheet_(key, modalKey, formatKey);
       if (sheetState) applyNormalizedInputControlState_(modal, key, sheetState);
     });
+
+    updateSectionHeadingVisibility_(modal);
   }
 
   function applyAutoJobFieldControls_(modal, isAutoJob) {
