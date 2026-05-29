@@ -714,8 +714,11 @@
     if (isR) {
       btnSetting.disabled = true;
       btnSetting.title = '設定者がRの配信は「設定」を使用しません。「確認」で確定してください。';
-    } else if (btnSetting.title && btnSetting.title.indexOf('設定者がR') === 0) {
-      btnSetting.title = '';
+    } else {
+      btnSetting.disabled = false;
+      if (btnSetting.title && btnSetting.title.indexOf('設定者がR') === 0) {
+        btnSetting.title = '';
+      }
     }
   }
 
