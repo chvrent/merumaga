@@ -22,6 +22,7 @@
 | 2026-05-27 | 1.12 | `confirmed_by` / `confirmed_at` フィールドの廃止。アプリ内で使用されていないため、ロジックから削除。本番デプロイ済み（@572）。 | Gemini |
 | 2026-05-27 | 1.13 | PR管理「紐づいたメルマガ」バグ修正。`savePRDataUnlocked_` を delete-and-reinsert 方式に変更し、チェックを外したメルマガが残存し続ける問題を解消。`app_pr_targets` スキーマ・採番仕様・PRラベル紐付けロジックを仕様書に明文化。 | Claude Sonnet |
 | 2026-05-28 | 1.14 | 下書き機能の仕様整備。一覧に「下書きのみ」フィルターチップを追加。「配信中」ビューから下書きを除外（これまで混入していた）。カレンダー・PR判定への非掲出は既存仕様を維持。 | Claude Sonnet |
+| 2026-05-29 | 1.25 | **配信編集モーダルのフッターボタンが全幅セグメント化していた不具合を修正（UI案のコンパクト形へ復帰）** — `Styles.html` に旧 `.modal-action-footer` + `.modal-footer-btn` の全幅セグメント定義（`flex:1` / `.primary-btn{flex:2}` / `padding:13px` / `border:none` / `#btnModalSave,#btnModalClose{border-right:none}`）が残存。コンテナ `.modal-action-footer` はHTML未使用だが、ボタンに付いた `.modal-footer-btn` クラス経由で `flex`/`padding`/`border` がコンパクトフッター（`.mfoot`）のボタンへ漏れ、UI案 `UI/modal_linear.html` の右寄せコンパクトボタンが全幅に引き伸ばされていた（タブ1.24と同じ「重複CSS後勝ち」パターン）。死んだブロックを削除し**フッターボタンCSSの正本を `.mfoot` ブロックに一本化**。あわせて `index.html` で配信停止/再開を `.mfoot-btns` 左端へ移動し `.fsp` を `設定` の前に置いて `設定/確認/保存` を右へまとめ（画像どおりの配置）、`.stop-resume-row` の独立バンドchrome（padding/border-top/bg）を除去しインライン化。ステータスピルは現状の単一ピル（確定済/配信停止中/配信予定）を維持（ユーザー判断）。staging @236。 | Claude Opus |
 | 2026-05-29 | 1.24 | **形式タブが青背景のまま変わらない不具合の真因を除去** — `Client.html` 冒頭に `.modal-tabs-container` / `.modal-tab` を `!important` 付き青（`#1a73e8`）背景で再定義した重複 `<style>` ブロックがあり、`Styles.html` より後に読み込まれるため 1.21〜1.23 のタブCSS変更がすべて上書き無効化されていた。重複ブロックを丸ごと削除し、**タブCSSの正本を `Styles.html` に一本化**。これで下線型（1.23）が実際に反映される。 | Claude Opus |
 | 2026-05-29 | 1.23 | **形式タブを下線（アンダーライン）型に変更** — 1.21 のセグメントコントロール型（角丸グレー枠+白背景）はユーザー意図と異なっていたため、画像指定の下線型に変更。コンテナ（`.modal-tabs-container`）は背景/枠なし+下端区切り線、各タブ（`.modal-tab`）は `flex:1` で等幅・全幅、アクティブは濃い文字+黒い下線（`Styles.html`）。 | Claude Opus |
 | 2026-05-29 | 1.22.1 | **仕様書本文の整備（1.21/1.22 のあるべき姿を明文化）** — 4.5.2「設定・確認の赤塗りキー体系 ※あるべき姿」を新設し、`getCheckItemId` 正規化キーの正本・厳密一致のみ・`5.0` のサーバー書込失敗・アーカイブ列がフルリロード後の永続正本である点・検証手順を記載。3.2/3.3 にモーダルの4セクション分け（`sectionMap` 正本・空見出し非表示・新列は要追記）、形式タブのセグメントコントロール型、ヘッダーのメルマガ名全文表示と `.hf` 左寄せ/幅84pxを明文化。挙動変更なしのドキュメントのみ。 | Claude Opus |
@@ -114,6 +115,11 @@
 - **形式タブの共通デザイン**（配信編集・マスタ共通 / 2026-05-29 SPEC 1.21）:
     - 並び順は `抽出 → フリー → 自動求人特集 → その他`（`index.html` の `modal-tabs-container`）。HTML 上の並びは表示順のみを決め、実際に開くタブは `setModalFormatState` が `CURRENT_ENTRY.format` に基づき active クラスを差し替える。
     - スタイルは**下線（アンダーライン）型**: コンテナ（`.modal-tabs-container`）は背景・枠なしで下端に区切り線（`border-bottom`）。各タブ（`.modal-tab`）は `flex:1` で**等幅・全幅**に並べる。アクティブタブ（`.modal-tab.active`）= 濃い文字 + 下に黒い下線（`border-bottom-color: var(--text)`）、非アクティブ = グレー文字・下線なし。配色/形状を変える場合は `Styles.html` の `.modal-tabs-container` / `.modal-tab` を編集する。
+- **フッターボタンの共通デザイン**（配信編集モーダル / 2026-05-29 SPEC 1.25）:
+    - 固定フッター `.mfoot` は上段にステータス行（`.mfoot-status`）、下段にボタン行（`.mfoot-btns`）。ボタンは**全幅セグメントではなく、右寄せのコンパクトボタン**（`UI/modal_linear.html` 準拠）。`設定`=薄紫（`.state-btn`）、`確認`=薄緑（`.checking-btn`）、`保存して閉じる`=濃色（`.primary-btn`）。
+    - 配置: `.mfoot-btns` の左端に配信停止/再開（`.stop-resume-row`、JSがIDで表示制御）、続いて伸縮スペーサー `.fsp`、右側に `設定 / 確認 / 保存して閉じる` をまとめる。
+    - **フッターボタンCSSの正本は `Styles.html` の「Compact modal footer (.mfoot)」ブロックのみ**。`.modal-footer-btn` を別ブロックで二重定義しないこと。過去 `.modal-action-footer` 用の旧定義（`flex:1` / `.primary-btn{flex:2}` / `padding:13px` / `border:none`）が残り、後勝ち＋ボタンへの `flex` 漏れでコンパクトボタンが全幅化する不具合が起きた（タブ1.24と同型の重複CSS事故）。
+    - ステータスピル（`#delivery-status-pill`）は**単一ピル**（`確定済` / `配信停止中` / `配信予定`）。UI案 `modal_linear.html` の「設定済 → 確認待ち」2段進捗は実装しない（確定/停止という運用上重要な状態を優先するユーザー判断 / SPEC 1.25）。
 - **マスタ新規追加 (#addMasterModal)**:
     - 最上部に「形式」タブ（上記共通デザイン）を配置。
     - **タブクリック時の連動ルール**:
