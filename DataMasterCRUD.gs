@@ -104,7 +104,23 @@ function getSheetHeaderMap_(sheet, minColumns = 0) {
 }
 
 function saveMasterData(sheetName, payload) {
-  return withScriptLock_(() => saveMasterDataUnlocked_(sheetName, payload));
+  return withScriptLock_(() => {
+    const result = saveMasterDataUnlocked_(sheetName, payload);
+    // ⑩ 新規作成・下書き保存時にコメント自動投稿
+    if (result && result.action === 'insert' && result.id && sheetName === SCHEDULE_SHEET_NAME) {
+      try {
+        const isDraft = isTruthy_(payload && payload.is_draft);
+        const commentText = isDraft ? 'メルマガを下書き保存しました' : 'メルマガを新規作成しました';
+        const targetDate = normalizeCommentTargetDate_(payload && (payload.start_date || payload.delivery_date))
+          || Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy-MM-dd');
+        saveCommentUnlocked_(result.id, commentText, targetDate || '');
+      } catch (e) {
+        // コメント投稿失敗はメルマガ保存自体をエラーにしない
+        console.error('Auto-comment failed: ' + (e && e.message ? e.message : e));
+      }
+    }
+    return result;
+  });
 }
 
 function saveMasterDataUnlocked_(sheetName, payload) {
