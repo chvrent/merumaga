@@ -691,12 +691,14 @@
       }
     }
 
-    // select値 と CURRENT_ENTRY の両方から設定者を判定（select が未populated の場合に備える）
+    // select値があればそちらで判定、空（options再構築中）なら CURRENT_ENTRY にフォールバック
+    // OR にすると CURRENT_ENTRY が R のままなので、select で非R に変えても解除されない
     const selectAssignee = String(assigneeEl.value || '').trim();
     const entryAssignee = (modalId === 'editModal' && CURRENT_ENTRY)
       ? String(getValueByKeys(CURRENT_ENTRY, ['assignee', '設定者', 'setter']) || '').trim()
       : '';
-    const isR = selectAssignee.toUpperCase() === 'R' || entryAssignee.toUpperCase() === 'R';
+    const effectiveAssignee = selectAssignee || entryAssignee;
+    const isR = effectiveAssignee.toUpperCase() === 'R';
     if (isR) {
       reviewerEl.value = '';
       reviewerEl.disabled = true;
@@ -2194,10 +2196,13 @@
   async function handleModalToggleSetting_() {
     if (!CURRENT_ENTRY) return;
     // 設定者Rの場合は何もしない（ボタンは非活性のはずだが安全弁）
-    const currentSetter = String(
+    // select値があればそちらを優先（ユーザーが変更した場合を反映）
+    const setterSelect = document.querySelector('#editModal [name="setter"]');
+    const selectSetter = String((setterSelect && setterSelect.value) || '').trim().toUpperCase();
+    const entrySetter = String(
       getValueByKeys(CURRENT_ENTRY, ['assignee', '設定者', 'setter']) || ''
     ).trim().toUpperCase();
-    if (currentSetter === 'R') return;
+    if ((selectSetter || entrySetter) === 'R') return;
     const checkItemId = getCheckItemId(CURRENT_ENTRY);
     const setterActive = isCheckStatusActive(checkItemId, 'setter');
 
