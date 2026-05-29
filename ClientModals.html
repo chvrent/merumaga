@@ -2028,9 +2028,14 @@
     btnSetting.textContent = setterActive ? '設定取り消し' : '設定';
     btnSetting.classList.toggle('is-cancel-mode', setterActive);
     btnSetting.disabled = false;
-    // 設定者Rは「設定」非活性（確認のみ可）。フォーム未生成時は CURRENT_ENTRY を見る
-    const initialAssignee = String((CURRENT_ENTRY && CURRENT_ENTRY.assignee) || '').trim();
-    applyRSetterButtonLock_(initialAssignee === 'R');
+    // 設定者Rは「設定」非活性（確認のみ可）。
+    // select値 / CURRENT_ENTRY の両方から判定（キー名違い・大文字小文字に対応）
+    const setterSelect = modal.querySelector('[name="setter"]');
+    const setterVal = String(
+      (setterSelect && setterSelect.value) ||
+      getValueByKeys(CURRENT_ENTRY, ['assignee', '設定者', 'setter']) || ''
+    ).trim().toUpperCase();
+    applyRSetterButtonLock_(setterVal === 'R');
 
     btnChecking.disabled = false;
     btnChecking.textContent = checkerActive ? '確認取り消し' : '確認';
@@ -2184,6 +2189,11 @@
 
   async function handleModalToggleSetting_() {
     if (!CURRENT_ENTRY) return;
+    // 設定者Rの場合は何もしない（ボタンは非活性のはずだが安全弁）
+    const currentSetter = String(
+      getValueByKeys(CURRENT_ENTRY, ['assignee', '設定者', 'setter']) || ''
+    ).trim().toUpperCase();
+    if (currentSetter === 'R') return;
     const checkItemId = getCheckItemId(CURRENT_ENTRY);
     const setterActive = isCheckStatusActive(checkItemId, 'setter');
 
