@@ -38,11 +38,28 @@
   }
 
   function linkifyText_(text) {
-    const escaped = escapeHtml(text);
-    return escaped.replace(
-      /(https?:\/\/[^\s<>"'&]+)/g,
-      '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
-    );
+    const raw = String(text == null ? '' : text);
+    // https?:// だけでなく www. 始まりも対象。クエリ文字列(&)も途中で切らない。
+    const urlRe = /(https?:\/\/[^\s<>"]+|www\.[^\s<>"]+)/g;
+    let result = '';
+    let lastIndex = 0;
+    let m;
+    while ((m = urlRe.exec(raw)) !== null) {
+      result += escapeHtml(raw.slice(lastIndex, m.index));
+      let url = m[0];
+      // 末尾の句読点・閉じ括弧はリンクから除外する
+      let trailing = '';
+      const trail = url.match(/[)\]}.,!?、。）】｝＞>]+$/);
+      if (trail) {
+        trailing = url.slice(url.length - trail[0].length);
+        url = url.slice(0, url.length - trail[0].length);
+      }
+      const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+      result += `<a href="${escapeAttribute(href)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>` + escapeHtml(trailing);
+      lastIndex = m.index + m[0].length;
+    }
+    result += escapeHtml(raw.slice(lastIndex));
+    return result;
   }
 
   function renderComments(comments) {
