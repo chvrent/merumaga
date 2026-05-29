@@ -1257,11 +1257,14 @@ thead th {
   justify-content: flex-start;
   padding: 10px 12px;
 }
-/* マスタモーダルはカード全体を1つのスクロール領域にし、保存/キャンセル・削除を追従させない。
-   .form-grid の overflow-y:auto を無効化しないと flex で form だけが内部スクロールし、
-   後続の .modal-actions / .modal-row-actions（削除）が下部に張り付く（追従エリア化）ため。(SPEC 1.28) */
-#masterModal .form-grid { overflow-y: visible; flex-shrink: 0; }
-#masterModal .modal-actions { flex-shrink: 0; }
+/* マスタモーダルのスクロール構造 (SPEC 1.29):
+   - 保存/下書き保存/キャンセル (.modal-actions) は固定フッター（flex-shrink:0・カード最下部に追従）
+   - フォームと削除 (.modal-row-actions) は .master-scroll-body にまとめてスクロール
+   - 削除はスクロール内コンテンツ最下部に置き、固定フッターには含めない（追従させない）
+   .form-grid 自身の overflow を殺してスクロールは .master-scroll-body に一本化する。 */
+#masterModal .modal-card { overflow: hidden; }
+#masterModal .form-grid { overflow-y: visible; }
+.master-scroll-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 .master-stopped-note {
   background: var(--alert-bg);
   border: 1px solid #e8a89e;
