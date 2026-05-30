@@ -1818,9 +1818,16 @@
     const extras = selected.filter(value => optionValues.indexOf(value) === -1);
     if (extras.length) groups.push({ label: 'その他（マスタ外）', items: extras });
 
-    const panel = groups.map(group => `
+    const panel = groups.map(group => {
+      const checkedCount = group.items.filter(val => selected.indexOf(val) !== -1).length;
+      const allChecked = group.items.length > 0 && checkedCount === group.items.length;
+      // 大分類チェックボックス: ONで配下の小分類を一括選択（一部選択は indeterminate を JS で付与）
+      const groupToggle = group.label
+        ? `<label class="ms-group-label"><input type="checkbox" class="ms-group-toggle" ${allChecked ? 'checked' : ''}><span>${escapeHtml(group.label)}</span></label>`
+        : '';
+      return `
       <div class="ms-group">
-        ${group.label ? `<div class="ms-group-label">${escapeHtml(group.label)}</div>` : ''}
+        ${groupToggle}
         <div class="ms-group-items">
           ${group.items.map(val => `
             <label class="ms-opt">
@@ -1828,7 +1835,8 @@
               <span>${escapeHtml(val)}</span>
             </label>`).join('')}
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
 
     // hidden は初期値として元の生値を保持し、チェック変更時のみ「、」区切りへ再シリアライズする。
     // （未操作時に区切り文字差で occurrence_override の誤検知が起きないようにするため）
@@ -1846,15 +1854,30 @@
       </div>`;
   }
 
+  // 大分類トグルの checked / indeterminate を配下の小分類の選択状況から更新する。
+  function updateMasterGroupToggles_(field) {
+    if (!field) return;
+    field.querySelectorAll('.ms-group').forEach(group => {
+      const toggle = group.querySelector('.ms-group-toggle');
+      if (!toggle) return;
+      const items = group.querySelectorAll('.ms-group-items input[type="checkbox"]');
+      let checkedCount = 0;
+      items.forEach(item => { if (item.checked) checkedCount++; });
+      toggle.checked = items.length > 0 && checkedCount === items.length;
+      toggle.indeterminate = checkedCount > 0 && checkedCount < items.length;
+    });
+  }
+
   function syncMasterMultiSelectField_(field) {
     if (!field) return;
-    const checks = field.querySelectorAll('.ms-panel input[type="checkbox"]');
+    const checks = field.querySelectorAll('.ms-group-items input[type="checkbox"]');
     const values = [];
     checks.forEach(check => { if (check.checked) values.push(check.value); });
     const hidden = field.querySelector('input[type="hidden"][data-include-value="true"]');
     if (hidden) hidden.value = values.join('、');
     const chips = field.querySelector('.ms-summary .ms-chips');
     if (chips) chips.innerHTML = renderMasterMultiSelectChips_(values);
+    updateMasterGroupToggles_(field);
   }
 
   function renderMasterFieldInput_(header, key, value, mode) {
@@ -2778,6 +2801,15 @@
       if (!check || check.type !== 'checkbox') return;
       const field = check.closest && check.closest('.ms-field');
       if (!field || !check.closest('.ms-panel')) return;
+      // 大分類トグルON/OFFで配下の小分類を一括チェック/解除
+      if (check.classList.contains('ms-group-toggle')) {
+        const group = check.closest('.ms-group');
+        if (group) {
+          group.querySelectorAll('.ms-group-items input[type="checkbox"]').forEach(item => {
+            item.checked = check.checked;
+          });
+        }
+      }
       syncMasterMultiSelectField_(field);
     });
     document.addEventListener('visibilitychange', () => {

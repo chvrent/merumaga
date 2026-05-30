@@ -1339,12 +1339,19 @@ thead th {
 .ms-group { margin-bottom: 6px; }
 .ms-group:last-child { margin-bottom: 0; }
 .ms-group-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 10px;
   font-weight: 700;
-  color: var(--text-3);
-  padding: 4px 4px 2px;
+  color: var(--text-2);
+  padding: 4px 4px 3px;
   text-transform: none;
+  cursor: pointer;
+  user-select: none;
 }
+.ms-group-label input[type="checkbox"] { margin: 0; }
+.ms-group-label:hover { color: var(--accent); }
 .ms-group-items {
   display: flex;
   flex-wrap: wrap;

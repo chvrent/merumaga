@@ -1892,6 +1892,10 @@
     }
 
     applyCurrentJobCountControls_(modal, isAutoJob);
+    // ④ マスタ複数選択: 大分類トグルの indeterminate 初期状態を反映
+    if (typeof updateMasterGroupToggles_ === 'function') {
+      modal.querySelectorAll('.ms-field').forEach(field => updateMasterGroupToggles_(field));
+    }
     applyValidationCycleControls_(modal);
     applyCycleInputControlMatrix_(modal);
     applyPrMasterControls_(modal);
