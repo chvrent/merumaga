@@ -2175,12 +2175,7 @@
 
     modal.querySelectorAll('input, select, textarea').forEach(el => {
       if (el.id === 'new-comment') return;
-      if (el.name === 'mail_name') return;
-      if (el.tagName === 'SELECT') {
-        el.disabled = true;
-      } else {
-        el.readOnly = true;
-      }
+      el.disabled = true;
     });
 
     modal.classList.add('is-locked-edit');
