@@ -63,7 +63,10 @@
     { type: 'badge', badgeClass: 'pr-label-remove', label: 'PR削除' },
     { type: 'badge', badgeClass: 'pr-label-active', label: 'PR掲出中' }
   ]);
-  const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'pr']);
+  // 配信編集モーダルでロック（マスタ値を表示・占有編集不可）するフィールド。
+  // 新規(is_new)/検証(is_verifying) はメルマガ単位の属性のため、配信(occurrence)単位では
+  // 変更させずマスタ値に紐づける。変更はマスタ編集モーダルで行う。(SPEC 1.47 / START_HERE 準拠)
+  const EDIT_MODAL_LOCKED_FIELDS = Object.freeze(['is_new', 'is_verifying', 'pr']);
   const WEEKDAY_OPTIONS = Object.freeze(['月', '火', '水', '木', '金', '土', '日']);
   const FORMAT_OPTIONS = Object.freeze(['フリー', '抽出', '自動求人特集', 'その他']);
   const AUTO_JOB_CONTROL_FIELDS = Object.freeze(['auto_job_feature_id', 'job_url']);
@@ -516,9 +519,9 @@
         if (!nameText.includes(nameKeyword)) return false;
       }
       if (personKeyword) {
-        // ④ 設定者(assignee)または確認者(reviewer)に該当担当者が入っていれば対象
-        const a = String(row.assignee || '').trim().toLowerCase();
-        const r = String(row.reviewer || '').trim().toLowerCase();
+        // ① 設定者(assignee)または確認者(reviewer)に該当担当者が入っていれば対象（未設定は除外）
+        const a = String(getValueByKeys(row, ['assignee', '設定者', 'setter']) || '').trim().toLowerCase();
+        const r = String(getValueByKeys(row, ['reviewer', '確認者', 'checker']) || '').trim().toLowerCase();
         if (a !== personKeyword && r !== personKeyword) return false;
       }
       return true;
@@ -526,7 +529,7 @@
 
     // スロットマップを事前構築: O(7N + A) で済む（従来は O(98N + 98A)）
     const scheduleSlotMap = buildScheduleSlotMap_(filtered, dates, weekdays);
-    const archivedSlotMap = buildArchivedSlotMap_(nameKeyword);
+    const archivedSlotMap = buildArchivedSlotMap_(nameKeyword, personKeyword);
 
     let html = '<table><thead><tr><th class="time-col" rowspan="2">時間</th>';
     const todayStr = formatDate(new Date());
@@ -546,7 +549,7 @@
       ].filter(Boolean).join(' ');
       const label = `${date.getMonth() + 1}/${date.getDate()} (${weekdays[date.getDay()]})`;
       const headerDateControl = index === 0
-        ? `<input type="date" class="date-header-picker ${isWeekend || isHoliday ? 'is-emphasis-date' : ''} ${isToday ? 'is-today' : ''}" value="${formatDateForInput(date)}" onchange="setCalendarStartDate(this.value)" aria-label="開始日">`
+        ? `<input type="date" class="date-header-picker ${isWeekend || isHoliday ? 'is-emphasis-date' : ''} ${isToday ? 'is-today' : ''}" value="${formatDateForInput(date)}" onchange="setCalendarStartDate(this.value)" onclick="try{this.showPicker()}catch(e){}" aria-label="開始日" title="クリックで日付を選択">`
         : `<div class="date-title">${label}</div>`;
 
       const bulkActions = `
@@ -831,20 +834,22 @@
    * アーカイブ済み発生分を「dateStr|hour」キーで事前グループ化。
    * O(A) で構築し、レンダリング時は O(1) で参照できる。
    */
-  function buildArchivedSlotMap_(keyword) {
+  function buildArchivedSlotMap_(nameKeyword, personKeyword) {
     const map = {};
     Object.values(APP_DATA.archivedOccurrences || {}).forEach(row => {
       const dateStr = normalizeDateString(row && row.target_date);
       const rawHour = normalizeMasterHourValue(row && row.hour) || (row && row.hour) || '';
       const hour = String(rawHour).split(':')[0].trim();
       if (!dateStr || !hour) return;
-      if (keyword) {
-        const text = [
-          row.mail_name, row.weekday, row.hour,
-          row.mail_type || row.category, row.cycle, row.format,
-          row.assignee, row.reviewer, row.source_sheet
-        ].map(v => String(v || '').toLowerCase()).join(' ');
-        if (!text.includes(keyword)) return;
+      // ① メルマガ名フィルター（名前のみ）
+      if (nameKeyword) {
+        if (!String(row.mail_name || '').toLowerCase().includes(nameKeyword)) return;
+      }
+      // ① 担当者フィルター（設定者 or 確認者の完全一致。未設定は除外）
+      if (personKeyword) {
+        const a = String(getValueByKeys(row, ['assignee', '設定者', 'setter']) || '').trim().toLowerCase();
+        const r = String(getValueByKeys(row, ['reviewer', '確認者', 'checker']) || '').trim().toLowerCase();
+        if (a !== personKeyword && r !== personKeyword) return;
       }
       const key = `${dateStr}|${hour}`;
       if (!map[key]) map[key] = [];

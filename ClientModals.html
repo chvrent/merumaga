@@ -609,7 +609,7 @@
     'job_location': '抽出内容', 'job_type': '抽出内容', 'job_keyword': '抽出内容',
   };
   const SECTION_ORDER_ = ['基本設定', 'メルマガ内容', '自動求人特集', 'ステータス', '抽出内容'];
-  const FULLWIDTH_KEYS_ = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'pr_text', 'user_other_condition', 'auto_job_other_condition', 'job_keyword']);
+  const FULLWIDTH_KEYS_ = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'pr_text', 'user_other_condition', 'auto_job_other_condition', 'job_keyword', 'parameter']);
 
   function renderEditModalFields_(entry) {
     const container = document.getElementById('editCoreFields');
@@ -1295,8 +1295,19 @@
   function loadEditMasterChangeHistory_(entry) {
     const section = document.getElementById('editMasterChangeHistory');
     const list = document.getElementById('editMasterChangeHistoryList');
-    if (!section || !list) return;
-    const hide = () => { section.hidden = true; list.innerHTML = ''; };
+    const banner = document.getElementById('editChangeBanner');
+    const setBanner = (show) => {
+      if (!banner) return;
+      if (show) {
+        banner.innerHTML = '<i class="ti ti-alert-triangle" aria-hidden="true"></i>マスタ変更後、最初の配信です（変更あり）。内容をご確認ください。';
+        banner.style.display = '';
+      } else {
+        banner.innerHTML = '';
+        banner.style.display = 'none';
+      }
+    };
+    if (!section || !list) { setBanner(false); return; }
+    const hide = () => { section.hidden = true; list.innerHTML = ''; setBanner(false); };
     if (!entry) { hide(); return; }
     const scheduleId = getValueByKeys(entry, ['schedule_id', 'ID', 'id']) || '';
     const targetDate = normalizeDateString(entry.target_date || '');
@@ -1324,6 +1335,7 @@
         if (!isFirstAfterChange) { hide(); return; }
 
         section.hidden = false;
+        setBanner(true); // ⑤ 変更後初回の配信は「変更あり」表示
         list.innerHTML = entries.map(function(e) {
           return '<div class="history-entry">'
             + '<div class="history-meta">' + escapeHtml(e.timestamp || '') + '　' + escapeHtml(e.user || '') + '</div>'
