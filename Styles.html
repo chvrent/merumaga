@@ -425,7 +425,8 @@ body {
 .content { flex: 1; overflow: auto; position: relative; }
 .master-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .table-container { overflow: auto; max-height: calc(100vh - 88px); }
-.master-table-container { max-height: calc(100vh - 130px); overflow: auto; }
+/* 一覧・PR管理もカレンダー同様に画面いっぱい(残り高さ全体)を使う */
+.master-table-container { flex: 1 1 auto; min-height: 0; max-height: none; overflow: auto; }
 
 /* ---- calendar table ---- */
 table {
@@ -508,50 +509,58 @@ thead th {
 .date-header-picker:focus { outline: none; border-color: var(--accent); }
 .date-cycles {
   display: flex;
-  gap: 5px;
+  gap: 4px;
   flex-wrap: wrap;
+  align-items: center;
+  margin-top: 5px;
   font-size: 10px;
   color: var(--text-3);
 }
 .day-bulk-actions {
   display: flex;
-  gap: 3px;
+  gap: 4px;
   justify-content: flex-start;
-  margin-top: 3px;
+  margin-top: 5px;
   padding-bottom: 1px;
 }
 .bulk-stop-button, .bulk-resume-button {
   font-size: 10px;
-  padding: 1px 6px;
-  border: 1px solid var(--border);
+  padding: 2px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r4);
   background: var(--bg);
   cursor: pointer;
-  color: var(--text-3);
+  color: var(--text-2);
   font-family: inherit;
+  font-weight: 500;
   transition: background 0.1s;
 }
 .bulk-stop-button:hover { background: var(--alert-bg); border-color: #fca5a5; color: var(--alert); }
 .bulk-resume-button:hover { background: var(--ok-bg); border-color: #a7f3d0; color: var(--ok); }
 .bulk-r-button {
   font-size: 10px;
-  padding: 1px 6px;
+  padding: 2px 7px;
   border: 1px solid #a7f3d0;
+  border-radius: var(--r4);
   background: var(--ok-bg);
   color: var(--ok);
   cursor: pointer;
   font-family: inherit;
+  font-weight: 600;
   transition: background 0.1s;
 }
 .bulk-r-button:hover { background: var(--ok); border-color: var(--ok); color: #fff; }
-/* 月末配信期間 note — background matches SCHEDULE_BACKGROUND_COLORS.monthEnd (--color-month-end-bg) */
+/* 月末配信 tag — サイクルチップと同列に並ぶピル。背景は SCHEDULE_BACKGROUND_COLORS.monthEnd 系 */
 .date-note {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
   font-size: 10px;
-  font-weight: 500;
+  font-weight: 600;
   color: #7c3aed;
   background: var(--color-month-end-bg);
   border: 1px solid #c4b5fd;
-  padding: 0 5px;
+  border-radius: 10px;
+  padding: 0 7px;
   line-height: 1.6;
 }
 
@@ -559,10 +568,13 @@ thead th {
 .cycle-chip {
   display: inline-flex;
   align-items: center;
-  padding: 0 5px;
-  border: 1px solid var(--border);
+  padding: 1px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 0 10px 10px 0;
   background: var(--bg-sub);
   font-size: 10px;
+  font-weight: 500;
+  color: var(--text-2);
 }
 .cycle-chip-A { border-color: var(--schedule-line-biweekly-a, #34d399); border-left-width: 3px; }
 .cycle-chip-B { border-color: var(--schedule-line-biweekly-b, #ec4899); border-left-width: 3px; }
@@ -834,7 +846,9 @@ thead th {
 .check-status-cell:hover { outline: 2px solid #fca5a5; outline-offset: -2px; }
 .check-status-cell.is-disabled-check { color: var(--text-3); cursor: default; opacity: 0.6; }
 .check-status-cell.is-disabled-check:hover { outline: none; }
-.is-active-red { background-color: var(--alert-bg) !important; color: var(--alert) !important; }
+/* ⑧ 設定・確認セルのアクティブ表示。occurrence override の赤と被るため
+   「白文字 × 濃い背景(チャコール)」に変更して区別する。 */
+.is-active-red { background-color: var(--text) !important; color: #fff !important; }
 .is-pending-check { box-shadow: inset 0 0 0 2px var(--warn); }
 .is-saving-check { opacity: 0.65; box-shadow: inset 0 0 0 2px var(--border-strong); }
 
@@ -866,7 +880,7 @@ thead th {
   white-space: nowrap;
   min-width: 100px;
   max-width: 280px;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   user-select: none;
   position: sticky;
@@ -1304,11 +1318,14 @@ thead th {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  align-items: center;
   padding: 12px 14px;
   border-top: 1px solid var(--border-strong);
   background: var(--bg-sub);
   flex-shrink: 0;
 }
+/* ⑥ コピーして作成は下部追従エリアの左隅に固定（残りは右寄せ） */
+.modal-actions .modal-actions-left { margin-right: auto; }
 .modal-row-actions {
   display: flex;
   gap: 8px;
@@ -1374,27 +1391,31 @@ thead th {
 .scope-range-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .scope-range-count { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
-/* newsletter selector (PR master modal) */
-.newsletter-selector { grid-column: span 2; border: 1px solid var(--border); border-radius: var(--r8); background: var(--bg); padding: 10px; margin-top: 7px; }
-.newsletter-selector-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; }
-.newsletter-selector-search { flex: 1; min-height: 28px !important; font-size: 11px !important; }
+/* newsletter selector (PR master modal) — ⑤ 新デザイン踏襲 */
+.newsletter-selector { grid-column: span 2; border: 1px solid var(--border-strong); border-radius: var(--r8); background: var(--bg-sub); padding: 12px; margin-top: 8px; }
+.newsletter-selector-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+.newsletter-selector-header strong { font-size: 11px; font-weight: 700; color: var(--text-2); letter-spacing: 0.3px; }
+.newsletter-selector-search { flex: 0 1 240px; min-height: 30px !important; font-size: 12px !important; border: 1px solid var(--border-strong) !important; border-radius: var(--r8) !important; background: var(--bg) !important; padding: 4px 10px !important; }
+.newsletter-selector-search:focus { outline: none; border-color: var(--accent) !important; }
 .newsletter-list {
-  max-height: 220px;
+  max-height: 240px;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 6px;
+  gap: 4px;
   border-top: 1px solid var(--border);
-  padding-top: 8px;
+  padding-top: 10px;
 }
-.newsletter-item { display: flex; align-items: center; gap: 7px; font-size: 11px; padding: 3px 6px; cursor: pointer; }
-.newsletter-item:hover { background: var(--bg-hover); }
+.newsletter-item { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); padding: 5px 9px; border: 1px solid var(--border); border-radius: var(--r8); background: var(--bg); cursor: pointer; transition: background 0.1s, border-color 0.1s; }
+.newsletter-item:hover { background: var(--bg-hover); border-color: var(--border-strong); }
+.newsletter-item:has(input:checked) { background: var(--accent-light); border-color: var(--accent-mid); color: var(--accent-dark); font-weight: 600; }
 .newsletter-item input {
-  width: 13px !important;
-  height: 13px !important;
+  width: 15px !important;
+  height: 15px !important;
   min-height: 0 !important;
   margin: 0;
   cursor: pointer;
+  accent-color: var(--accent);
 }
 
 /* ---- standard buttons ---- */
@@ -1599,9 +1620,10 @@ thead th {
 .copy-done { font-size: 10px; color: var(--ok); flex-shrink: 0; opacity: 0; white-space: nowrap; }
 .name-copy.copied .copy-icon { opacity: 0; }
 .name-copy.copied .copy-done { opacity: 1; }
-.hf { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; width: 84px; }
-.hf-label { font-size: 9px; color: var(--ui-text-3); text-align: left; }
-.hf-ctrl { font-family: inherit; font-size: 11px; font-weight: 500; border: 1px solid var(--ui-border-strong); padding: 2px 5px; background: var(--ui-bg); color: var(--ui-text); width: 100%; text-align: left; min-height: auto !important; border-radius: var(--r4) !important; }
+.hf { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; width: 92px; }
+.hf-label { font-size: 9px; font-weight: 600; letter-spacing: 0.2px; color: var(--ui-text-3); text-align: left; }
+.hf-ctrl { font-family: inherit; font-size: 12px; font-weight: 600; border: 1px solid var(--ui-border-strong); padding: 5px 7px; background: var(--ui-bg); color: var(--ui-text); width: 100%; text-align: left; min-height: 30px !important; border-radius: var(--r4) !important; }
+select.hf-ctrl { cursor: pointer; }
 .hf-ctrl:focus { outline: none; border-color: var(--accent); }
 .hf-ctrl.setter { color: #4338ca; background: #eef2ff; border-color: #c7d2fe; }
 .hf-ctrl.checker { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-border); }

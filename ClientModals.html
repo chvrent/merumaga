@@ -68,7 +68,7 @@
       const key = normalizeScheduleEditKey_(header);
       if (isPrMaster && isHiddenPrMasterInputKey_(key, header)) return '';
       const value = row[key] != null ? row[key] : row[header];
-      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword'].includes(key);
+      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition', 'job_keyword', 'pr_text'].includes(key);
       const input = renderMasterFieldInput_(header, key, value, mode);
       if (input === '') return '';
 
@@ -605,7 +605,7 @@
       'current_job_count': '抽出内容', 'auto_job_other_condition': '抽出内容',
     };
     const sectionOrder = ['基本設定', 'メルマガ内容', 'ステータス', '抽出内容'];
-    const fullWidthKeys = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'parameter', 'auto_job_other_condition', 'job_keyword']);
+    const fullWidthKeys = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition', 'job_keyword']);
 
     const headers = getScheduleEditHeaders_().filter(header => {
       const key = normalizeScheduleEditKey_(header);
@@ -2131,8 +2131,8 @@
         const nameVal = String(row.full_name || row.fullName || row.name || getValueByKeys(row, ['full_name', 'fullName', 'name', 'Name', '名前', '氏名']) || '').trim();
         const resolved = value || nameVal;
         if (!resolved) return null;
-        const label = nameVal || resolved;
-        return { value: resolved, label: label && label !== resolved ? `${resolved} (${label})` : resolved };
+        // ① 設定/確認は略称(initial)のみ表示。フルネームは併記しない。
+        return { value: resolved, label: resolved };
       })
       .filter(Boolean);
   }

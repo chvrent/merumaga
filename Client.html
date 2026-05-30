@@ -53,12 +53,12 @@
     specialCycle: '#8b5cf6'
   });
   const SCHEDULE_LEGEND_ITEMS = Object.freeze([
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.checkingSingle, label: '検証中・サイクル:単発' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthEnd, label: 'サイクル:月末配信' },
-    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.product, label: '担当部署: 商品' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyA, label: '隔週配信A' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyB, label: '隔週配信B' },
-    { type: 'line', color: SCHEDULE_LINE_COLORS.specialCycle, label: 'サイクル:特殊サイクル●' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.checkingSingle, label: '検証中・単発・新規' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.monthEnd, label: '月末配信' },
+    { type: 'background', color: SCHEDULE_BACKGROUND_COLORS.product, label: '商品' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyA, label: '隔週A' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.biweeklyB, label: '隔週B' },
+    { type: 'line', color: SCHEDULE_LINE_COLORS.specialCycle, label: '特殊サイクル' },
     { type: 'badge', badgeClass: 'pr-label-add', label: 'PR追加' },
     { type: 'badge', badgeClass: 'pr-label-remove', label: 'PR削除' },
     { type: 'badge', badgeClass: 'pr-label-active', label: 'PR掲出中' }
@@ -546,12 +546,12 @@
         <th class="${headerClasses}">
           <div class="date-header">
             ${headerDateControl}
-            ${bulkActions}
-            ${monthEndInfo.isInWindow ? '<div class="date-note">月末配信期間</div>' : ''}
             <div class="date-cycles">
               <span class="cycle-chip cycle-chip-${cycleInfo.weekGroup}">${cycleInfo.weekLabel}</span>
               <span class="cycle-chip cycle-chip-${cycleInfo.threeWeekNum}">${cycleInfo.threeWeekLabel}</span>
+              ${monthEndInfo.isInWindow ? '<span class="date-note">月末配信</span>' : ''}
             </div>
+            ${bulkActions}
           </div>
         </th>
       `;
@@ -1616,8 +1616,12 @@
 
   function getMasterTextInputConfig_(header, key, value) {
     const textValue = value == null ? '' : String(value);
-    if (['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'parameter', 'user_other_condition', 'job_keyword', 'auto_job_other_condition', 'pr_text', 'name', 'mail_name'].includes(key)) {
+    if (['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'job_keyword', 'auto_job_other_condition', 'pr_text', 'name', 'mail_name'].includes(key)) {
       return { type: 'textarea', name: key, value: textValue };
+    }
+    // ① パラメータは1行テキスト入力でOK（複数行/長文でも textarea にしない）
+    if (key === 'parameter') {
+      return { type: 'text', name: key, value: textValue };
     }
     if (isDateTimeHeader(header)) {
       return { type: 'datetime-local', name: key, value: normalizeDateTimeLocalString(textValue) };
@@ -2524,6 +2528,13 @@
   function wireEvents() {
     renderScheduleLegend();
     document.addEventListener('click', handleActionClick);
+    // ⑦ 日付入力(input[type=date])はクリックで即ネイティブカレンダーを開く
+    document.addEventListener('click', event => {
+      const t = event.target;
+      if (t && t.tagName === 'INPUT' && t.type === 'date' && typeof t.showPicker === 'function') {
+        try { t.showPicker(); } catch (_) { /* ユーザー操作外などは無視 */ }
+      }
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') scheduleResumeDataRefresh_();
     });
