@@ -593,12 +593,13 @@
     'format': '基本設定', 'cycle': '基本設定', 'weekday': '基本設定', 'hour': '基本設定',
     'start_date': '基本設定', 'end_date': '基本設定', 'sub_category': '基本設定',
     'assignee': '基本設定', 'reviewer': '基本設定', 'delivery_count': '基本設定',
-    // メルマガ内容
+    // メルマガ内容（パラメータもメルマガ内容に含める）
     'mail_content': 'メルマガ内容', 'mail_content_extract': 'メルマガ内容',
     'mail_content_free': 'メルマガ内容', 'notes': 'メルマガ内容', 'pr': 'メルマガ内容',
-    // 自動求人特集（自動求人特集に紐づく項目をまとめる）
+    'parameter': 'メルマガ内容',
+    // 自動求人特集（自動求人特集に紐づく項目をまとめる。求人数もここ）
     'job_url': '自動求人特集', 'auto_job_feature_id': '自動求人特集',
-    'parameter': '自動求人特集', 'auto_job_other_condition': '自動求人特集',
+    'auto_job_other_condition': '自動求人特集', 'current_job_count': '自動求人特集',
     // ステータス
     'is_new': 'ステータス', 'is_verifying': 'ステータス',
     // 抽出内容
@@ -606,7 +607,6 @@
     'user_desired_location': '抽出内容', 'user_experience_job': '抽出内容',
     'user_desired_job': '抽出内容', 'user_other_condition': '抽出内容',
     'job_location': '抽出内容', 'job_type': '抽出内容', 'job_keyword': '抽出内容',
-    'current_job_count': '抽出内容',
   };
   const SECTION_ORDER_ = ['基本設定', 'メルマガ内容', '自動求人特集', 'ステータス', '抽出内容'];
   const FULLWIDTH_KEYS_ = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'pr_text', 'user_other_condition', 'auto_job_other_condition', 'job_keyword']);
@@ -1287,6 +1287,52 @@
     renderEditModalPrDetails_(CURRENT_ENTRY);
     renderNoteLinkButtons_(modal);
     if (typeof renderPrWeekAlert_ === 'function') renderPrWeekAlert_();
+    loadEditMasterChangeHistory_(CURRENT_ENTRY);
+  }
+
+  // ④ マスタ変更があった場合、「変更から初めての配信」の配信編集モーダル最下部に
+  //    マスタ変更履歴を表示する。それ以外の配信では非表示。
+  function loadEditMasterChangeHistory_(entry) {
+    const section = document.getElementById('editMasterChangeHistory');
+    const list = document.getElementById('editMasterChangeHistoryList');
+    if (!section || !list) return;
+    const hide = () => { section.hidden = true; list.innerHTML = ''; };
+    if (!entry) { hide(); return; }
+    const scheduleId = getValueByKeys(entry, ['schedule_id', 'ID', 'id']) || '';
+    const targetDate = normalizeDateString(entry.target_date || '');
+    if (!scheduleId || !targetDate) { hide(); return; }
+
+    google.script.run
+      .withSuccessHandler(function(entries) {
+        if (!entries || !entries.length) { hide(); return; }
+        // 最新のマスタ変更日時を取得し、その日以降の最初の発生日を求める
+        let latestChangeDate = '';
+        entries.forEach(function(e) {
+          const d = e && e.timestamp ? normalizeDateString(String(e.timestamp).replace(/[\/.]/g, '-').split(' ')[0].split('T')[0]) : '';
+          if (d && (!latestChangeDate || d > latestChangeDate)) latestChangeDate = d;
+        });
+        if (!latestChangeDate) { hide(); return; }
+        if (targetDate < latestChangeDate) { hide(); return; }
+        // 変更日〜この配信日までの発生日を列挙し、先頭(=変更後初回)がこの配信なら表示
+        let firstAfter = '';
+        if (typeof computeOccurrenceDatesInRange_ === 'function') {
+          const occ = computeOccurrenceDatesInRange_(entry, latestChangeDate, targetDate) || [];
+          firstAfter = occ.length ? occ[0] : '';
+        }
+        // 発生日が取れない場合は「変更日以降の最初に開いた配信」として targetDate を許容
+        const isFirstAfterChange = firstAfter ? (firstAfter === targetDate) : true;
+        if (!isFirstAfterChange) { hide(); return; }
+
+        section.hidden = false;
+        list.innerHTML = entries.map(function(e) {
+          return '<div class="history-entry">'
+            + '<div class="history-meta">' + escapeHtml(e.timestamp || '') + '　' + escapeHtml(e.user || '') + '</div>'
+            + '<div class="history-diff">' + escapeHtml(e.text || '') + '</div>'
+            + '</div>';
+        }).join('');
+      })
+      .withFailureHandler(function() { hide(); })
+      .getMasterChangeHistory(scheduleId);
   }
 
   // ③ 備考(notes)内のURLを抽出し、欄外にリンクボタンを並べて表示する。

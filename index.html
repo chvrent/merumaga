@@ -54,34 +54,31 @@
 
             <div class="sp"></div>
 
+            <!-- ⑩ メルマガ名・担当者の2系統検索 -->
             <input
               type="text"
               id="searchInput"
               class="topbar-search"
-              placeholder="メルマガ名・担当者"
-              aria-label="カレンダー検索"
+              placeholder="メルマガ名で検索"
+              aria-label="メルマガ名検索"
+            >
+            <input
+              type="text"
+              id="searchPersonInput"
+              class="topbar-search"
+              placeholder="担当者で検索"
+              aria-label="担当者検索"
             >
             <button type="button" id="moveModeToggle" class="tbtn" data-action="toggle-move-mode">
               移動: OFF
-            </button>
-            <button
-              type="button"
-              id="saveDailyChecksButton"
-              class="primary-tbtn"
-              data-action="save-pending-check-statuses"
-              disabled
-            >
-              一括保存（0）
             </button>
 
             <!-- 非表示の日付入力（週移動に使用） -->
             <input type="date" id="startInput" class="hidden-start-input" aria-label="開始日">
           </div>
 
-          <!-- 注記バー -->
-          <div class="screen-note-bar">
-            通常枠・R枠ともに「確認」が赤い場合に、その日付分を差分保護します。通常枠の「設定」は画面上のメモです。
-          </div>
+          <!-- ⑦ PRアナウンスバー（掲出中PRを表示） -->
+          <div id="prAnnounceBar" class="pr-announce-bar" style="display:none;"></div>
 
           <!-- カレンダー本体 -->
           <main class="content">
@@ -135,6 +132,9 @@
 
           <!-- フィルターチップ -->
           <div id="masterFilterChips" class="filter-chips-bar"></div>
+
+          <!-- ⑥ メルマガ一覧の現状ステータスバー（PR管理と同様） -->
+          <div id="masterStatsBar" class="master-stats-bar"></div>
 
           <!-- 一覧テーブル -->
           <main class="master-content">
@@ -223,6 +223,12 @@
                 <button type="button" class="secondary-button small-button" data-action="reload-comments">再読込</button>
               </div>
             </section>
+
+            <!-- ④ マスタ変更履歴（変更から初めての配信のときのみ表示） -->
+            <div id="editMasterChangeHistory" class="master-change-history" hidden>
+              <h3 class="history-heading">マスタ変更履歴</h3>
+              <div id="editMasterChangeHistoryList" class="history-list"></div>
+            </div>
           </div>
         </div>
 

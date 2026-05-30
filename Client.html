@@ -473,6 +473,7 @@
     RENDER_GRID_FRAME = requestAnimationFrame(() => {
       RENDER_GRID_FRAME = null;
       renderScheduleGridNow_();
+      if (typeof renderPrAnnounceBar_ === 'function') renderPrAnnounceBar_();
     });
   }
 
@@ -481,8 +482,11 @@
     const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
     const startInput = document.getElementById('startInput');
     const searchInput = document.getElementById('searchInput');
+    const searchPersonInput = document.getElementById('searchPersonInput');
     const start = startInput.value ? new Date(startInput.value) : getTuesdayWeekStart(getEffectiveToday());
-    const keyword = String(searchInput.value || '').trim().toLowerCase();
+    // ⑩ メルマガ名・担当者で別々に絞り込み
+    const nameKeyword = String(searchInput && searchInput.value || '').trim().toLowerCase();
+    const personKeyword = String(searchPersonInput && searchPersonInput.value || '').trim().toLowerCase();
     const dates = buildDates(start, 7);
     const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
     const holidayDates = getHolidayDateSet();
@@ -492,21 +496,17 @@
     }
 
     const filtered = schedule.filter(row => {
-      if (!keyword) return true;
-      return [
-        row.mail_name,
-        row.weekday,
-        row.hour,
-        row.mail_type || row.category,
-        row.cycle,
-        row.format,
-        row.assignee,
-        row.reviewer,
-        row.source_sheet
-      ]
-        .map(value => String(value || '').toLowerCase())
-        .join(' ')
-        .includes(keyword);
+      if (nameKeyword) {
+        const nameText = String(row.mail_name || '').toLowerCase();
+        if (!nameText.includes(nameKeyword)) return false;
+      }
+      if (personKeyword) {
+        const personText = [row.assignee, row.reviewer]
+          .map(value => String(value || '').toLowerCase())
+          .join(' ');
+        if (!personText.includes(personKeyword)) return false;
+      }
+      return true;
     });
 
     // スロットマップを事前構築: O(7N + A) で済む（従来は O(98N + 98A)）
@@ -1244,8 +1244,41 @@
     renderMasterFilterChips();
   }
 
+  // ⑥ メルマガ一覧の現状ステータスバーを描画（PR管理の pr-stats-bar に準拠）
+  function renderMasterStatsBar_(allRows, shownCount, h) {
+    const bar = document.getElementById('masterStatsBar');
+    if (!bar) return;
+    if (MASTER_DATA.sheetName !== 'app_schedule') { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+    let active = 0, ended = 0, draft = 0, verifying = 0, isNew = 0;
+    allRows.forEach(row => {
+      const d = isDraft(row);
+      if (d) draft++;
+      const rowEnd = h.endDateHeader ? normalizeDateString(getCellByHeader_(row, h.endDateHeader)) : '';
+      const rowInactive = h.inactiveHeader ? isTruthyValue(getCellByHeader_(row, h.inactiveHeader)) : false;
+      const effectivelyInactive = rowInactive || (!!rowEnd && rowEnd < h.today);
+      if (!d && effectivelyInactive) ended++;
+      if (!d && !effectivelyInactive) active++;
+      if (h.verifyingHeader && isTruthyValue(getCellByHeader_(row, h.verifyingHeader))) verifying++;
+      if (h.isNewHeader && isTruthyValue(getCellByHeader_(row, h.isNewHeader))) isNew++;
+    });
+    bar.style.display = '';
+    bar.innerHTML = ''
+      + `<div class="master-si">全 <b>${allRows.length}</b> 件</div>`
+      + `<div class="master-si">表示 <b>${shownCount}</b> 件</div>`
+      + `<div class="master-si"><span class="master-si-dot" style="background:var(--accent)"></span>配信中 <b>${active}</b> 件</div>`
+      + `<div class="master-si"><span class="master-si-dot" style="background:var(--ok)"></span>検証中 <b>${verifying}</b> 件</div>`
+      + `<div class="master-si"><span class="master-si-dot" style="background:var(--warn)"></span>新規 <b>${isNew}</b> 件</div>`
+      + `<div class="master-si"><span class="master-si-dot" style="background:var(--border-strong)"></span>下書き <b>${draft}</b> 件</div>`
+      + `<div class="master-si alert"><span class="master-si-dot" style="background:var(--alert)"></span>停止・終了 <b>${ended}</b> 件</div>`;
+  }
+
   function renderMasterTable() {
-    if (MASTER_DATA.sheetName === 'app_pr') { renderPrCards(); return; }
+    const statsBarEl = document.getElementById('masterStatsBar');
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      if (statsBarEl) { statsBarEl.innerHTML = ''; statsBarEl.style.display = 'none'; }
+      renderPrCards();
+      return;
+    }
     const container = document.getElementById('masterTableContainer');
     const headers = MASTER_DATA.headers || [];
     const visibleHeaders = getVisibleMasterHeaders(headers);
@@ -1292,6 +1325,11 @@
         if (masterFilters.status === 'inactive' && !isEffectivelyInactive) return false;
       }
       return true;
+    });
+
+    // ⑥ メルマガ一覧の現状ステータスバー
+    renderMasterStatsBar_(MASTER_DATA.rows || [], rows.length, {
+      endDateHeader, inactiveHeader, verifyingHeader, isNewHeader, today
     });
 
     if (!headers.length) {
@@ -1938,49 +1976,66 @@
     return Array.from(byPrId.values());
   }
 
-  // ⑥ 表示中の週で PR追加/削除 が必要なメルマガを全件収集する。
-  function getWeekPrActions_() {
+  // ⑥ 配信編集モーダル上部に、この週このメルマガ自身の PR追加/削除のお知らせを表示。
+  function renderPrWeekAlert_() {
+    const el = document.getElementById('editPrWeekAlert');
+    if (!el) return;
+    if (!CURRENT_ENTRY) { el.style.display = 'none'; el.innerHTML = ''; return; }
     const startInput = document.getElementById('startInput');
     const baseDate = startInput && startInput.value
       ? new Date(startInput.value)
       : getTuesdayWeekStart(getEffectiveToday());
     const weekDates = buildDates(baseDate, 7).map(d => formatDate(d));
-    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
     const seen = new Set();
-    const out = [];
-    schedule.forEach(row => {
-      const name = String(getValueByKeys(row, ['mail_name', 'メルマガ名']) || '').trim();
-      if (!name) return;
-      weekDates.forEach(ds => {
-        getPrStates(row, ds).forEach(st => {
-          if (st.status !== 'add' && st.status !== 'remove') return;
-          const key = name + '|' + st.pr_id + '|' + st.status;
-          if (seen.has(key)) return;
-          seen.add(key);
-          out.push({ name: name, status: st.status, prId: st.pr_id });
-        });
+    const msgs = [];
+    weekDates.forEach(ds => {
+      getPrStates(CURRENT_ENTRY, ds).forEach(st => {
+        if (st.status !== 'add' && st.status !== 'remove') return;
+        const key = st.pr_id + '|' + st.status;
+        if (seen.has(key)) return;
+        seen.add(key);
+        msgs.push({ status: st.status, prId: st.pr_id });
       });
     });
-    // 削除を先に、その後追加。メルマガ名で安定ソート。
-    const rank = { remove: 0, add: 1 };
-    out.sort((a, b) => (rank[a.status] - rank[b.status]) || a.name.localeCompare(b.name));
-    return out;
-  }
-
-  // ⑥ 配信編集モーダル上部に、今週 PR追加/削除が必要なメルマガ(全件)のアラートを表示。
-  function renderPrWeekAlert_() {
-    const el = document.getElementById('editPrWeekAlert');
-    if (!el) return;
-    const actions = getWeekPrActions_();
-    if (!actions.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    const items = actions.map(a =>
+    if (!msgs.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const items = msgs.map(m =>
       `<div class="pr-week-alert-item">`
-      + `<span class="pr-week-alert-tag ${a.status}">${a.status === 'add' ? '追加' : '削除'}</span>`
-      + `<span class="pr-week-alert-name">${escapeHtml(a.name)}</span>`
-      + `<span class="pr-week-alert-pr">PR${escapeHtml(String(a.prId))}</span>`
+      + `<span class="pr-week-alert-tag ${m.status}">${m.status === 'add' ? '追加' : '削除'}</span>`
+      + `<span class="pr-week-alert-name">今週、このメルマガに PR${m.status === 'add' ? '追加' : '削除'}があります</span>`
+      + `<span class="pr-week-alert-pr">PR${escapeHtml(String(m.prId))}</span>`
       + `</div>`
     ).join('');
-    el.innerHTML = `<div class="pr-week-alert-head"><i class="ti ti-alert-triangle" aria-hidden="true"></i>今週 PR追加・削除が必要なメルマガ（${actions.length}件）</div><div class="pr-week-alert-list">${items}</div>`;
+    el.innerHTML = `<div class="pr-week-alert-head"><i class="ti ti-speakerphone" aria-hidden="true"></i>PRのお知らせ</div><div class="pr-week-alert-list">${items}</div>`;
+    el.style.display = '';
+  }
+
+  // ⑦ カレンダー上部の PRアナウンスバー（表示中の週に掲出中の PR を並べる）
+  function renderPrAnnounceBar_() {
+    const el = document.getElementById('prAnnounceBar');
+    if (!el) return;
+    const prRows = Array.isArray(APP_DATA.pr) ? APP_DATA.pr : [];
+    const startInput = document.getElementById('startInput');
+    const baseDate = startInput && startInput.value
+      ? new Date(startInput.value)
+      : getTuesdayWeekStart(getEffectiveToday());
+    const weekDates = buildDates(baseDate, 7).map(d => formatDate(d));
+    const weekStart = weekDates[0];
+    const weekEnd = weekDates[weekDates.length - 1];
+    const active = prRows.filter(r => {
+      if (isInactive(r) || isDraft(r)) return false;
+      const s = normalizeDateString(getPrStartDate_(r));
+      const e = normalizeDateString(getPrEndDate_(r));
+      return (!s || s <= weekEnd) && (!e || e >= weekStart);
+    });
+    if (!active.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const chips = active.map(r => {
+      const id = normalizeIdKey(getPrLinkIdFromMasterRow_(r));
+      const title = getPrTitle_(r) || '';
+      const e = normalizeDateString(getPrEndDate_(r));
+      const endLabel = e ? '〜' + e.replace(/-/g, '/') : '';
+      return `<span class="pr-announce-chip">${id ? 'PR' + escapeHtml(String(id)) + ' ' : ''}${escapeHtml(title)}${endLabel ? ' ' + escapeHtml(endLabel) : ''}</span>`;
+    }).join('');
+    el.innerHTML = `<i class="ti ti-speakerphone" aria-hidden="true"></i><strong>PR掲出中：</strong>${chips}`;
     el.style.display = '';
   }
 
@@ -2615,6 +2670,8 @@
     });
     document.getElementById('startInput').addEventListener('change', loadData);
     document.getElementById('searchInput').addEventListener('input', renderScheduleGrid);
+    const searchPersonInputEl = document.getElementById('searchPersonInput');
+    if (searchPersonInputEl) searchPersonInputEl.addEventListener('input', renderScheduleGrid);
     document.getElementById('masterSearchInput').addEventListener('input', renderMasterTable);
     document.getElementById('masterSheetSelect').addEventListener('change', loadActiveMaster);
     document.getElementById('editModal').addEventListener('click', event => {
