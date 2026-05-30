@@ -24,7 +24,20 @@
   const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
-  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false };
+  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false, person: '__all__', columns: {} };
+  // メルマガ一覧の追加フィルタ対象（選択式列）。multi=true は「、」区切りの複数値（地域/職種/年齢）。
+  const MASTER_EXTRA_FILTER_FIELDS_ = Object.freeze([
+    { key: 'weekday', aliases: ['weekday', '曜日'], fallback: '曜日', multi: false },
+    { key: 'hour', aliases: ['hour', '時間', '時刻', '配信時間'], fallback: '時間', multi: false },
+    { key: 'cycle', aliases: ['cycle', 'サイクル', '配信サイクル'], fallback: 'サイクル', multi: false },
+    { key: 'target_age', aliases: ['target_age', '対象年齢', 'USER_年齢', '年齢'], fallback: '年齢', multi: true },
+    { key: 'target_address', aliases: ['target_address', 'USER_現住所', '対象現住所', '現住所'], fallback: '現住所', multi: true },
+    { key: 'user_desired_location', aliases: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'], fallback: '希望勤務地', multi: true },
+    { key: 'job_location', aliases: ['job_location', 'JOB_勤務地'], fallback: 'JOB勤務地', multi: true },
+    { key: 'user_experience_job', aliases: ['user_experience_job', 'USER_経験職種', '経験職種'], fallback: '経験職種', multi: true },
+    { key: 'user_desired_job', aliases: ['user_desired_job', 'USER_希望職種', '希望職種'], fallback: '希望職種', multi: true },
+    { key: 'job_type', aliases: ['job_type', 'JOB_職種'], fallback: 'JOB職種', multi: true }
+  ]);
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     default: '#FFFFFF',
     checkingSingle: '#dbeafe',
@@ -949,6 +962,16 @@
     renderMasterTable();
   }
 
+  function setMasterPersonFilter(value) {
+    masterFilters.person = String(value || '__all__');
+    renderMasterTable();
+  }
+
+  function setMasterColumnFilter(key, value) {
+    masterFilters.columns[key] = String(value || '__all__');
+    renderMasterTable();
+  }
+
   function setMasterStatusFilter(value) {
     masterFilters.status = ['active', 'inactive', 'upcoming', '__all__'].includes(value) ? value : 'active';
     renderMasterTable();
@@ -1015,6 +1038,40 @@
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
   }
 
+  // multi=true は「、」区切りの値を分解し、マスタ/埋め込みの並び順→データ出現順で候補化。
+  function getMasterFilterCandidateValues_(field, header) {
+    if (!field.multi) return getUniqueMasterColumnValues_(header);
+    const ordered = [];
+    const seen = new Set();
+    const options = (typeof getMasterMultiSelectOptions_ === 'function') ? getMasterMultiSelectOptions_(field.key) : null;
+    if (Array.isArray(options)) {
+      options.forEach(option => {
+        const v = String(option && option.value != null ? option.value : '').trim();
+        if (v && !seen.has(v)) { seen.add(v); ordered.push(v); }
+      });
+    }
+    (MASTER_DATA.rows || []).forEach(row => {
+      parseMultiSelectValue_(getCellByHeader_(row, header)).forEach(v => {
+        if (v && !seen.has(v)) { seen.add(v); ordered.push(v); }
+      });
+    });
+    return ordered;
+  }
+
+  function getMasterPersonCandidates_() {
+    const assigneeHeader = findMasterHeaderByAliases_(['assignee', '設定者', 'setter']);
+    const reviewerHeader = findMasterHeaderByAliases_(['reviewer', '確認者', 'checker']);
+    const set = new Set();
+    (MASTER_DATA.rows || []).forEach(row => {
+      [assigneeHeader, reviewerHeader].forEach(h => {
+        if (!h) return;
+        const v = String(getCellByHeader_(row, h) || '').trim();
+        if (v) set.add(v);
+      });
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'ja'));
+  }
+
   function renderMasterFilterSelect_(id, label, value, values, handlerName) {
     if (!values.length) return '';
     return `
@@ -1057,6 +1114,8 @@
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
       masterFilters.draftOnly = false;
+      masterFilters.person = '__all__';
+      masterFilters.columns = {};
       return;
     }
     if (isPrMasterSheet) {
@@ -1067,6 +1126,8 @@
       masterFilters.newOnly = false;
       masterFilters.verifyingOnly = false;
       masterFilters.draftOnly = false;
+      masterFilters.person = '__all__';
+      masterFilters.columns = {};
       if (!masterFilters.status) masterFilters.status = '__all__';
       const prStatusChips = [
         { value: '__all__', label: 'すべて' },
@@ -1121,7 +1182,31 @@
       'setMasterCategoryFilter'
     );
 
-    container.innerHTML = [renderMasterStatusChips_(), newOnlyChip, verifyingOnlyChip, draftOnlyChip, subCategorySelect, formatSelect, categorySelect].filter(Boolean).join('');
+    // 担当者(設定者or確認者)フィルタ
+    const personSelect = renderMasterFilterSelect_(
+      'masterPersonSelect',
+      '担当者',
+      masterFilters.person,
+      getMasterPersonCandidates_(),
+      'setMasterPersonFilter'
+    );
+
+    // その他の選択式列(曜日/時間/サイクル/地域系/職種系/年齢)を一括でフィルタ化
+    const extraSelects = MASTER_EXTRA_FILTER_FIELDS_.map(field => {
+      const header = findMasterHeaderByAliases_(field.aliases);
+      if (!header) return '';
+      const values = getMasterFilterCandidateValues_(field, header);
+      if (!values.length) return '';
+      const current = masterFilters.columns[field.key] || '__all__';
+      const label = getMasterFilterLabel_(header, field.fallback);
+      return `
+        <select class="filter-select" onchange="setMasterColumnFilter('${escapeAttribute(field.key)}', this.value)">
+          <option value="__all__" ${current === '__all__' ? 'selected' : ''}>${label}: すべて</option>
+          ${values.map(v => `<option value="${escapeAttribute(v)}" ${v === current ? 'selected' : ''}>${escapeHtml(v)}</option>`).join('')}
+        </select>`;
+    }).join('');
+
+    container.innerHTML = [renderMasterStatusChips_(), newOnlyChip, verifyingOnlyChip, draftOnlyChip, subCategorySelect, formatSelect, categorySelect, personSelect, extraSelects].filter(Boolean).join('');
   }
 
   function setMasterVerifyingOnly(checked) {
@@ -1313,11 +1398,35 @@
     const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止', '停止', '無効']);
     const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
+    const assigneeHeader = findMasterHeaderByAliases_(['assignee', '設定者', 'setter']);
+    const reviewerHeader = findMasterHeaderByAliases_(['reviewer', '確認者', 'checker']);
+    // 追加の選択式列フィルタ: 適用中のものだけ header を解決しておく
+    const activeExtraFilters = (MASTER_DATA.sheetName === 'app_schedule')
+      ? MASTER_EXTRA_FILTER_FIELDS_
+          .map(field => ({ field, value: masterFilters.columns[field.key] || '__all__' }))
+          .filter(entry => entry.value !== '__all__')
+          .map(entry => ({ field: entry.field, value: entry.value, header: findMasterHeaderByAliases_(entry.field.aliases) }))
+          .filter(entry => entry.header)
+      : [];
     const today = formatDate(new Date());
 
     const rows = (MASTER_DATA.rows || []).filter(row => {
       if (keyword && !Object.values(row).map(v => v == null ? '' : String(v)).join(' ').toLowerCase().includes(keyword)) {
         return false;
+      }
+      if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.person !== '__all__') {
+        const assigneeVal = assigneeHeader ? String(getCellByHeader_(row, assigneeHeader) || '').trim() : '';
+        const reviewerVal = reviewerHeader ? String(getCellByHeader_(row, reviewerHeader) || '').trim() : '';
+        if (assigneeVal !== masterFilters.person && reviewerVal !== masterFilters.person) return false;
+      }
+      for (let i = 0; i < activeExtraFilters.length; i++) {
+        const entry = activeExtraFilters[i];
+        const cell = getCellByHeader_(row, entry.header);
+        if (entry.field.multi) {
+          if (parseMultiSelectValue_(cell).indexOf(entry.value) === -1) return false;
+        } else if (String(cell || '').trim() !== entry.value) {
+          return false;
+        }
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.subcategory !== '__all__' && subCategoryHeader) {
         if (String(getCellByHeader_(row, subCategoryHeader) || '').trim() !== masterFilters.subcategory) return false;
