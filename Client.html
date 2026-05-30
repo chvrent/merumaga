@@ -24,19 +24,24 @@
   const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
-  const masterFilters = { subcategory: '__all__', format: '__all__', category: '__all__', status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false, person: '__all__', columns: {} };
-  // メルマガ一覧の追加フィルタ対象（選択式列）。multi=true は「、」区切りの複数値（地域/職種/年齢）。
-  const MASTER_EXTRA_FILTER_FIELDS_ = Object.freeze([
-    { key: 'weekday', aliases: ['weekday', '曜日'], fallback: '曜日', multi: false },
-    { key: 'hour', aliases: ['hour', '時間', '時刻', '配信時間'], fallback: '時間', multi: false },
-    { key: 'cycle', aliases: ['cycle', 'サイクル', '配信サイクル'], fallback: 'サイクル', multi: false },
-    { key: 'target_age', aliases: ['target_age', '対象年齢', 'USER_年齢', '年齢'], fallback: '年齢', multi: true },
-    { key: 'target_address', aliases: ['target_address', 'USER_現住所', '対象現住所', '現住所'], fallback: '現住所', multi: true },
-    { key: 'user_desired_location', aliases: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'], fallback: '希望勤務地', multi: true },
-    { key: 'job_location', aliases: ['job_location', 'JOB_勤務地'], fallback: 'JOB勤務地', multi: true },
-    { key: 'user_experience_job', aliases: ['user_experience_job', 'USER_経験職種', '経験職種'], fallback: '経験職種', multi: true },
-    { key: 'user_desired_job', aliases: ['user_desired_job', 'USER_希望職種', '希望職種'], fallback: '希望職種', multi: true },
-    { key: 'job_type', aliases: ['job_type', 'JOB_職種'], fallback: 'JOB職種', multi: true }
+  const masterFilters = { status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false, selections: {} };
+  // メルマガ一覧の選択式フィルタ対象。source:'person'=設定者or確認者、'column'=該当列。
+  // multi=true は「、」区切りの複数値（地域/職種/年齢）でセルとの包含一致。
+  const MASTER_FILTER_FIELDS_ = Object.freeze([
+    { key: 'subcategory', aliases: ['sub_category', 'サブカテゴリ', '担当部署'], fallback: '担当部署', multi: false, source: 'column' },
+    { key: 'format', aliases: ['format', '形式'], fallback: '形式', multi: false, source: 'column' },
+    { key: 'category', aliases: ['mail_type', 'category', '種別'], fallback: '種別', multi: false, source: 'column' },
+    { key: 'person', aliases: [], fallback: '担当者', multi: false, source: 'person' },
+    { key: 'weekday', aliases: ['weekday', '曜日'], fallback: '曜日', multi: false, source: 'column' },
+    { key: 'hour', aliases: ['hour', '時間', '時刻', '配信時間'], fallback: '時間', multi: false, source: 'column' },
+    { key: 'cycle', aliases: ['cycle', 'サイクル', '配信サイクル'], fallback: 'サイクル', multi: false, source: 'column' },
+    { key: 'target_age', aliases: ['target_age', '対象年齢', 'USER_年齢', '年齢'], fallback: '年齢', multi: true, source: 'column' },
+    { key: 'target_address', aliases: ['target_address', 'USER_現住所', '対象現住所', '現住所'], fallback: '現住所', multi: true, source: 'column' },
+    { key: 'user_desired_location', aliases: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'], fallback: '希望勤務地', multi: true, source: 'column' },
+    { key: 'job_location', aliases: ['job_location', 'JOB_勤務地'], fallback: 'JOB勤務地', multi: true, source: 'column' },
+    { key: 'user_experience_job', aliases: ['user_experience_job', 'USER_経験職種', '経験職種'], fallback: '経験職種', multi: true, source: 'column' },
+    { key: 'user_desired_job', aliases: ['user_desired_job', 'USER_希望職種', '希望職種'], fallback: '希望職種', multi: true, source: 'column' },
+    { key: 'job_type', aliases: ['job_type', 'JOB_職種'], fallback: 'JOB職種', multi: true, source: 'column' }
   ]);
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     default: '#FFFFFF',
@@ -947,28 +952,17 @@
     }
   }
 
-  function setMasterSubCategoryFilter(value) {
-    masterFilters.subcategory = String(value || '__all__');
-    renderMasterTable();
+  // メルマガ一覧の選択式フィルタは配信編集モーダルと同じ複数選択部品(.ms-field)で描画し、
+  // 選択値は masterFilters.selections[key]（配列・OR一致）に保持する。
+  // 値の更新は ms-field の change 委譲（applyMasterFilterSelection_）で行う。
+  function getMasterFilterSelection_(key) {
+    if (!masterFilters.selections) masterFilters.selections = {};
+    return Array.isArray(masterFilters.selections[key]) ? masterFilters.selections[key] : [];
   }
 
-  function setMasterFormatFilter(value) {
-    masterFilters.format = String(value || '__all__');
-    renderMasterTable();
-  }
-
-  function setMasterCategoryFilter(value) {
-    masterFilters.category = String(value || '__all__');
-    renderMasterTable();
-  }
-
-  function setMasterPersonFilter(value) {
-    masterFilters.person = String(value || '__all__');
-    renderMasterTable();
-  }
-
-  function setMasterColumnFilter(key, value) {
-    masterFilters.columns[key] = String(value || '__all__');
+  function applyMasterFilterSelection_(key, values) {
+    if (!masterFilters.selections) masterFilters.selections = {};
+    masterFilters.selections[key] = Array.isArray(values) ? values : [];
     renderMasterTable();
   }
 
@@ -1917,9 +1911,77 @@
       .filter(Boolean);
   }
 
-  function renderMsChipList_(chips) {
-    if (!chips.length) return '<span class="ms-placeholder">-- 選択してください --</span>';
+  function renderMsChipList_(chips, placeholder) {
+    if (!chips.length) return `<span class="ms-placeholder">${escapeHtml(placeholder || '-- 選択してください --')}</span>`;
     return chips.map(chip => `<span class="ms-chip${chip.isGroup ? ' ms-chip-group' : ''}">${escapeHtml(chip.label)}</span>`).join('');
+  }
+
+  // options(=[{group,value}]) を出現順でグルーピング（値は重複排除）。
+  function groupMultiSelectOptions_(options) {
+    const groups = [];
+    const groupIndex = {};
+    (options || []).forEach(option => {
+      const val = String(option && option.value != null ? option.value : '').trim();
+      if (!val) return;
+      const grp = String(option && option.group != null ? option.group : '').trim();
+      if (!(grp in groupIndex)) { groupIndex[grp] = groups.length; groups.push({ label: grp, items: [] }); }
+      if (groups[groupIndex[grp]].items.indexOf(val) === -1) groups[groupIndex[grp]].items.push(val);
+    });
+    return groups;
+  }
+
+  // 複数選択部品(.ms-field)の共通描画。配信編集モーダル・マスタ・一覧フィルタで共有。
+  //   opts.hiddenName : フォーム送信用 hidden(name) を出す（マスタ/配信編集）。
+  //   opts.rawValue   : hidden の初期生値。
+  //   opts.filterKey  : 一覧フィルタ用。data-ms-filter を付与（hidden は出さない）。
+  //   opts.placeholder: 未選択時のサマリ表示。
+  function renderMultiSelectMarkup_(groups, selected, opts) {
+    opts = opts || {};
+    const selectedArr = Array.isArray(selected) ? selected : [];
+    groups.forEach(group => {
+      if (group.collapsible === false) return;
+      // 「その他（マスタ外）」と、大分類=小分類1個 のグループはトグルを出さない
+      if (group.label === 'その他（マスタ外）') { group.collapsible = false; return; }
+      if (group.label && group.items.length === 1 && group.items[0] === group.label) group.collapsible = false;
+    });
+    const panel = groups.map(group => {
+      const checkedCount = group.items.filter(val => selectedArr.indexOf(val) !== -1).length;
+      const allChecked = group.items.length > 0 && checkedCount === group.items.length;
+      const groupToggle = (group.label && group.collapsible !== false)
+        ? `<label class="ms-group-label"><input type="checkbox" class="ms-group-toggle" ${allChecked ? 'checked' : ''}><span>${escapeHtml(group.label)}</span></label>`
+        : '';
+      return `
+      <div class="ms-group"${group.collapsible === false ? ' data-ms-nocollapse="true"' : ''}>
+        ${groupToggle}
+        <div class="ms-group-items">
+          ${group.items.map(val => `
+            <label class="ms-opt">
+              <input type="checkbox" value="${escapeAttribute(val)}" ${selectedArr.indexOf(val) !== -1 ? 'checked' : ''}>
+              <span>${escapeHtml(val)}</span>
+            </label>`).join('')}
+        </div>
+      </div>`;
+    }).join('');
+    const placeholder = opts.placeholder || '-- 選択してください --';
+    const hidden = opts.hiddenName != null
+      ? `<input type="hidden" name="${escapeAttribute(opts.hiddenName)}" value="${escapeAttribute(opts.rawValue == null ? '' : String(opts.rawValue))}" data-include-value="true">`
+      : '';
+    const fieldAttrs = [
+      opts.fieldId != null ? `data-ms-field="${escapeAttribute(opts.fieldId)}"` : '',
+      opts.filterKey != null ? `data-ms-filter="${escapeAttribute(opts.filterKey)}"` : '',
+      `data-ms-placeholder="${escapeAttribute(placeholder)}"`
+    ].filter(Boolean).join(' ');
+    return `
+      <div class="ms-field${opts.extraClass ? ' ' + opts.extraClass : ''}" ${fieldAttrs}>
+        ${hidden}
+        <details class="ms-dd">
+          <summary class="ms-summary">
+            <span class="ms-chips">${renderMsChipList_(buildMsChipsFromGroups_(groups, new Set(selectedArr)), placeholder)}</span>
+            <span class="ms-caret ti ti-chevron-down" aria-hidden="true"></span>
+          </summary>
+          <div class="ms-panel">${panel}</div>
+        </details>
+      </div>`;
   }
 
   // 大分類が全選択のときは小分類を並べず大分類1個に集約してチップ化する。
