@@ -2,6 +2,12 @@
 
 詳細仕様の正本は `SPEC.md`。このファイルは、作業前に最低限確認する要点です。
 
+## UI / デザイン (1.42 teal 再スキン)
+
+- 見た目の正本は `Styles.html`。デザイントークンは `:root`（Inter フォント / teal アクセント `--accent #0d9488` / 角丸 `--r8 6px`・`--r4 4px`）。
+- トップバー（ナビ）はダーク背景 (`#0d1117` = `var(--text)`)。アクティブタブは teal 下線。配置・機能・HTML構造・クラス名は従来どおりで、`Styles.html` のみで外観を制御する。
+- 主要 CTA（新規追加・一括保存・保存・送信・モーダル primary）とアクティブ状態は teal 系。バッジ/チップはピル型。デザイン見本は `UI/*_new.html`。
+
 ## 作業・Git (merumagaルール)
 
 - 正しい作業場所は `C:\Users\ayana.yokoo\Desktop\mail-magazine-maker`。

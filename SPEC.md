@@ -6,6 +6,7 @@
 
 | 日付 | 版 | 概要 | 担当者 |
 | :--- | :--- | :--- | :--- |
+| 2026-05-30 | 1.42 | **UI刷新（teal 再スキン）** — `UI/*_new.html` のデザイン見本を踏襲し `Styles.html` のデザイントークン・コンポーネント外観のみを刷新。配置・機能・HTML構造・クラス名は不変。Inter フォント、teal アクセント (`--accent #0d9488`)、角丸 (`--r8 6px`/`--r4 4px`)、ピル型バッジ/チップを導入。トップバー（ナビ）をダーク背景 (`#0d1117`) 化し、アクティブタブを teal 下線に。主要ボタン（新規追加・一括保存・保存・送信・確認/設定の primary）と各種アクティブ状態を teal 系へ統一。 | Claude Opus |
 | 2026-05-30 | 1.41 | **配信編集モーダルの設定後ロック強化** — 「設定」または「確認」がON時、配信編集モーダル内の全入力項目を `disabled` 化。CSSセレクタ修正で `opacity: 0.45`, `pointer-events: none`, `cursor: not-allowed` を確実に適用し、編集不可を視覚化。 | Claude Opus |
 | 2026-05-30 | 1.40 | **⑬ カレンダー時間枠ホバーで合計配信数ツールチップ表示** — 各時間枠(セル)にホバーすると、その時間帯の「N件の配信 / 合計 X万 (上限 16万)」をツールチップ(title属性)で表示。メルマガ名リストは非表示化。`occurrence_override` 適用後の実効値を使用。 | Claude Opus |
 | 2026-05-29 | 1.15 | **PR管理一覧の「紐づき先」バッジ表示を復旧** (`APP_DATA.prTargets` を `pr_id` 別に集約しメルマガ名バッジを `.mail-chips`/`.mc` で描画)。**`getNewsletterNameMap_()` のキーを `normalizeIdKey` に統一** (Sheets `5.0` → `5` の表記揺れ吸収)。**毎月第1〜4週目サイクル(M1〜M4)を追加** — `SCHEDULE_CYCLE_OPTIONS`、`normalizeCycleLabel`、`getScheduleCycleType`、配信判定ループ、`isNthWeekOfMonth(date, n)` ヘルパーを実装。 | Claude Sonnet (Gemini作業の取り込み含む) |
