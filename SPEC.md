@@ -117,6 +117,7 @@
   - 職種系（**`app_job_master`**）= `user_experience_job`(USER_経験職種) / `user_desired_job`(USER_希望職種) / `job_type`(JOB_職種)。
   - バックエンド `DataService.gs` の `getPrefMaster()` / `getJobMaster()`（共通ヘルパ `getCategoryMasterOptions_()`）が、各シートを `並び順 / 大分類 / 中(小)分類` の構造で読み込み、`{ group: 大分類, value: 中分類, sort }[]` を `並び順→出現順` で安定ソートして返す。`getInitialData` で `prefMaster` / `jobMaster` として配信。
   - クライアントは `Client.html` の `renderMasterMultiSelectInput_()` が `<details>` ベースの**大分類グルーピング＋チップ表示の複数選択ドロップダウン**を描画（`MASTER_MULTISELECT_KEYS_` でキー→マスタを判定）。マスタ未読込/空のときは従来のテキスト入力にフォールバック。マスタに無い既存値は「その他（マスタ外）」グループとして保持する。
+  - **大分類見出しはチェックボックス（`.ms-group-toggle`）**で、ONにすると配下の小分類を**一括選択**・OFFで一括解除する。一部のみ選択中は `indeterminate` 表示（`updateMasterGroupToggles_()` が子の状況から checked/indeterminate を更新、モーダル開時は `applyDynamicInputControl` 内で初期反映）。**値集計は小分類（`.ms-group-items` 配下）のみ**を対象とし、大分類トグルは集計に含めない。
   - **`hidden` の正本挙動**: 初期値は**元の生値**を保持し、チェック変更時のみ `syncMasterMultiSelectField_()` が「、」区切りへ再シリアライズする。未操作時に区切り文字差で `occurrence_override` の誤検知が起きないようにするための仕様。**変更禁止。**
   - 配信編集・マスタ新規/編集の双方で `renderMasterFieldInput_()` 経由で適用される（`special → multiSelect → select → text` の判定順）。
   - **`app_pr_code_master`**（アコーディオン＋チップ複数選択）は**紐づく列が無いため保留**（対象項目が決まり次第）。
