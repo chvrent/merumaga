@@ -1779,11 +1779,25 @@
     job_type: 'jobMaster'
   });
 
+  // 埋め込み（マスタ非依存）の複数選択候補。年齢(target_age)は単一グループ
+  // 「全て選択する」を大分類トグルとして全選択/全集約に利用する。
+  const AGE_MULTISELECT_OPTIONS_ = Object.freeze(
+    ['19歳以下', '19～25', '26～29', '30～35', '36～39', '40～45', '46～49', '50～55', '56～59', '60～65', '66～69', '70～75', '76～79', '80～85', '86～89', '90～95', '96～99']
+      .map(value => ({ group: '全て選択する', value }))
+  );
+  const EMBEDDED_MULTISELECT_OPTIONS_ = Object.freeze({
+    target_age: AGE_MULTISELECT_OPTIONS_
+  });
+
   function getMasterMultiSelectOptions_(key) {
     const masterName = MASTER_MULTISELECT_KEYS_[key];
-    if (!masterName) return null;
-    const options = (APP_DATA && Array.isArray(APP_DATA[masterName])) ? APP_DATA[masterName] : [];
-    return options;
+    if (masterName) {
+      return (APP_DATA && Array.isArray(APP_DATA[masterName])) ? APP_DATA[masterName] : [];
+    }
+    if (EMBEDDED_MULTISELECT_OPTIONS_[key]) {
+      return EMBEDDED_MULTISELECT_OPTIONS_[key];
+    }
+    return null;
   }
 
   function parseMultiSelectValue_(value) {
@@ -1794,9 +1808,44 @@
       .filter(Boolean);
   }
 
-  function renderMasterMultiSelectChips_(values) {
-    if (!values.length) return '<span class="ms-placeholder">-- 選択してください --</span>';
-    return values.map(value => `<span class="ms-chip">${escapeHtml(value)}</span>`).join('');
+  function renderMsChipList_(chips) {
+    if (!chips.length) return '<span class="ms-placeholder">-- 選択してください --</span>';
+    return chips.map(chip => `<span class="ms-chip${chip.isGroup ? ' ms-chip-group' : ''}">${escapeHtml(chip.label)}</span>`).join('');
+  }
+
+  // 大分類が全選択のときは小分類を並べず大分類1個に集約してチップ化する。
+  // 「その他（マスタ外）」など collapsible=false のグループは常に個別表示。
+  function buildMsChipsFromGroups_(groups, selectedSet) {
+    const chips = [];
+    groups.forEach(group => {
+      const collapsible = group.collapsible !== false && !!group.label;
+      const checkedItems = group.items.filter(val => selectedSet.has(val));
+      if (!checkedItems.length) return;
+      if (collapsible && checkedItems.length === group.items.length) {
+        chips.push({ label: group.label, isGroup: true });
+      } else {
+        checkedItems.forEach(val => chips.push({ label: val, isGroup: false }));
+      }
+    });
+    return chips;
+  }
+
+  function collectMsChipsFromDom_(field) {
+    const chips = [];
+    field.querySelectorAll('.ms-group').forEach(group => {
+      const items = Array.prototype.slice.call(group.querySelectorAll('.ms-group-items input[type="checkbox"]'));
+      const checked = items.filter(item => item.checked);
+      if (!checked.length) return;
+      const toggle = group.querySelector('.ms-group-toggle');
+      const collapsible = group.dataset.msNocollapse !== 'true' && !!toggle;
+      if (collapsible && checked.length === items.length) {
+        const span = toggle.querySelector('span');
+        chips.push({ label: span ? span.textContent : '', isGroup: true });
+      } else {
+        checked.forEach(item => chips.push({ label: item.value, isGroup: false }));
+      }
+    });
+    return chips;
   }
 
   function renderMasterMultiSelectInput_(key, value) {
@@ -1814,9 +1863,9 @@
       if (!(grp in groupIndex)) { groupIndex[grp] = groups.length; groups.push({ label: grp, items: [] }); }
       groups[groupIndex[grp]].items.push(val);
     });
-    // マスタに無い既存値は「その他（マスタ外）」として保持
+    // マスタに無い既存値は「その他（マスタ外）」として保持（集約せず常に個別表示）
     const extras = selected.filter(value => optionValues.indexOf(value) === -1);
-    if (extras.length) groups.push({ label: 'その他（マスタ外）', items: extras });
+    if (extras.length) groups.push({ label: 'その他（マスタ外）', items: extras, collapsible: false });
 
     const panel = groups.map(group => {
       const checkedCount = group.items.filter(val => selected.indexOf(val) !== -1).length;
@@ -1826,7 +1875,7 @@
         ? `<label class="ms-group-label"><input type="checkbox" class="ms-group-toggle" ${allChecked ? 'checked' : ''}><span>${escapeHtml(group.label)}</span></label>`
         : '';
       return `
-      <div class="ms-group">
+      <div class="ms-group"${group.collapsible === false ? ' data-ms-nocollapse="true"' : ''}>
         ${groupToggle}
         <div class="ms-group-items">
           ${group.items.map(val => `
@@ -1846,7 +1895,7 @@
         <input type="hidden" name="${escapeAttribute(key)}" value="${escapeAttribute(rawValue)}" data-include-value="true">
         <details class="ms-dd">
           <summary class="ms-summary">
-            <span class="ms-chips">${renderMasterMultiSelectChips_(selected)}</span>
+            <span class="ms-chips">${renderMsChipList_(buildMsChipsFromGroups_(groups, new Set(selected)))}</span>
             <span class="ms-caret ti ti-chevron-down" aria-hidden="true"></span>
           </summary>
           <div class="ms-panel">${panel}</div>
@@ -1876,7 +1925,7 @@
     const hidden = field.querySelector('input[type="hidden"][data-include-value="true"]');
     if (hidden) hidden.value = values.join('、');
     const chips = field.querySelector('.ms-summary .ms-chips');
-    if (chips) chips.innerHTML = renderMasterMultiSelectChips_(values);
+    if (chips) chips.innerHTML = renderMsChipList_(collectMsChipsFromDom_(field));
     updateMasterGroupToggles_(field);
   }
 
