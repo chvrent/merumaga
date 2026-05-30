@@ -1411,7 +1411,7 @@
     const endHidden = masterFilters.status !== 'inactive' && masterFilters.status !== '__all__';
     let html = `
       <div class="pr-stats-bar">
-        <div class="pr-si"><div class="pr-si-dot" style="background:var(--pink)"></div>掲出中 <b>${allActive.length}</b> 件</div>
+        <div class="pr-si"><div class="pr-si-dot" style="background:var(--accent)"></div>掲出中 <b>${allActive.length}</b> 件</div>
         <div class="pr-si"><div class="pr-si-dot" style="background:var(--ok)"></div>開始予定 <b>${allStart.length}</b> 件</div>
         <div class="pr-si"><div class="pr-si-dot" style="background:var(--border-strong)"></div>終了済 <b>${allEnd.length}</b> 件${endHidden ? '（非表示中）' : ''}</div>
       </div>

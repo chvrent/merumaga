@@ -81,6 +81,7 @@ body {
   padding: 16px 20px;
   background: var(--bg);
   border: 1px solid var(--border-strong);
+  border-radius: var(--r8);
   color: var(--text);
   font-size: 12px;
   font-weight: 600;
@@ -90,7 +91,7 @@ body {
   width: 28px;
   height: 28px;
   border: 3px solid var(--border);
-  border-top-color: var(--text);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: busy-spin 0.7s linear infinite;
 }
@@ -413,6 +414,7 @@ body {
 .filter-chips { padding: 5px 14px; display: flex; flex-wrap: wrap; gap: 5px; }
 .filter-select {
   border: 1px solid var(--border-strong);
+  border-radius: var(--r8);
   padding: 3px 10px;
   background: var(--bg);
   font-size: 11px;
@@ -494,7 +496,8 @@ thead th {
 .date-header-picker {
   width: 100%;
   min-height: 24px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r4);
   padding: 1px 4px;
   background: var(--bg);
   color: var(--text);
@@ -502,6 +505,7 @@ thead th {
   font-size: 11px;
   font-weight: 600;
 }
+.date-header-picker:focus { outline: none; border-color: var(--accent); }
 .date-cycles {
   display: flex;
   gap: 5px;
@@ -912,17 +916,19 @@ thead th {
   display: inline-block;
   background: var(--alert-bg);
   border: 1px solid #fca5a5;
+  border-radius: 10px;
   color: var(--alert);
   font-size: 10px;
   font-weight: 600;
-  padding: 1px 5px;
+  padding: 1px 7px;
   white-space: nowrap;
 }
 .mapping-chips { display: flex; gap: 3px; flex-wrap: wrap; margin-top: 3px; }
 .mapping-chip {
-  padding: 1px 6px;
+  padding: 1px 7px;
   background: var(--bg-sub);
-  border: 1px solid var(--border);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
   font-size: 10px;
   color: var(--text-2);
   white-space: nowrap;
@@ -1101,8 +1107,8 @@ thead th {
   background-color: var(--bg-sub);
   color: var(--text-3);
   border-color: var(--border);
-  /* tabler ti-lock を SVG 背景画像で埋め込む。色は var(--text-3) #999794。 */
-  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23999794' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6z'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
+  /* tabler ti-lock を SVG 背景画像で埋め込む。色は var(--text-3) #7a8490。 */
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%237a8490' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6z'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: 6px center;
   padding-left: 22px;
@@ -1246,8 +1252,9 @@ thead th {
 .modal-status-right { display: flex; gap: 5px; }
 .delivery-status-pill {
   display: none;
-  padding: 4px 9px;
-  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
   background: var(--bg-sub);
   color: var(--text-2);
   font-size: 11px;
@@ -1340,16 +1347,17 @@ thead th {
 /* ⑫ スロット追加ピッカー */
 .slot-add-picker-card { width: min(480px, 95vw); max-height: 80vh; display: flex; flex-direction: column; }
 .slot-add-picker-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; min-height: 0; }
-.slot-add-picker-search { min-height: 32px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; padding: 0 10px; }
-.slot-add-picker-list { flex: 1 1 auto; overflow-y: auto; max-height: 350px; border: 1px solid var(--border); border-radius: 4px; }
+.slot-add-picker-search { min-height: 32px; font-size: 13px; border: 1px solid var(--border-strong); border-radius: var(--r4); padding: 0 10px; }
+.slot-add-picker-search:focus { outline: none; border-color: var(--accent); }
+.slot-add-picker-list { flex: 1 1 auto; overflow-y: auto; max-height: 350px; border: 1px solid var(--border); border-radius: var(--r4); }
 .slot-add-picker-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border); gap: 8px; }
 .slot-add-picker-item:last-child { border-bottom: none; }
 .slot-add-picker-item:hover { background: var(--accent-light); }
 .slot-add-picker-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .slot-add-picker-meta { font-size: 11px; color: var(--muted); white-space: nowrap; display: flex; align-items: center; gap: 4px; }
 .slot-add-picker-badge { font-size: 10px; padding: 1px 5px; border-radius: 3px; }
-.slot-add-picker-badge.draft { background: #fff3cd; color: #856404; }
-.slot-add-picker-badge.stopped { background: #f8d7da; color: #721c24; }
+.slot-add-picker-badge.draft { background: var(--warn-bg); color: var(--warn); border: 1px solid var(--warn-border); }
+.slot-add-picker-badge.stopped { background: var(--alert-bg); color: var(--alert); border: 1px solid #fca5a5; }
 .slot-add-picker-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 12px; }
 .slot-add-picker-new { margin-top: 4px; }
 
@@ -1359,13 +1367,14 @@ thead th {
 .scope-choice-actions { display: grid; gap: 7px; }
 .scope-choice-actions button { min-height: 36px; white-space: normal; }
 .scope-range-row { display: flex; align-items: center; gap: 8px; }
-.scope-range-row input[type="date"] { flex: 1; min-height: 32px; font-size: 13px; border: 1px solid var(--border); border-radius: 4px; padding: 0 8px; }
+.scope-range-row input[type="date"] { flex: 1; min-height: 32px; font-size: 13px; border: 1px solid var(--border-strong); border-radius: var(--r4); padding: 0 8px; }
+.scope-range-row input[type="date"]:focus { outline: none; border-color: var(--accent); }
 .scope-range-row .scope-range-apply { min-width: 80px; }
 .scope-range-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
 .scope-range-count { font-size: 11px; color: var(--muted); margin-top: 2px; }
 
 /* newsletter selector (PR master modal) */
-.newsletter-selector { grid-column: span 2; border: 1px solid var(--border); background: var(--bg); padding: 10px; margin-top: 7px; }
+.newsletter-selector { grid-column: span 2; border: 1px solid var(--border); border-radius: var(--r8); background: var(--bg); padding: 10px; margin-top: 7px; }
 .newsletter-selector-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 10px; }
 .newsletter-selector-search { flex: 1; min-height: 28px !important; font-size: 11px !important; }
 .newsletter-list {
@@ -1593,7 +1602,7 @@ thead th {
 .hf-label { font-size: 9px; color: var(--ui-text-3); text-align: left; }
 .hf-ctrl { font-family: inherit; font-size: 11px; font-weight: 500; border: 1px solid var(--ui-border-strong); padding: 2px 5px; background: var(--ui-bg); color: var(--ui-text); width: 100%; text-align: left; min-height: auto !important; border-radius: var(--r4) !important; }
 .hf-ctrl:focus { outline: none; border-color: var(--accent); }
-.hf-ctrl.setter { color: #3a3a8a; background: #f0f0fa; border-color: #b0b0d8; }
+.hf-ctrl.setter { color: #4338ca; background: #eef2ff; border-color: #c7d2fe; }
 .hf-ctrl.checker { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-border); }
 /* 設定済 / 確認済 でモーダル全体がロックされると applySettingLock_ が
    header の select も disabled にする。ブラウザ既定の disabled スタイルでは
@@ -1601,11 +1610,11 @@ thead th {
    塗りと文字色を保持する。opacity は 1 のまま、pointer-events で操作だけ抑止。 */
 .hf-ctrl.setter:disabled,
 .hf-ctrl.setter[disabled] {
-  color: #3a3a8a !important;
-  background-color: #f0f0fa !important;
-  border-color: #b0b0d8 !important;
+  color: #4338ca !important;
+  background-color: #eef2ff !important;
+  border-color: #c7d2fe !important;
   opacity: 1 !important;
-  -webkit-text-fill-color: #3a3a8a; /* Safari: disabled select の文字色フォールバック */
+  -webkit-text-fill-color: #4338ca; /* Safari: disabled select の文字色フォールバック */
   cursor: default;
 }
 .hf-ctrl.checker:disabled,
@@ -1634,12 +1643,12 @@ thead th {
 .modal-footer-btn i { font-size: 13px; }
 .modal-footer-btn:hover { background: var(--bg-hover); }
 .modal-footer-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
-.modal-footer-btn.state-btn { background: #f0f0fa; color: #3a3a8a; border-color: #b0b0d8; font-weight: 500; }
+.modal-footer-btn.state-btn { background: #eef2ff; color: #4338ca; border-color: #c7d2fe; font-weight: 500; }
 .modal-footer-btn.state-btn.is-cancel-mode { background: var(--alert-bg); color: var(--alert); border-color: #fca5a5; }
-.modal-footer-btn.state-btn:hover { background: #e8e8f5; }
+.modal-footer-btn.state-btn:hover { background: #e0e7ff; }
 .modal-footer-btn.state-btn.is-cancel-mode:hover { background: #fde8e8; }
 .modal-footer-btn.checking-btn { background: var(--ok-bg); color: var(--ok); border-color: var(--ok-border); font-weight: 500; }
-.modal-footer-btn.checking-btn:hover { background: #d0ede0; }
+.modal-footer-btn.checking-btn:hover { background: #dcfce7; }
 .modal-footer-btn.checking-btn.is-cancel-mode { background: var(--alert-bg); color: var(--alert); border-color: #fca5a5; }
 .modal-footer-btn.checking-btn.is-cancel-mode:hover { background: #fde8e8; }
 .modal-footer-btn.primary-btn { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
