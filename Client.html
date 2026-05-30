@@ -583,7 +583,9 @@
         const entries = scheduleSlotMap[`${dateStr}|${hour}`] || [];
         const archivedSlotEntries = archivedSlotMap[`${dateStr}|${hour}`] || [];
         const slotEntries = dedupeSlotEntries_(archivedSlotEntries.concat(entries), dateStr, hour);
-        html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;">`;
+        // ⑬ 時間帯合計配信数ツールチップ
+        const slotTooltip = slotEntries.length > 0 ? buildSlotTooltip_(slotEntries, dateStr, hour) : '';
+        html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;"${slotTooltip}>`;
         if (slotEntries.length) {
           slotEntries.forEach(entry => {
             const renderedPrIds = new Set();
@@ -763,6 +765,30 @@
     }
 
     return cycleMatch ? rowHour : null;
+  }
+
+  /**
+   * ⑬ 時間枠ホバー用ツールチップを構築。
+   * 「N件 / 合計 X万通」形式で返す。配信数が不明なエントリは件数のみ。
+   */
+  function buildSlotTooltip_(slotEntries, dateStr, hour) {
+    let totalCount = 0;
+    let hasCount = false;
+    const names = [];
+    slotEntries.forEach(entry => {
+      const effectiveEntry = applyOccurrenceOverrideObjectToEntry(
+        applyMoveOverrideToEntry(Object.assign({}, entry, { target_date: dateStr })),
+        getOccurrenceOverrideForDate(entry, dateStr)
+      );
+      const name = String(effectiveEntry.mail_name || '').trim();
+      const count = parseFloat(effectiveEntry.delivery_count);
+      if (name) names.push(name + (Number.isFinite(count) ? ' (' + count + '万)' : ''));
+      if (Number.isFinite(count) && count > 0) { totalCount += count; hasCount = true; }
+    });
+    let tip = slotEntries.length + '件の配信';
+    if (hasCount) tip += ' / 合計 ' + (Math.round(totalCount * 10) / 10) + '万通';
+    if (names.length) tip += '\n' + names.join('\n');
+    return ' title="' + escapeAttribute(tip) + '"';
   }
 
   /**
