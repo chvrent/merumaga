@@ -1863,6 +1863,12 @@
       if (!(grp in groupIndex)) { groupIndex[grp] = groups.length; groups.push({ label: grp, items: [] }); }
       groups[groupIndex[grp]].items.push(val);
     });
+    // 大分類＝小分類で1個しかない場合は、重複する大分類トグルを出さず選択肢1個にする
+    groups.forEach(group => {
+      if (group.label && group.items.length === 1 && group.items[0] === group.label) {
+        group.collapsible = false;
+      }
+    });
     // マスタに無い既存値は「その他（マスタ外）」として保持（集約せず常に個別表示）
     const extras = selected.filter(value => optionValues.indexOf(value) === -1);
     if (extras.length) groups.push({ label: 'その他（マスタ外）', items: extras, collapsible: false });
@@ -1871,7 +1877,8 @@
       const checkedCount = group.items.filter(val => selected.indexOf(val) !== -1).length;
       const allChecked = group.items.length > 0 && checkedCount === group.items.length;
       // 大分類チェックボックス: ONで配下の小分類を一括選択（一部選択は indeterminate を JS で付与）
-      const groupToggle = group.label
+      // collapsible=false（大分類=小分類で1個・その他）のグループはトグルを出さない
+      const groupToggle = (group.label && group.collapsible !== false)
         ? `<label class="ms-group-label"><input type="checkbox" class="ms-group-toggle" ${allChecked ? 'checked' : ''}><span>${escapeHtml(group.label)}</span></label>`
         : '';
       return `
