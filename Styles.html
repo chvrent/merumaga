@@ -43,7 +43,7 @@
   --ui-text-2: var(--text-2);
   --ui-text-3: var(--text-3);
   /* month-end background — must match SCHEDULE_BACKGROUND_COLORS.monthEnd in Client.html */
-  --color-month-end-bg: #d9d2e9;
+  --color-month-end-bg: #ede9fe;
   /* legacy aliases kept for JS-generated styles */
   --primary: #0d9488;
   --primary-weak: #ccfbf1;
@@ -544,9 +544,9 @@ thead th {
   display: inline-block;
   font-size: 10px;
   font-weight: 500;
-  color: #6b5fa5;
+  color: #7c3aed;
   background: var(--color-month-end-bg);
-  border: 1px solid #c9c0dc;
+  border: 1px solid #c4b5fd;
   padding: 0 5px;
   line-height: 1.6;
 }
@@ -560,9 +560,9 @@ thead th {
   background: var(--bg-sub);
   font-size: 10px;
 }
-.cycle-chip-A { border-color: var(--schedule-line-biweekly-a, #9bd283); border-left-width: 3px; }
-.cycle-chip-B { border-color: var(--schedule-line-biweekly-b, #e171c0); border-left-width: 3px; }
-.cycle-chip-1, .cycle-chip-2, .cycle-chip-3 { border-color: var(--schedule-line-special-cycle, #8e7cc3); border-left-width: 3px; }
+.cycle-chip-A { border-color: var(--schedule-line-biweekly-a, #34d399); border-left-width: 3px; }
+.cycle-chip-B { border-color: var(--schedule-line-biweekly-b, #ec4899); border-left-width: 3px; }
+.cycle-chip-1, .cycle-chip-2, .cycle-chip-3 { border-color: var(--schedule-line-special-cycle, #8b5cf6); border-left-width: 3px; }
 /* 月末配信期間: th keeps solid bg for sticky scroll; inner date-header is transparent so th bg shows */
 .month-end-header { background: var(--bg-sub); }
 .month-end-header .date-header { background: transparent; }
@@ -612,9 +612,9 @@ thead th {
 .delivery-row.bg-default { background: var(--bg-sub); }
 
 /* cycle border indicators */
-.slot-item.is-biweekly-a { border-left: 4px solid var(--schedule-line-biweekly-a, #9bd283); }
-.slot-item.is-biweekly-b { border-left: 4px solid var(--schedule-line-biweekly-b, #e171c0); }
-.slot-item.is-special-cycle { border-left: 4px solid var(--schedule-line-special-cycle, #8e7cc3); }
+.slot-item.is-biweekly-a { border-left: 4px solid var(--schedule-line-biweekly-a, #34d399); }
+.slot-item.is-biweekly-b { border-left: 4px solid var(--schedule-line-biweekly-b, #ec4899); }
+.slot-item.is-special-cycle { border-left: 4px solid var(--schedule-line-special-cycle, #8b5cf6); }
 
 /* fixed / stopped states */
 .delivery-row.is-fixed {
