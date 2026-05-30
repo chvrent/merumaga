@@ -245,6 +245,7 @@
     }
     if (applyOptions.skipRender) return;
     loadPendingCheckStatuses();
+    populatePersonFilter_();
     renderScheduleGrid();
     updatePendingCheckSaveButton();
     if (IS_MOVE_MODE) setTimeout(initDragAndDrop, 100);
@@ -468,6 +469,20 @@
   }
 
   // rAF ラッパー: 同一フレーム内の連続呼び出しを1回に間引く
+  // ④ 担当者フィルターのプルダウンを app_admin_master(略称) から生成する。
+  function populatePersonFilter_() {
+    const sel = document.getElementById('searchPersonInput');
+    if (!sel) return;
+    const current = sel.value;
+    let options = [];
+    try { options = (typeof getAdminOptionValues === 'function') ? getAdminOptionValues() : []; } catch (_) { options = []; }
+    const seen = new Set();
+    const opts = options.filter(o => o && o.value && !seen.has(o.value) && seen.add(o.value));
+    sel.innerHTML = '<option value="">担当者：すべて</option>'
+      + opts.map(o => `<option value="${escapeAttribute(o.value)}">${escapeHtml(o.label || o.value)}</option>`).join('');
+    if (current && opts.some(o => o.value === current)) sel.value = current;
+  }
+
   function renderScheduleGrid() {
     if (RENDER_GRID_FRAME) cancelAnimationFrame(RENDER_GRID_FRAME);
     RENDER_GRID_FRAME = requestAnimationFrame(() => {
@@ -501,10 +516,10 @@
         if (!nameText.includes(nameKeyword)) return false;
       }
       if (personKeyword) {
-        const personText = [row.assignee, row.reviewer]
-          .map(value => String(value || '').toLowerCase())
-          .join(' ');
-        if (!personText.includes(personKeyword)) return false;
+        // ④ 設定者(assignee)または確認者(reviewer)に該当担当者が入っていれば対象
+        const a = String(row.assignee || '').trim().toLowerCase();
+        const r = String(row.reviewer || '').trim().toLowerCase();
+        if (a !== personKeyword && r !== personKeyword) return false;
       }
       return true;
     });
@@ -678,9 +693,10 @@
             </div>
           `;
           });
-        } else {
-          html += '&nbsp;';
         }
+        // ⑤ 末尾に必ず空欄クリック領域を設ける（最大メルマガ＋1行空欄分の高さ）。
+        //    メルマガが多い列でも、空欄をクリックして新規追加できるようにする。
+        html += '<div class="slot-add-zone" title="クリックで新規メルマガを追加"></div>';
         html += '</td>';
       });
       html += '</tr>';
@@ -1341,10 +1357,6 @@
     const isLimited = rows.length > visibleRows.length;
 
     let html = `
-      <div class="master-result-summary">
-        ${escapeHtml(String(rows.length))}件中 ${escapeHtml(String(visibleRows.length))}件を表示
-        ${isLimited ? `<span>表示を絞るには検索またはフィルターを使ってください。</span>` : ''}
-      </div>
       <table class="master-table"><thead><tr><th class="actions-col">操作</th>
     `;
 
@@ -2671,7 +2683,7 @@
     document.getElementById('startInput').addEventListener('change', loadData);
     document.getElementById('searchInput').addEventListener('input', renderScheduleGrid);
     const searchPersonInputEl = document.getElementById('searchPersonInput');
-    if (searchPersonInputEl) searchPersonInputEl.addEventListener('input', renderScheduleGrid);
+    if (searchPersonInputEl) searchPersonInputEl.addEventListener('change', renderScheduleGrid);
     document.getElementById('masterSearchInput').addEventListener('input', renderMasterTable);
     document.getElementById('masterSheetSelect').addEventListener('change', loadActiveMaster);
     document.getElementById('editModal').addEventListener('click', event => {

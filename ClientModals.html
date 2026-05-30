@@ -1366,6 +1366,11 @@
 
   function openModal(encodedEntry) {
     const entry = JSON.parse(decodeURIComponent(encodedEntry));
+    // ③ カレンダーのメルマガ名クリック(=この行クリック)と同時にメルマガ名をコピー
+    const clickedMailName = String(getValueByKeys(entry, ['mail_name', 'メルマガ名']) || '').trim();
+    if (clickedMailName && typeof copyTextToClipboard_ === 'function') {
+      try { copyTextToClipboard_(clickedMailName); } catch (_) { /* コピー失敗は無視 */ }
+    }
     const targetScheduleId = normalizeIdKey(getValueByKeys(entry, ['schedule_id', 'ID', 'id']));
     const scheduleRow = (APP_DATA.schedule || []).find(row => {
       const rowScheduleId = normalizeIdKey(getValueByKeys(row, ['schedule_id', 'ID', 'id']));
@@ -2028,6 +2033,9 @@
               <button type="button" class="primary-button scope-range-apply" id="scopeRangeApply" disabled>適用</button>
             </div>
             <div class="scope-range-count" id="scopeRangeCount"></div>
+            <!-- ⑥ この日以降をまとめて変更（マスタ編集相当） -->
+            <button type="button" class="primary-button" data-scope-choice="future">この日以降を変更（マスタ編集）</button>
+            <div class="modal-impact-note scope-impact-note">確定済・確認済みではない同じメルマガ予定がすべて変更されます。</div>
             <button type="button" class="secondary-button" data-scope-choice="">キャンセル</button>
           </div>
         </div>

@@ -62,13 +62,13 @@
               placeholder="メルマガ名で検索"
               aria-label="メルマガ名検索"
             >
-            <input
-              type="text"
+            <select
               id="searchPersonInput"
-              class="topbar-search"
-              placeholder="担当者で検索"
-              aria-label="担当者検索"
+              class="topbar-search topbar-search-select"
+              aria-label="担当者で絞り込み"
             >
+              <option value="">担当者：すべて</option>
+            </select>
             <button type="button" id="moveModeToggle" class="tbtn" data-action="toggle-move-mode">
               移動: OFF
             </button>
