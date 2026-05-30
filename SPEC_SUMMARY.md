@@ -7,6 +7,7 @@
 - 見た目の正本は `Styles.html`。デザイントークンは `:root`（Inter フォント / teal アクセント `--accent #0d9488` / 角丸 `--r8 6px`・`--r4 4px`）。
 - トップバー（ナビ）はダーク背景 (`#0d1117` = `var(--text)`)。アクティブタブは teal 下線。配置・機能・HTML構造・クラス名は従来どおりで、`Styles.html` のみで外観を制御する。
 - 主要 CTA（新規追加・一括保存・保存・送信・モーダル primary）とアクティブ状態は teal 系。バッジ/チップはピル型。デザイン見本は `UI/*_new.html`。
+- 種別/サイクルの**データ可視化色（凡例・行背景チント・サイクル左線）の正本は `Client.html` のJS定数** `SCHEDULE_LINE_COLORS` / `SCHEDULE_BACKGROUND_COLORS`。`Styles.html` 側の `--color-month-end-bg` は `SCHEDULE_BACKGROUND_COLORS.monthEnd` と一致必須。サイクル左線は `--schedule-line-*` を JS が setProperty。
 
 ## 作業・Git (merumagaルール)
 
