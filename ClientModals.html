@@ -1225,7 +1225,7 @@
       return;
     }
     // getPrState returns status: 'active'|'add'|'remove'
-    const statusDotColor = { active: 'var(--pink)', add: 'var(--ok)', remove: 'var(--ui-border-strong)' };
+    const statusDotColor = { active: 'var(--accent)', add: 'var(--ok)', remove: 'var(--ui-border-strong)' };
     const statusRowClass = { active: 'pr-active', add: 'pr-start', remove: '' };
     const statusTagClass = { active: 'pt-active', add: 'pt-start', remove: '' };
     const rows = prStatesForModal.map(item => {
@@ -1235,7 +1235,7 @@
       const dotColor = statusDotColor[prState.status] || 'var(--ui-border-strong)';
       const rowCls = statusRowClass[prState.status] || '';
       const tagCls = statusTagClass[prState.status] || '';
-      const nameColor = prState.status === 'active' ? 'pink' : prState.status === 'add' ? 'green' : '';
+      const nameColor = prState.status === 'active' ? 'teal' : prState.status === 'add' ? 'green' : '';
       const endDate = pr.end_date ? String(pr.end_date).replace(/-/g, '/') : '';
       const startDate = pr.start_date ? String(pr.start_date).replace(/-/g, '/') : '';
       const dateStr = startDate && endDate ? `${startDate}〜${endDate}` : (endDate ? `〜${endDate}` : startDate);

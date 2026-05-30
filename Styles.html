@@ -636,9 +636,9 @@ thead th {
 .delivery-row.is-stopped .col-setter,
 .delivery-row.is-stopped .col-checker { color: var(--text-3); text-decoration: line-through; }
 /* 変更点: red text only — no background tint */
-.delivery-row.has-occurrence-overrides { box-shadow: inset 3px 0 0 var(--pink); }
+.delivery-row.has-occurrence-overrides { box-shadow: inset 3px 0 0 var(--alert); }
 .delivery-row .is-occurrence-overridden {
-  color: var(--pink);
+  color: var(--alert);
   font-weight: 600;
 }
 
@@ -816,9 +816,9 @@ thead th {
   max-width: 100%;
   margin-top: 2px;
   padding: 1px 5px;
-  border: 1px solid var(--pink-border);
-  background: var(--pink-bg);
-  color: var(--pink);
+  border: 1px solid #fca5a5;
+  background: var(--alert-bg);
+  color: var(--alert);
   font-size: 10px;
   font-weight: 600;
   white-space: normal;
@@ -961,12 +961,12 @@ thead th {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 9px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-sub);
   flex-shrink: 0;
 }
-.modal-header h2 { margin: 0; font-size: 12px; font-weight: 600; color: var(--text); }
+.modal-header h2 { margin: 0; font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: -0.2px; }
 .icon-button {
   background: transparent;
   border: none;
@@ -1036,9 +1036,9 @@ thead th {
 
 /* master modal mode styles */
 #masterModal[data-mode="edit"] .modal-card { border-top: 3px solid var(--accent); }
-#masterModal[data-mode="master"] .modal-card { border-top: 3px solid var(--alert); }
-#masterModal[data-mode="master"] .modal-header { background: var(--alert-bg); }
-#masterModal[data-mode="master"] .modal-header h2 { color: var(--alert); }
+#masterModal[data-mode="master"] .modal-card { border-top: 3px solid var(--accent); }
+#masterModal[data-mode="master"] .modal-header { background: var(--bg-sub); }
+#masterModal[data-mode="master"] .modal-header h2 { color: var(--text); }
 
 /* form grid */
 .form-grid {
@@ -1121,32 +1121,29 @@ thead th {
 
 /* overridden fields: red text + border only, no background tint */
 .form-group.is-overridden {
-  border-left: 2px solid var(--pink);
+  border-left: 2px solid var(--alert);
   padding-left: 7px;
 }
-.form-group.is-overridden label { color: var(--pink); }
+.form-group.is-overridden label { color: var(--alert); }
 .form-group.is-overridden input,
 .form-group.is-overridden select,
 .form-group.is-overridden textarea {
-  border-color: var(--pink-border);
-  color: var(--pink);
+  border-color: #fca5a5;
+  background: var(--alert-bg);
+  color: var(--alert);
 }
 #editModal .form-group.is-overridden {
-  border-left: 2px solid var(--pink);
+  border-left: 2px solid var(--alert);
   padding-left: 7px;
 }
+/* 新規作成(master mode)はクリーンな配色に統一。広域変更の警告は既存編集時の
+   amber インパクトノート(.modal-impact-note)が担う。過剰な赤テーマは廃止 (1.42)。 */
 #masterModal[data-mode="master"] .form-group {
-  border-left: 3px solid var(--alert);
-  padding-left: 7px;
-  background: var(--alert-bg);
+  border-left: none;
+  padding-left: 0;
+  background: transparent;
 }
-#masterModal[data-mode="master"] .form-group label { color: var(--alert); }
-#masterModal[data-mode="master"] .form-group input,
-#masterModal[data-mode="master"] .form-group select,
-#masterModal[data-mode="master"] .form-group textarea {
-  border-color: #fca5a5;
-  background: #fff7f7;
-}
+#masterModal[data-mode="master"] .form-group label { color: var(--text-3); }
 
 /* job alert fields */
 .form-group.has-job-count-alert label { color: var(--alert); }
@@ -1207,7 +1204,7 @@ thead th {
 }
 .pr-info-item:last-child { border-bottom: none; }
 .pr-info-body { margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; color: var(--text-2); }
-.pr-info-item.active-pr { border-left: 3px solid var(--pink); padding-left: 7px; }
+.pr-info-item.active-pr { border-left: 3px solid var(--accent); padding-left: 7px; }
 .pr-info-item.inactive-pr { color: var(--text-3); border-left: 3px solid var(--border); padding-left: 7px; }
 
 /* comment panel */
@@ -1297,18 +1294,18 @@ thead th {
 /* master modal actions */
 .modal-actions {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   justify-content: flex-end;
-  padding: 12px;
-  border-top: 1px solid var(--border);
+  padding: 12px 14px;
+  border-top: 1px solid var(--border-strong);
   background: var(--bg-sub);
   flex-shrink: 0;
 }
 .modal-row-actions {
   display: flex;
-  gap: 7px;
+  gap: 8px;
   justify-content: flex-start;
-  padding: 10px 12px;
+  padding: 12px 14px;
 }
 /* マスタモーダルのスクロール構造 (SPEC 1.29):
    - 保存/下書き保存/キャンセル (.modal-actions) は固定フッター（flex-shrink:0・カード最下部に追従）
@@ -1400,7 +1397,11 @@ thead th {
   font-size: 12px;
   font-weight: 600;
   transition: background 0.1s;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
+.primary-button i, .secondary-button i, .danger-button i, .resume-button i { font-size: 13px; }
 .primary-button { background: var(--accent); color: #fff; border-color: var(--accent); }
 .primary-button:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
 .secondary-button { background: var(--bg); color: var(--text-2); }
@@ -1629,7 +1630,8 @@ thead th {
 .foot-label { font-size: 11px; color: var(--text-3); }
 .mfoot-btns { display: flex; align-items: center; gap: 6px; }
 .fsp { flex: 1; }
-.modal-footer-btn { padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; border: 1px solid var(--border-strong); border-radius: var(--r8); background: var(--bg); color: var(--text-2); }
+.modal-footer-btn { padding: 6px 12px; font-size: 12px; cursor: pointer; font-family: inherit; border: 1px solid var(--border-strong); border-radius: var(--r8); background: var(--bg); color: var(--text-2); display: inline-flex; align-items: center; gap: 5px; }
+.modal-footer-btn i { font-size: 13px; }
 .modal-footer-btn:hover { background: var(--bg-hover); }
 .modal-footer-btn:disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 .modal-footer-btn.state-btn { background: #f0f0fa; color: #3a3a8a; border-color: #b0b0d8; font-weight: 500; }
@@ -1654,17 +1656,18 @@ thead th {
 /* ===== PR row styles in edit modal ===== */
 .pr-rows { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; }
 .pr-row { display: flex; align-items: flex-start; gap: 7px; padding: 5px 7px; border: 1px solid var(--ui-border); font-size: 11px; background: var(--ui-bg-sub); }
-.pr-row.pr-active { border-color: var(--pink-border); background: var(--pink-bg); }
+.pr-row.pr-active { border-color: var(--accent-mid); background: var(--accent-light); }
 .pr-row.pr-start { border-color: var(--ok-border); background: var(--ok-bg); }
 .pr-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
 .pr-row-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .pr-row-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.pr-row-name { font-weight: 500; }
-.pr-row-name.pink { color: var(--pink); }
+.pr-row-name { font-weight: 600; }
+.pr-row-name.teal { color: var(--accent-dark); }
+.pr-row-name.pink { color: var(--accent-dark); }
 .pr-row-name.green { color: var(--ok); }
 .pr-row-date { font-size: 10px; color: var(--ui-text-3); }
-.pr-row-tag { font-size: 10px; padding: 0 5px; border: 1px solid var(--ui-border); }
-.pr-row-tag.pt-active { color: var(--pink); border-color: var(--pink-border); background: var(--pink-bg); }
+.pr-row-tag { font-size: 10px; padding: 0 6px; border: 1px solid var(--ui-border); border-radius: 10px; font-weight: 600; }
+.pr-row-tag.pt-active { color: var(--accent-dark); border-color: var(--accent-mid); background: var(--accent-light); }
 .pr-row-tag.pt-start { color: var(--ok); border-color: var(--ok-border); background: var(--ok-bg); }
 .pr-row-body {
   font-size: 10px;

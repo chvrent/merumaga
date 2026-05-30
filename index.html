@@ -159,8 +159,8 @@
           <div class="vdiv"></div>
           <div class="name-copy" id="mhead-name-copy" title="クリックしてコピー">
             <span class="name-text" id="mhead-mail-name"></span>
-            <span class="copy-icon">⎘</span>
-            <span class="copy-done">コピー済</span>
+            <i class="ti ti-copy copy-icon" aria-hidden="true"></i>
+            <span class="copy-done">コピー済 ✓</span>
           </div>
           <div class="vdiv"></div>
           <div class="hf">
@@ -177,7 +177,7 @@
             <span class="hf-label">確認</span>
             <select name="checker" class="hf-ctrl checker"></select>
           </div>
-          <button type="button" class="close-btn" data-action="close-modal" aria-label="閉じる">×</button>
+          <button type="button" class="close-btn" data-action="close-modal" aria-label="閉じる"><i class="ti ti-x" aria-hidden="true"></i></button>
         </div>
 
         <!-- 変更バナー（変更がある場合に表示） -->
@@ -231,13 +231,13 @@
           </div>
           <div class="mfoot-btns">
             <div class="stop-resume-row" id="stopResumeRow" style="display:none;">
-              <button type="button" id="stop-delivery-button" class="stop-btn" data-action="stop-current-delivery" style="display:none">この週を配信停止</button>
-              <button type="button" id="resume-delivery-button" class="resume-btn" data-action="resume-current-delivery" style="display:none">配信を再開する</button>
+              <button type="button" id="stop-delivery-button" class="stop-btn" data-action="stop-current-delivery" style="display:none"><i class="ti ti-player-pause" aria-hidden="true"></i>この週を配信停止</button>
+              <button type="button" id="resume-delivery-button" class="resume-btn" data-action="resume-current-delivery" style="display:none"><i class="ti ti-player-play" aria-hidden="true"></i>配信を再開する</button>
             </div>
             <div class="fsp"></div>
             <button type="button" class="modal-footer-btn state-btn" data-action="modal-toggle-setting" id="btnModalSetting">設定</button>
             <button type="button" class="modal-footer-btn checking-btn" data-action="modal-toggle-checking" id="btnModalChecking">確認</button>
-            <button type="button" class="modal-footer-btn primary-btn" data-action="save-edit" id="btnModalSave">保存して閉じる</button>
+            <button type="button" class="modal-footer-btn primary-btn" data-action="save-edit" id="btnModalSave"><i class="ti ti-device-floppy" aria-hidden="true"></i>保存して閉じる</button>
             <button type="button" class="modal-footer-btn" data-action="close-modal" id="btnModalClose" style="display:none">閉じる</button>
           </div>
         </div>
@@ -308,7 +308,7 @@
             class="primary-button"
             data-action="save-master-edit"
             title="変更を保存します。開始日・終了日の変更はカレンダーに即反映されます。"
-          >保存</button>
+          ><i class="ti ti-device-floppy" aria-hidden="true"></i>保存</button>
           <button type="button" class="secondary-button" data-action="close-master-modal">キャンセル</button>
         </div>
 
