@@ -1102,6 +1102,11 @@ thead th {
   background: var(--bg);
 }
 .form-group textarea { min-height: 72px; resize: vertical; }
+/* ⑦ メルマガ内容・備考は通常の2倍の縦幅 */
+.form-group[data-field="mail_content"] textarea,
+.form-group[data-field="mail_content_extract"] textarea,
+.form-group[data-field="mail_content_free"] textarea,
+.form-group[data-field="notes"] textarea { min-height: 144px; }
 .form-group input[type="checkbox"] {
   width: 14px !important;
   height: 14px !important;
@@ -1176,6 +1181,47 @@ thead th {
   font-weight: 600;
 }
 .previous-value { display: block; font-size: 10px; color: var(--text-3); margin-top: 2px; font-style: italic; }
+
+/* ③ 備考URLの欄外リンクボタン */
+.field-link-buttons { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+.field-link-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 500; text-decoration: none;
+  color: var(--accent-dark); background: var(--accent-light);
+  border: 1px solid var(--accent-mid); border-radius: 20px;
+  padding: 3px 10px; max-width: 100%; cursor: pointer;
+  transition: background 0.1s;
+}
+.field-link-btn:hover { background: var(--accent-mid); }
+.field-link-btn i { font-size: 12px; flex-shrink: 0; }
+.field-link-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ② フッターの3段ステータス進行（設定済 → 確認待ち → 確定済） */
+.delivery-status-steps { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.delivery-status-steps .sc {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
+  border: 1px solid var(--border-strong); color: var(--text-3); background: var(--bg);
+}
+.delivery-status-steps .sc.done { color: var(--ok); border-color: var(--ok-border); background: var(--ok-bg); }
+.delivery-status-steps .sc.wait { color: var(--warn); border-color: var(--warn-border); background: var(--warn-bg); }
+.delivery-status-steps .sc.fixed { color: #fff; border-color: var(--accent); background: var(--accent); }
+.delivery-status-steps .sarrow { font-size: 12px; color: var(--text-3); }
+
+/* ⑥ その週に PR追加/削除が必要なメルマガ アラート（モーダル上部・全件） */
+.pr-week-alert {
+  background: var(--warn-bg); border-bottom: 1px solid var(--warn-border);
+  padding: 8px 12px; font-size: 11px; color: var(--warn); flex-shrink: 0;
+}
+.pr-week-alert-head { display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 4px; }
+.pr-week-alert-head i { font-size: 14px; }
+.pr-week-alert-list { display: flex; flex-direction: column; gap: 3px; max-height: 132px; overflow-y: auto; }
+.pr-week-alert-item { display: flex; align-items: center; gap: 6px; line-height: 1.4; }
+.pr-week-alert-tag { font-size: 10px; font-weight: 700; padding: 0 6px; border-radius: 10px; flex-shrink: 0; }
+.pr-week-alert-tag.add { color: var(--ok); background: var(--ok-bg); border: 1px solid var(--ok-border); }
+.pr-week-alert-tag.remove { color: var(--alert); background: var(--alert-bg); border: 1px solid #fca5a5; }
+.pr-week-alert-name { color: var(--text-2); font-weight: 500; }
+.pr-week-alert-pr { color: var(--text-3); }
 .job-count-alert-message { margin-top: 4px; color: var(--alert); font-size: 11px; font-weight: 600; }
 
 /* cycle button group */
@@ -1620,10 +1666,10 @@ thead th {
 .copy-done { font-size: 10px; color: var(--ok); flex-shrink: 0; opacity: 0; white-space: nowrap; }
 .name-copy.copied .copy-icon { opacity: 0; }
 .name-copy.copied .copy-done { opacity: 1; }
-.hf { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; width: 92px; }
+.hf { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; width: 50px; }
 .hf-label { font-size: 9px; font-weight: 600; letter-spacing: 0.2px; color: var(--ui-text-3); text-align: left; }
-.hf-ctrl { font-family: inherit; font-size: 12px; font-weight: 600; border: 1px solid var(--ui-border-strong); padding: 5px 7px; background: var(--ui-bg); color: var(--ui-text); width: 100%; text-align: left; min-height: 30px !important; border-radius: var(--r4) !important; }
-select.hf-ctrl { cursor: pointer; }
+.hf-ctrl { font-family: inherit; font-size: 12px; font-weight: 600; border: 1px solid var(--ui-border-strong); padding: 5px 5px; background: var(--ui-bg); color: var(--ui-text); width: 100%; text-align: left; min-height: 30px !important; border-radius: var(--r4) !important; }
+select.hf-ctrl { cursor: pointer; padding-right: 2px; }
 .hf-ctrl:focus { outline: none; border-color: var(--accent); }
 .hf-ctrl.setter { color: #4338ca; background: #eef2ff; border-color: #c7d2fe; }
 .hf-ctrl.checker { color: var(--ok); background: var(--ok-bg); border-color: var(--ok-border); }
@@ -1701,6 +1747,7 @@ select.hf-ctrl { cursor: pointer; }
 .pr-row-tag { font-size: 10px; padding: 0 6px; border: 1px solid var(--ui-border); border-radius: 10px; font-weight: 600; }
 .pr-row-tag.pt-active { color: var(--accent-dark); border-color: var(--accent-mid); background: var(--accent-light); }
 .pr-row-tag.pt-start { color: var(--ok); border-color: var(--ok-border); background: var(--ok-bg); }
+/* ⑥ PR本文はどんなに長くても全文表示。クリックでコピー可能。 */
 .pr-row-body {
   font-size: 10px;
   color: var(--ui-text-2);
@@ -1710,10 +1757,15 @@ select.hf-ctrl { cursor: pointer; }
   overflow-wrap: break-word;
   background: var(--ui-bg);
   border: 1px solid var(--ui-border);
-  padding: 4px 6px;
-  max-height: 80px;
-  overflow-y: auto;
+  border-radius: var(--r4);
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: border-color 0.1s, background 0.1s;
 }
+.pr-row-body:hover { border-color: var(--accent-mid); background: var(--accent-light); }
+.pr-row-body.copied { border-color: var(--ok-border); background: var(--ok-bg); }
+.pr-row-body-copyhint { font-size: 9px; color: var(--ui-text-3); margin-top: 3px; display: flex; align-items: center; gap: 3px; }
+.pr-row-body.copied + .pr-row-body-copyhint { color: var(--ok); }
 
 /* ===== PR status filter chips (PR管理画面) ===== */
 .pr-status-chips { display: flex; gap: 4px; padding: 8px 12px; }

@@ -61,21 +61,34 @@
       }
     }
 
-    // マスタモーダル用の一貫したフィールド生成 (form-grid対応)
-    const html = visibleHeaders.map(header => {
-      if (isHiddenMasterInputHeader(header)) return '';
-
+    // ④⑤ マスタ新規/編集も配信編集と同じセクション分け(SECTION_*)でグルーピングする。
+    //     PRマスタ等の未マッピング項目は末尾(セクション見出しなし)へ。
+    const masterBuckets = {};
+    SECTION_ORDER_.forEach(name => { masterBuckets[name] = []; });
+    const masterUnmapped = [];
+    visibleHeaders.forEach(header => {
+      if (isHiddenMasterInputHeader(header)) return;
       const key = normalizeScheduleEditKey_(header);
-      if (isPrMaster && isHiddenPrMasterInputKey_(key, header)) return '';
+      if (isPrMaster && isHiddenPrMasterInputKey_(key, header)) return;
       const value = row[key] != null ? row[key] : row[header];
-      const isFullWidth = ['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition', 'job_keyword', 'pr_text'].includes(key);
+      const isFullWidth = FULLWIDTH_KEYS_.has(key) || key === 'pr_text';
       const input = renderMasterFieldInput_(header, key, value, mode);
-      if (input === '') return '';
+      if (input === '') return;
+      const section = SECTION_MAP_[key];
+      const sectionAttr = section ? ` data-section="${escapeAttribute(section)}"` : '';
+      const fieldHtml = `<div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}"${sectionAttr}><label>${escapeHtml(getModalFieldLabel_(header, key))}</label>${input}</div>`;
+      if (section && masterBuckets[section]) masterBuckets[section].push(fieldHtml);
+      else masterUnmapped.push(fieldHtml);
+    });
+    const masterParts = [];
+    SECTION_ORDER_.forEach(name => {
+      if (!masterBuckets[name].length) return;
+      masterParts.push(`<div class="modal-section-head full-width" data-section-head="${escapeAttribute(name)}">${escapeHtml(name)}</div>`);
+      masterParts.push(masterBuckets[name].join(''));
+    });
+    if (masterUnmapped.length) masterParts.push(masterUnmapped.join(''));
 
-      return `<div class="form-group ${isFullWidth ? 'full-width' : ''}" data-field="${escapeAttribute(key)}"><label>${escapeHtml(getModalFieldLabel_(header, key))}</label>${input}</div>`;
-    }).join('');
-
-    form.innerHTML = html;
+    form.innerHTML = masterParts.join('');
 
     if (isPrMaster) {
       const formatGroup = form.querySelector('[data-field="format"]');
@@ -115,6 +128,8 @@
       setModalVisible_(modal, true);
       // ③ 既存行(編集モード)ならマスタ変更履歴を非同期ロード
       loadMasterChangeHistory_(mode, row);
+      // ③ 備考URLのリンクボタン
+      renderNoteLinkButtons_(modal);
     }
   }
 
@@ -570,6 +585,32 @@
     return canonical != null ? canonical : raw;
   }
 
+  // ④⑤ セクション分け定義（配信編集・マスタ新規/編集で共通利用）
+  //   基本設定 / メルマガ内容 / 自動求人特集 / ステータス / 抽出内容
+  const SECTION_MAP_ = {
+    // 基本設定（マスタ固有の mail_name/設定者/確認者/通数 も基本設定に含める）
+    'schedule_id': '基本設定', 'mail_name': '基本設定', 'mail_type': '基本設定', 'category': '基本設定',
+    'format': '基本設定', 'cycle': '基本設定', 'weekday': '基本設定', 'hour': '基本設定',
+    'start_date': '基本設定', 'end_date': '基本設定', 'sub_category': '基本設定',
+    'assignee': '基本設定', 'reviewer': '基本設定', 'delivery_count': '基本設定',
+    // メルマガ内容
+    'mail_content': 'メルマガ内容', 'mail_content_extract': 'メルマガ内容',
+    'mail_content_free': 'メルマガ内容', 'notes': 'メルマガ内容', 'pr': 'メルマガ内容',
+    // 自動求人特集（自動求人特集に紐づく項目をまとめる）
+    'job_url': '自動求人特集', 'auto_job_feature_id': '自動求人特集',
+    'parameter': '自動求人特集', 'auto_job_other_condition': '自動求人特集',
+    // ステータス
+    'is_new': 'ステータス', 'is_verifying': 'ステータス',
+    // 抽出内容
+    'target_age': '抽出内容', 'target_address': '抽出内容',
+    'user_desired_location': '抽出内容', 'user_experience_job': '抽出内容',
+    'user_desired_job': '抽出内容', 'user_other_condition': '抽出内容',
+    'job_location': '抽出内容', 'job_type': '抽出内容', 'job_keyword': '抽出内容',
+    'current_job_count': '抽出内容',
+  };
+  const SECTION_ORDER_ = ['基本設定', 'メルマガ内容', '自動求人特集', 'ステータス', '抽出内容'];
+  const FULLWIDTH_KEYS_ = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'pr_text', 'user_other_condition', 'auto_job_other_condition', 'job_keyword']);
+
   function renderEditModalFields_(entry) {
     const container = document.getElementById('editCoreFields');
     if (!container) return;
@@ -581,31 +622,10 @@
       'delivery_count'
     ]);
 
-    // セクション分け: キー → セクション名 (1.21 でユーザー要望に合わせ再定義)
-    //   基本設定 : ID 〜 担当部署
-    //   メルマガ内容 : メルマガ内容 〜 パラメータ
-    //   ステータス : 新規 〜 検証中
-    //   抽出内容 : USER_年齢 〜 JOB_フリーワード
-    const sectionMap = {
-      // 基本設定
-      'schedule_id': '基本設定', 'mail_type': '基本設定', 'category': '基本設定',
-      'format': '基本設定', 'cycle': '基本設定', 'weekday': '基本設定', 'hour': '基本設定',
-      'start_date': '基本設定', 'end_date': '基本設定', 'sub_category': '基本設定',
-      // メルマガ内容
-      'mail_content': 'メルマガ内容', 'mail_content_extract': 'メルマガ内容',
-      'mail_content_free': 'メルマガ内容', 'notes': 'メルマガ内容', 'pr': 'メルマガ内容',
-      'job_url': 'メルマガ内容', 'auto_job_feature_id': 'メルマガ内容', 'parameter': 'メルマガ内容',
-      // ステータス
-      'is_new': 'ステータス', 'is_verifying': 'ステータス',
-      // 抽出内容
-      'target_age': '抽出内容', 'target_address': '抽出内容',
-      'user_desired_location': '抽出内容', 'user_experience_job': '抽出内容',
-      'user_desired_job': '抽出内容', 'user_other_condition': '抽出内容',
-      'job_location': '抽出内容', 'job_type': '抽出内容', 'job_keyword': '抽出内容',
-      'current_job_count': '抽出内容', 'auto_job_other_condition': '抽出内容',
-    };
-    const sectionOrder = ['基本設定', 'メルマガ内容', 'ステータス', '抽出内容'];
-    const fullWidthKeys = new Set(['mail_content', 'mail_content_extract', 'mail_content_free', 'notes', 'user_other_condition', 'auto_job_other_condition', 'job_keyword']);
+    // セクション分け定義は共通定数 (SECTION_MAP_ / SECTION_ORDER_ / FULLWIDTH_KEYS_) を使用
+    const sectionMap = SECTION_MAP_;
+    const sectionOrder = SECTION_ORDER_;
+    const fullWidthKeys = FULLWIDTH_KEYS_;
 
     const headers = getScheduleEditHeaders_().filter(header => {
       const key = normalizeScheduleEditKey_(header);
@@ -1248,7 +1268,7 @@
             ${dateStr ? `<span class="pr-row-date">${escapeHtml(dateStr)}</span>` : ''}
             ${prState.label ? `<span class="pr-row-tag ${tagCls}">${escapeHtml(prState.label)}</span>` : ''}
           </div>
-          ${prBodyText ? `<div class="pr-row-body">${prBodyText}</div>` : ''}
+          ${prBodyText ? `<div class="pr-row-body" data-copytext="${escapeAttribute(String(pr.pr_text))}" title="クリックで全文コピー">${prBodyText}</div><div class="pr-row-body-copyhint"><i class="ti ti-copy" aria-hidden="true"></i><span>クリックでコピー</span></div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -1265,6 +1285,37 @@
     bindEditChangeHighlights_(modal);
     scheduleEditModalHighlights_(modal);
     renderEditModalPrDetails_(CURRENT_ENTRY);
+    renderNoteLinkButtons_(modal);
+    if (typeof renderPrWeekAlert_ === 'function') renderPrWeekAlert_();
+  }
+
+  // ③ 備考(notes)内のURLを抽出し、欄外にリンクボタンを並べて表示する。
+  function renderNoteLinkButtons_(modal) {
+    if (!modal) return;
+    modal.querySelectorAll('.form-group[data-field="notes"]').forEach(group => {
+      const field = group.querySelector('textarea, input');
+      const build = () => {
+        const old = group.querySelector('.field-link-buttons');
+        if (old) old.remove();
+        const text = field ? String(field.value || '') : '';
+        const urls = (text.match(/https?:\/\/[^\s"'<>）)]+/g) || []);
+        if (!urls.length) return;
+        const uniq = Array.from(new Set(urls));
+        const wrap = document.createElement('div');
+        wrap.className = 'field-link-buttons';
+        wrap.innerHTML = uniq.map(u => {
+          let label = u.replace(/^https?:\/\//, '');
+          if (label.length > 28) label = label.slice(0, 28) + '…';
+          return `<a class="field-link-btn" href="${escapeAttribute(u)}" target="_blank" rel="noopener" title="${escapeAttribute(u)}"><i class="ti ti-external-link" aria-hidden="true"></i><span>${escapeHtml(label)}</span></a>`;
+        }).join('');
+        group.appendChild(wrap);
+      };
+      build();
+      if (field && !field.dataset.noteLinkBound) {
+        field.dataset.noteLinkBound = '1';
+        field.addEventListener('input', build);
+      }
+    });
   }
 
   function openModal(encodedEntry) {

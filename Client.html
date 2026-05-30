@@ -1938,6 +1938,52 @@
     return Array.from(byPrId.values());
   }
 
+  // ⑥ 表示中の週で PR追加/削除 が必要なメルマガを全件収集する。
+  function getWeekPrActions_() {
+    const startInput = document.getElementById('startInput');
+    const baseDate = startInput && startInput.value
+      ? new Date(startInput.value)
+      : getTuesdayWeekStart(getEffectiveToday());
+    const weekDates = buildDates(baseDate, 7).map(d => formatDate(d));
+    const schedule = Array.isArray(APP_DATA.schedule) ? APP_DATA.schedule : [];
+    const seen = new Set();
+    const out = [];
+    schedule.forEach(row => {
+      const name = String(getValueByKeys(row, ['mail_name', 'メルマガ名']) || '').trim();
+      if (!name) return;
+      weekDates.forEach(ds => {
+        getPrStates(row, ds).forEach(st => {
+          if (st.status !== 'add' && st.status !== 'remove') return;
+          const key = name + '|' + st.pr_id + '|' + st.status;
+          if (seen.has(key)) return;
+          seen.add(key);
+          out.push({ name: name, status: st.status, prId: st.pr_id });
+        });
+      });
+    });
+    // 削除を先に、その後追加。メルマガ名で安定ソート。
+    const rank = { remove: 0, add: 1 };
+    out.sort((a, b) => (rank[a.status] - rank[b.status]) || a.name.localeCompare(b.name));
+    return out;
+  }
+
+  // ⑥ 配信編集モーダル上部に、今週 PR追加/削除が必要なメルマガ(全件)のアラートを表示。
+  function renderPrWeekAlert_() {
+    const el = document.getElementById('editPrWeekAlert');
+    if (!el) return;
+    const actions = getWeekPrActions_();
+    if (!actions.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    const items = actions.map(a =>
+      `<div class="pr-week-alert-item">`
+      + `<span class="pr-week-alert-tag ${a.status}">${a.status === 'add' ? '追加' : '削除'}</span>`
+      + `<span class="pr-week-alert-name">${escapeHtml(a.name)}</span>`
+      + `<span class="pr-week-alert-pr">PR${escapeHtml(String(a.prId))}</span>`
+      + `</div>`
+    ).join('');
+    el.innerHTML = `<div class="pr-week-alert-head"><i class="ti ti-alert-triangle" aria-hidden="true"></i>今週 PR追加・削除が必要なメルマガ（${actions.length}件）</div><div class="pr-week-alert-list">${items}</div>`;
+    el.style.display = '';
+  }
+
   function mapPrRowsToRecords_(prRows) {
     return (prRows || []).map(prRow => ({
       pr_id: getPrLinkIdFromMasterRow_(prRow),
@@ -2113,15 +2159,26 @@
     if (resumeButton) resumeButton.style.display = showResume ? '' : 'none';
     if (stopResumeRow) stopResumeRow.style.display = (showStop || showResume) ? '' : 'none';
 
+    // ② フッターのステータスを「設定済 → 確認待ち → 確定済」の3段進行で常時表示
     const statusPill = document.getElementById('delivery-status-pill');
     if (statusPill) {
-      statusPill.classList.toggle('is-stopped', !!stopped && !fixed);
-      statusPill.classList.toggle('is-active', !stopped && !fixed);
-      statusPill.textContent = fixed
-        ? '確定済'
-        : stopped
-          ? '配信停止中'
-          : '配信予定';
+      if (stopped && !fixed) {
+        statusPill.className = 'delivery-status-pill is-stopped';
+        statusPill.textContent = '配信停止中';
+      } else {
+        const checkItemId = CURRENT_ENTRY && typeof getCheckItemId === 'function' ? getCheckItemId(CURRENT_ENTRY) : '';
+        const setterDone = !!(checkItemId && typeof isCheckStatusActive === 'function' && isCheckStatusActive(checkItemId, 'setter'));
+        const checkerDone = !!(checkItemId && typeof isCheckStatusActive === 'function' && isCheckStatusActive(checkItemId, 'checker'));
+        const steps = [
+          { label: setterDone ? '設定済' : '未設定', cls: setterDone ? 'done' : 'wait' },
+          { label: checkerDone ? '確認済' : '確認待ち', cls: checkerDone ? 'done' : 'wait' },
+          { label: fixed ? '確定済' : '確定待ち', cls: fixed ? 'fixed' : 'wait' }
+        ];
+        statusPill.className = 'delivery-status-steps';
+        statusPill.innerHTML = steps.map((s, i) =>
+          `${i ? '<span class="sarrow">→</span>' : ''}<span class="sc ${s.cls}">${s.cls === 'done' || s.cls === 'fixed' ? '✓ ' : ''}${s.label}</span>`
+        ).join('');
+      }
       statusPill.style.display = '';
     }
 
@@ -2534,6 +2591,20 @@
       if (t && t.tagName === 'INPUT' && t.type === 'date' && typeof t.showPicker === 'function') {
         try { t.showPicker(); } catch (_) { /* ユーザー操作外などは無視 */ }
       }
+    });
+    // ⑥ PR本文クリックで全文コピー
+    document.addEventListener('click', event => {
+      const body = event.target.closest && event.target.closest('.pr-row-body[data-copytext]');
+      if (!body) return;
+      const text = body.getAttribute('data-copytext') || '';
+      copyTextToClipboard_(text);
+      body.classList.add('copied');
+      const hint = body.nextElementSibling;
+      if (hint && hint.classList.contains('pr-row-body-copyhint')) {
+        const span = hint.querySelector('span');
+        if (span) { const prev = span.textContent; span.textContent = 'コピーしました'; setTimeout(() => { span.textContent = prev; }, 1600); }
+      }
+      setTimeout(() => body.classList.remove('copied'), 1600);
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') scheduleResumeDataRefresh_();
