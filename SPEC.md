@@ -6,6 +6,7 @@
 
 | 日付 | 版 | 概要 | 担当者 |
 | :--- | :--- | :--- | :--- |
+| 2026-05-30 | 1.48 | **UI刷新バッチ6（マスタ紐づけ複数選択・バックエンド込み）** — 地域系（`target_address`/`user_desired_location`/`job_location`）を `app_pref_master`、職種系（`user_experience_job`/`user_desired_job`/`job_type`）を `app_job_master` に紐づけ、**大分類グルーピング＋チップ表示の複数選択ドロップダウン**で描画。バックエンド `DataService.gs` に `getPrefMaster()`/`getJobMaster()`/`getCategoryMasterOptions_()` を追加し `getInitialData` で `prefMaster`/`jobMaster` を配信。クライアント `Client.html` の `renderMasterMultiSelectInput_()`/`syncMasterMultiSelectField_()`/`MASTER_MULTISELECT_KEYS_` で実装。hidden は元値保持・変更時のみ「、」区切りへ再シリアライズ（override誤検知回避）。`app_pr_code_master` は紐づく列が無いため引き続き保留。詳細は §0.6。 | Claude Opus |
 | 2026-05-30 | 1.47 | **UI刷新バッチ5＋確定仕様化** — 担当者フィルタの不具合修正（アーカイブ枠も担当者で絞り込み・未設定行を除外）。パラメータを横幅いっぱい表示。日付ピッカーを枠内クリックで開く（`onclick=showPicker`）。マスタ変更後の初回配信に「変更あり」バナー表示。**新規(is_new)/検証(is_verifying) を配信編集モーダルでロック**し、マスタ値に紐づけ（変更はマスタ編集モーダルで）。**ここまでのUI刷新(1.42–1.47)の決定事項・注意点を「UI刷新 確定仕様」として明文化し、無断変更を禁止。** | Claude Opus |
 | 2026-05-30 | 1.46 | **UI刷新バッチ4（一覧/カレンダー/配信編集）** — メルマガ一覧の件数サマリー行を削除（統計バーで代替）。PR管理/メルマガ一覧のフィルター行の縦幅・余白を統一（タブ遷移のガタつき解消）。カレンダーのメルマガ名クリックと同時にメルマガ名をコピー。担当者検索を app_admin_master 連動のプルダウン化（初期=すべて、設定者or確認者の完全一致）。各セル末尾に空欄クリック領域を常設し、メルマガが多くても新規追加クリック可能に。配信編集の変更範囲選択に「この日以降を変更（マスタ編集）」（`saveScheduleFromDate`、確定済・確認済み以外の同名予定が全変更される旨のアラート併記）を追加。 | Claude Opus |
 | 2026-05-30 | 1.45 | **UI刷新バッチ3（配信編集/一覧/カレンダー）** — ①週次PRアラートを「そのメルマガ自身の今週の追加/削除お知らせ」に変更。パラメータをメルマガ内容、自動求人特集_求人数を自動求人特集セクションへ移動。④マスタ変更があった場合、変更から初回の配信の配信編集モーダル最下部にマスタ変更履歴を表示。⑤メルマガ一覧のフィルターチップをPR管理チップに統一。⑥メルマガ一覧に現状ステータスバー（全/表示/配信中/検証中/新規/下書き/停止・終了）を追加。⑦カレンダーの注記バーをPRアナウンスバー（掲出中PR）に変更。⑧設定/確認はクリック不要のためボタン感を排除し行全体をリンク化。⑨「本日の状態を一括保存」ボタンを削除。⑩検索をメルマガ名/担当者の2系統に分離。 | Claude Opus |
@@ -111,12 +112,17 @@
 - パラメータは**メルマガ内容**セクション・横幅いっぱい・1行入力。
 - PR新規追加: 赤テーマ廃止（クリーンな teal）。メルマガ選択エリア新デザイン。PR本文フル幅。
 - 「コピーして作成」は下部フッター**左隅**。
+- **JOB_/USER_ 項目のマスタ紐づけ複数選択（実装済み・版1.48）**:
+  - 地域系（**`app_pref_master`**）= `target_address`(USER_現住所) / `user_desired_location`(USER_希望勤務地) / `job_location`(JOB_勤務地)。
+  - 職種系（**`app_job_master`**）= `user_experience_job`(USER_経験職種) / `user_desired_job`(USER_希望職種) / `job_type`(JOB_職種)。
+  - バックエンド `DataService.gs` の `getPrefMaster()` / `getJobMaster()`（共通ヘルパ `getCategoryMasterOptions_()`）が、各シートを `並び順 / 大分類 / 中(小)分類` の構造で読み込み、`{ group: 大分類, value: 中分類, sort }[]` を `並び順→出現順` で安定ソートして返す。`getInitialData` で `prefMaster` / `jobMaster` として配信。
+  - クライアントは `Client.html` の `renderMasterMultiSelectInput_()` が `<details>` ベースの**大分類グルーピング＋チップ表示の複数選択ドロップダウン**を描画（`MASTER_MULTISELECT_KEYS_` でキー→マスタを判定）。マスタ未読込/空のときは従来のテキスト入力にフォールバック。マスタに無い既存値は「その他（マスタ外）」グループとして保持する。
+  - **`hidden` の正本挙動**: 初期値は**元の生値**を保持し、チェック変更時のみ `syncMasterMultiSelectField_()` が「、」区切りへ再シリアライズする。未操作時に区切り文字差で `occurrence_override` の誤検知が起きないようにするための仕様。**変更禁止。**
+  - 配信編集・マスタ新規/編集の双方で `renderMasterFieldInput_()` 経由で適用される（`special → multiSelect → select → text` の判定順）。
+  - **`app_pr_code_master`**（アコーディオン＋チップ複数選択）は**紐づく列が無いため保留**（対象項目が決まり次第）。
 
 ### 0.7 未実装・保留（要対応。正本として記録）
-- **JOB_/USER_ 項目のマスタ紐づけ**（バックエンド `.gs` で各シート読み込みのうえ実装する方針）:
-  - 地域系（**`app_pref_master`**）: `USER_現住所` / `USER_希望勤務地` / `JOB_勤務地` → **プルダウン・複数選択**。
-  - 職種系（**`app_job_master`**）: `USER_経験職種` / `USER_希望職種` / `JOB_職種` → **プルダウン・複数選択**。
-  - **`app_pr_code_master`**（アコーディオン＋チップ複数選択）は**紐づく列が無いため保留**（対象項目が決まり次第）。
+- **`app_pr_code_master`** の紐づけ（アコーディオン＋チップ複数選択）は**紐づく列が未定のため保留**。対象キーが決まり次第、§0.6 の地域系/職種系と同じ枠組み（`MASTER_MULTISELECT_KEYS_` / `getCategoryMasterOptions_()`）で実装する。
 - カレンダー上の「**変更後初回配信＝変更あり**」のバッジ表示は、`schedule_id → 最終マスタ変更日` のマップをサーバから提供する必要があり**未実装**（配信編集モーダルのバナーは実装済み）。
 
 ---

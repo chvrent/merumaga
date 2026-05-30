@@ -2,10 +2,11 @@
 
 詳細仕様の正本は `SPEC.md`。このファイルは、作業前に最低限確認する要点です。
 
-## UI / デザイン (1.42–1.47 teal 再スキン・確定仕様)
+## UI / デザイン (1.42–1.48 teal 再スキン・確定仕様)
 
 > **確定仕様の正本は `SPEC.md` の「## 0. UI刷新 確定仕様」**。配色トークン・`is-active-red` の配色・データ可視化色・ロック対象(is_new/is_verifying)・削除済み要素（一括保存ボタン/件数サマリー/注記バー）を**無断で元に戻さない**。
-> 未実装の保留: JOB_/USER_ のマスタ紐づけ（app_pref_master=地域系/app_job_master=職種系 をプルダウン複数選択、app_pr_code_master は紐づく列が無く保留）。カレンダーの「変更後初回＝変更あり」バッジはバックエンドのマップが必要で未実装（モーダルのバナーは実装済み）。
+> JOB_/USER_ のマスタ紐づけ複数選択は**実装済み(1.48)**: 地域系(app_pref_master)=target_address/user_desired_location/job_location、職種系(app_job_master)=user_experience_job/user_desired_job/job_type を大分類グルーピング＋チップの複数選択DDで描画。バックエンドは `DataService.gs` の `getPrefMaster()`/`getJobMaster()`（`prefMaster`/`jobMaster` を配信）、クライアントは `renderMasterMultiSelectInput_()`/`MASTER_MULTISELECT_KEYS_`。hidden は元値保持・変更時のみ「、」区切り化（override誤検知回避）。
+> 未実装の保留: app_pr_code_master は紐づく列が無く保留。カレンダーの「変更後初回＝変更あり」バッジはバックエンドのマップが必要で未実装（モーダルのバナーは実装済み）。
 
 
 - 見た目の正本は `Styles.html`。デザイントークンは `:root`（Inter フォント / teal アクセント `--accent #0d9488` / 角丸 `--r8 6px`・`--r4 4px`）。
