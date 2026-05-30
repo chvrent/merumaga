@@ -1766,10 +1766,104 @@
     return config.html;
   }
 
+  // ④ JOB_/USER_ 項目のマスタ紐づけ複数選択（SPEC §0.7 / §3）
+  //   地域系 → app_pref_master (APP_DATA.prefMaster)
+  //   職種系 → app_job_master  (APP_DATA.jobMaster)
+  // app_pr_code_master は紐づく列が無いため保留（対象キー未定）。
+  const MASTER_MULTISELECT_KEYS_ = Object.freeze({
+    target_address: 'prefMaster',
+    user_desired_location: 'prefMaster',
+    job_location: 'prefMaster',
+    user_experience_job: 'jobMaster',
+    user_desired_job: 'jobMaster',
+    job_type: 'jobMaster'
+  });
+
+  function getMasterMultiSelectOptions_(key) {
+    const masterName = MASTER_MULTISELECT_KEYS_[key];
+    if (!masterName) return null;
+    const options = (APP_DATA && Array.isArray(APP_DATA[masterName])) ? APP_DATA[masterName] : [];
+    return options;
+  }
+
+  function parseMultiSelectValue_(value) {
+    if (value == null) return [];
+    return String(value)
+      .split(/[、,，\/／\n\r;；]+/)
+      .map(part => part.trim())
+      .filter(Boolean);
+  }
+
+  function renderMasterMultiSelectChips_(values) {
+    if (!values.length) return '<span class="ms-placeholder">-- 選択してください --</span>';
+    return values.map(value => `<span class="ms-chip">${escapeHtml(value)}</span>`).join('');
+  }
+
+  function renderMasterMultiSelectInput_(key, value) {
+    const options = getMasterMultiSelectOptions_(key);
+    if (!options || !options.length) return null; // マスタ未読込/空ならテキスト入力にフォールバック
+    const selected = parseMultiSelectValue_(value);
+    const optionValues = options.map(option => String(option && option.value != null ? option.value : '').trim()).filter(Boolean);
+    // グルーピング（大分類）
+    const groups = [];
+    const groupIndex = {};
+    options.forEach(option => {
+      const val = String(option && option.value != null ? option.value : '').trim();
+      if (!val) return;
+      const grp = String(option && option.group != null ? option.group : '').trim();
+      if (!(grp in groupIndex)) { groupIndex[grp] = groups.length; groups.push({ label: grp, items: [] }); }
+      groups[groupIndex[grp]].items.push(val);
+    });
+    // マスタに無い既存値は「その他（マスタ外）」として保持
+    const extras = selected.filter(value => optionValues.indexOf(value) === -1);
+    if (extras.length) groups.push({ label: 'その他（マスタ外）', items: extras });
+
+    const panel = groups.map(group => `
+      <div class="ms-group">
+        ${group.label ? `<div class="ms-group-label">${escapeHtml(group.label)}</div>` : ''}
+        <div class="ms-group-items">
+          ${group.items.map(val => `
+            <label class="ms-opt">
+              <input type="checkbox" value="${escapeAttribute(val)}" ${selected.indexOf(val) !== -1 ? 'checked' : ''}>
+              <span>${escapeHtml(val)}</span>
+            </label>`).join('')}
+        </div>
+      </div>`).join('');
+
+    // hidden は初期値として元の生値を保持し、チェック変更時のみ「、」区切りへ再シリアライズする。
+    // （未操作時に区切り文字差で occurrence_override の誤検知が起きないようにするため）
+    const rawValue = value == null ? '' : String(value);
+    return `
+      <div class="ms-field" data-ms-field="${escapeAttribute(key)}">
+        <input type="hidden" name="${escapeAttribute(key)}" value="${escapeAttribute(rawValue)}" data-include-value="true">
+        <details class="ms-dd">
+          <summary class="ms-summary">
+            <span class="ms-chips">${renderMasterMultiSelectChips_(selected)}</span>
+            <span class="ms-caret ti ti-chevron-down" aria-hidden="true"></span>
+          </summary>
+          <div class="ms-panel">${panel}</div>
+        </details>
+      </div>`;
+  }
+
+  function syncMasterMultiSelectField_(field) {
+    if (!field) return;
+    const checks = field.querySelectorAll('.ms-panel input[type="checkbox"]');
+    const values = [];
+    checks.forEach(check => { if (check.checked) values.push(check.value); });
+    const hidden = field.querySelector('input[type="hidden"][data-include-value="true"]');
+    if (hidden) hidden.value = values.join('、');
+    const chips = field.querySelector('.ms-summary .ms-chips');
+    if (chips) chips.innerHTML = renderMasterMultiSelectChips_(values);
+  }
+
   function renderMasterFieldInput_(header, key, value, mode) {
     const textValue = value == null ? '' : value;
     const specialInput = renderMasterSpecialFieldInput_(key, textValue, mode);
     if (specialInput != null) return specialInput;
+
+    const multiSelect = renderMasterMultiSelectInput_(key, textValue);
+    if (multiSelect != null) return multiSelect;
 
     const selectConfig = getMasterSelectConfig_(header, key, textValue, mode);
     if (selectConfig) {
@@ -2677,6 +2771,14 @@
         if (span) { const prev = span.textContent; span.textContent = 'コピーしました'; setTimeout(() => { span.textContent = prev; }, 1600); }
       }
       setTimeout(() => body.classList.remove('copied'), 1600);
+    });
+    // ④ マスタ複数選択（地域系/職種系）: チェック変更で hidden 値とチップ表示を同期
+    document.addEventListener('change', event => {
+      const check = event.target;
+      if (!check || check.type !== 'checkbox') return;
+      const field = check.closest && check.closest('.ms-field');
+      if (!field || !check.closest('.ms-panel')) return;
+      syncMasterMultiSelectField_(field);
     });
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') scheduleResumeDataRefresh_();
