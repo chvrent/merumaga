@@ -511,7 +511,7 @@
 
     // スロットマップを事前構築: O(7N + A) で済む（従来は O(98N + 98A)）
     const scheduleSlotMap = buildScheduleSlotMap_(filtered, dates, weekdays);
-    const archivedSlotMap = buildArchivedSlotMap_(keyword);
+    const archivedSlotMap = buildArchivedSlotMap_(nameKeyword);
 
     let html = '<table><thead><tr><th class="time-col" rowspan="2">時間</th>';
     const todayStr = formatDate(new Date());
