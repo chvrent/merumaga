@@ -1100,15 +1100,16 @@ thead th {
    「編集できないこと」を明確に伝える (UI/modal_linear.html .locked 相当)。
    pointer-events: none は維持して操作不能を保証する。 */
 .form-group.disabled { opacity: 1; pointer-events: none; background: transparent; }
-.form-group.disabled label { color: var(--text-3); }
+.form-group.disabled label { color: var(--text-2); font-weight: 600; }
 .form-group.disabled input,
 .form-group.disabled select,
 .form-group.disabled textarea {
-  background-color: var(--bg-sub);
-  color: var(--text-3);
-  border-color: var(--border);
-  /* tabler ti-lock を SVG 背景画像で埋め込む。色は var(--text-3) #7a8490。 */
-  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%237a8490' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6z'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
+  background-color: var(--bg-hover);
+  color: var(--text-2);
+  font-weight: 500;
+  border-color: var(--border-strong);
+  /* tabler ti-lock を SVG 背景画像で埋め込む。色は var(--text-2) #424a55（視認性向上）。 */
+  background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='11' viewBox='0 0 24 24' fill='none' stroke='%23424a55' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 13a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-6z'/%3E%3Cpath d='M11 16a1 1 0 1 0 2 0a1 1 0 0 0 -2 0'/%3E%3Cpath d='M8 11v-4a4 4 0 1 1 8 0v4'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: 6px center;
   padding-left: 22px;
