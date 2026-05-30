@@ -774,20 +774,19 @@
   function buildSlotTooltip_(slotEntries, dateStr, hour) {
     let totalCount = 0;
     let hasCount = false;
-    const names = [];
     slotEntries.forEach(entry => {
       const effectiveEntry = applyOccurrenceOverrideObjectToEntry(
         applyMoveOverrideToEntry(Object.assign({}, entry, { target_date: dateStr })),
         getOccurrenceOverrideForDate(entry, dateStr)
       );
-      const name = String(effectiveEntry.mail_name || '').trim();
       const count = parseFloat(effectiveEntry.delivery_count);
-      if (name) names.push(name + (Number.isFinite(count) ? ' (' + count + '万)' : ''));
       if (Number.isFinite(count) && count > 0) { totalCount += count; hasCount = true; }
     });
     let tip = slotEntries.length + '件の配信';
-    if (hasCount) tip += ' / 合計 ' + (Math.round(totalCount * 10) / 10) + '万通';
-    if (names.length) tip += '\n' + names.join('\n');
+    if (hasCount) {
+      const totalRounded = Math.round(totalCount * 10) / 10;
+      tip += ' / 合計 ' + totalRounded + '万 (上限 16万)';
+    }
     return ' title="' + escapeAttribute(tip) + '"';
   }
 
