@@ -24,7 +24,7 @@
   const RESUME_REFRESH_COOLDOWN_MS = 2 * 60 * 1000;
   const CHECK_STATUS_STORAGE_KEY = 'mailMagazineMaker.pendingCheckStatuses.v1';
   const MASTER_RENDER_LIMIT = 300;
-  const masterFilters = { status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false, selections: {} };
+  const masterFilters = { status: 'active', newOnly: false, newMonth: '', verifyingOnly: false, draftOnly: false, selections: {} };
   // メルマガ一覧の選択式フィルタ対象。source:'person'=設定者or確認者、'column'=該当列。
   // 「複数値(地域/職種/年齢)かどうか」は isMasterMultiField_() で導出（multi はここに持たない）。
   const MASTER_FILTER_FIELDS_ = Object.freeze([
@@ -231,6 +231,61 @@
     return '';
   }
 
+  const NEW_FIRST_DATE_ALIASES_ = ['is_new', 'new_flag', '新規', '新規/is_new'];
+  let NEW_FIRST_DATE_CACHE_ = null;
+
+  function getScheduleRowId_(row) {
+    return normalizeIdKey(getValueByKeys(row || {}, ['schedule_id', 'ID', 'id']));
+  }
+
+  function getScheduleRowFirstOccurrenceDate_(row) {
+    if (!row || typeof computeOccurrenceDatesInRange_ !== 'function') return '';
+    const startDate = normalizeDateString(getValueByKeys(row, ['start_date', '開始日', '開始']));
+    if (!startDate) return '';
+    const end = new Date(startDate + 'T00:00:00');
+    end.setDate(end.getDate() + 400);
+    const occ = computeOccurrenceDatesInRange_(row, startDate, formatDate(end)) || [];
+    return occ[0] || '';
+  }
+
+  function normalizeNewFirstDateValue_(value, row) {
+    const raw = String(value == null ? '' : value).trim();
+    if (!raw || raw.toLowerCase() === 'false' || raw === '0') return '';
+    const date = normalizeDateString(raw);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+    if (isTruthyValue(value)) return getScheduleRowFirstOccurrenceDate_(row);
+    return '';
+  }
+
+  function getNewFirstDateForRow_(row) {
+    if (!row) return '';
+    const id = getScheduleRowId_(row);
+    if (!NEW_FIRST_DATE_CACHE_) NEW_FIRST_DATE_CACHE_ = {};
+    if (id && Object.prototype.hasOwnProperty.call(NEW_FIRST_DATE_CACHE_, id)) return NEW_FIRST_DATE_CACHE_[id];
+    const raw = getValueByKeys(row, NEW_FIRST_DATE_ALIASES_);
+    const date = normalizeNewFirstDateValue_(raw, row);
+    if (id) NEW_FIRST_DATE_CACHE_[id] = date;
+    return date;
+  }
+
+  function renderNewBadge_(row, dateStr) {
+    if (!row || !dateStr) return '';
+    return getNewFirstDateForRow_(row) === dateStr
+      ? '<div class="occurrence-change-badge new-first-badge">新規</div>'
+      : '';
+  }
+
+  function getCalendarDisplayMonth_() {
+    const startInput = document.getElementById('startInput');
+    const base = startInput && startInput.value ? new Date(startInput.value) : getEffectiveToday();
+    return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, '0')}`;
+  }
+
+  function formatYearMonthLabel_(yearMonth) {
+    const m = String(yearMonth || '').match(/^(\d{4})-(\d{2})$/);
+    return m ? `${m[1]}年${Number(m[2])}月` : '';
+  }
+
   function ensurePrLookupIndex_() {
     if (APP_DATA && APP_DATA._prLookup) return APP_DATA._prLookup;
 
@@ -294,9 +349,10 @@
     if (Object.prototype.hasOwnProperty.call(nextData, 'pr') || Object.prototype.hasOwnProperty.call(nextData, 'prTargets')) {
       invalidatePrLookupIndex_();
     }
-    // マスタ変更日 or schedule が更新されたら「変更後初回」キャッシュを破棄
+    // マスタ変更日 or schedule が更新されたら「変更後初回」/「新規」キャッシュを破棄
     if (Object.prototype.hasOwnProperty.call(nextData, 'masterChangeDates') || Object.prototype.hasOwnProperty.call(nextData, 'schedule')) {
       MASTER_CHANGE_FIRST_OCC_ = null;
+      NEW_FIRST_DATE_CACHE_ = null;
     }
     if (cacheable && cacheKey) {
       WEEK_DATA_CACHE[cacheKey] = {
@@ -754,6 +810,7 @@
                 </div>
                 ${prLabel}
                 ${renderOccurrenceOverrideBadges(entryForDate)}
+                ${renderNewBadge_(effectiveEntry, dateStr)}
                 ${renderMasterChangeBadge_(scheduleId, dateStr)}
               </div>
               <div class="col-count ${countChanged ? 'is-occurrence-overridden' : ''}">${escapeHtml(effectiveEntry.delivery_count)}</div>
@@ -1128,6 +1185,7 @@
       container.style.display = 'none';
       masterFilters.status = 'active';
       masterFilters.newOnly = false;
+      masterFilters.newMonth = '';
       masterFilters.verifyingOnly = false;
       masterFilters.draftOnly = false;
       masterFilters.selections = {};
@@ -1136,6 +1194,7 @@
     if (isPrMasterSheet) {
       // PR管理: ステータスフィルターチップスを表示
       masterFilters.newOnly = false;
+      masterFilters.newMonth = '';
       masterFilters.verifyingOnly = false;
       masterFilters.draftOnly = false;
       masterFilters.selections = {};
@@ -1155,12 +1214,23 @@
     }
 
     container.style.display = 'flex';
-    const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
+    const isNewHeader = findMasterHeaderByAliases_(NEW_FIRST_DATE_ALIASES_);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
     const isDraftHeader = findMasterHeaderByAliases_(['is_draft', '下書き', '下書き/is_draft']);
 
+    const newMonth = masterFilters.newMonth || getCalendarDisplayMonth_();
     const newOnlyChip = isNewHeader ? `
-      <button type="button" class="filter-chip ${masterFilters.newOnly ? 'active' : ''}" onclick="setMasterNewOnly(!masterFilters.newOnly)">${getMasterFilterLabel_(isNewHeader, '新規')}のみ</button>
+      <details class="new-filter-menu" ${masterFilters.newOnly ? 'open' : ''}>
+        <summary class="filter-chip ${masterFilters.newOnly ? 'active' : ''}">${masterFilters.newOnly ? '新規: ' + escapeHtml(formatYearMonthLabel_(newMonth)) : getMasterFilterLabel_(isNewHeader, '新規')}</summary>
+        <div class="new-filter-panel">
+          <label>対象月</label>
+          <input type="month" value="${escapeAttribute(newMonth)}" onchange="setMasterNewMonthFilter_(this.value)">
+          <div class="new-filter-actions">
+            <button type="button" class="table-action-button" onclick="setMasterNewOnly(true)">適用</button>
+            <button type="button" class="table-action-button" onclick="setMasterNewOnly(false)">解除</button>
+          </div>
+        </div>
+      </details>
     ` : '';
     const verifyingOnlyChip = verifyingHeader ? `
       <button type="button" class="filter-chip ${masterFilters.verifyingOnly ? 'active' : ''}" onclick="setMasterVerifyingOnly(!masterFilters.verifyingOnly)">${getMasterFilterLabel_(verifyingHeader, '検証中')}のみ</button>
@@ -1192,6 +1262,14 @@
 
   function setMasterNewOnly(checked) {
     masterFilters.newOnly = !!checked;
+    if (masterFilters.newOnly && !masterFilters.newMonth) masterFilters.newMonth = getCalendarDisplayMonth_();
+    renderMasterTable();
+    renderMasterFilterChips();
+  }
+
+  function setMasterNewMonthFilter_(value) {
+    masterFilters.newMonth = String(value || '').trim() || getCalendarDisplayMonth_();
+    masterFilters.newOnly = true;
     renderMasterTable();
     renderMasterFilterChips();
   }
@@ -1324,6 +1402,7 @@
     const bar = document.getElementById('masterStatsBar');
     if (!bar) return;
     if (MASTER_DATA.sheetName !== 'app_schedule') { bar.innerHTML = ''; bar.style.display = 'none'; return; }
+    const targetNewMonth = masterFilters.newMonth || getCalendarDisplayMonth_();
     let active = 0, ended = 0, draft = 0, verifying = 0, isNew = 0;
     allRows.forEach(row => {
       const d = isDraft(row);
@@ -1334,7 +1413,7 @@
       if (!d && effectivelyInactive) ended++;
       if (!d && !effectivelyInactive) active++;
       if (h.verifyingHeader && isTruthyValue(getCellByHeader_(row, h.verifyingHeader))) verifying++;
-      if (h.isNewHeader && isTruthyValue(getCellByHeader_(row, h.isNewHeader))) isNew++;
+      if (h.isNewHeader && getNewFirstDateForRow_(row).slice(0, 7) === targetNewMonth) isNew++;
     });
     bar.style.display = '';
     bar.innerHTML = ''
@@ -1342,7 +1421,7 @@
       + `<div class="master-si">表示 <b>${shownCount}</b> 件</div>`
       + `<div class="master-si"><span class="master-si-dot" style="background:var(--accent)"></span>配信中 <b>${active}</b> 件</div>`
       + `<div class="master-si"><span class="master-si-dot" style="background:var(--ok)"></span>検証中 <b>${verifying}</b> 件</div>`
-      + `<div class="master-si"><span class="master-si-dot" style="background:var(--warn)"></span>新規 <b>${isNew}</b> 件</div>`
+      + `<div class="master-si"><span class="master-si-dot" style="background:var(--warn)"></span>${escapeHtml(formatYearMonthLabel_(targetNewMonth))} 新規 <b>${isNew}</b> 件</div>`
       + `<div class="master-si"><span class="master-si-dot" style="background:var(--border-strong)"></span>下書き <b>${draft}</b> 件</div>`
       + `<div class="master-si alert"><span class="master-si-dot" style="background:var(--alert)"></span>停止・終了 <b>${ended}</b> 件</div>`;
   }
@@ -1356,7 +1435,7 @@
 
     const endDateHeader = findMasterHeaderByAliases_(['end_date', '終了日', '終了']);
     const inactiveHeader = findMasterHeaderByAliases_(['is_inactive', '配信終了', '配信停止', '停止', '無効']);
-    const isNewHeader = findMasterHeaderByAliases_(['is_new', 'new_flag', '新規']);
+    const isNewHeader = findMasterHeaderByAliases_(NEW_FIRST_DATE_ALIASES_);
     const verifyingHeader = findMasterHeaderByAliases_(['is_verifying', 'verifying_flag', '検証中', '検証中/is_verifying']);
     const assigneeHeader = findMasterHeaderByAliases_(['assignee', '設定者', 'setter']);
     const reviewerHeader = findMasterHeaderByAliases_(['reviewer', '確認者', 'checker']);
@@ -1393,7 +1472,8 @@
         }
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.newOnly && isNewHeader) {
-        if (!isTruthyValue(getCellByHeader_(row, isNewHeader))) return false;
+        const targetNewMonth = masterFilters.newMonth || getCalendarDisplayMonth_();
+        if (getNewFirstDateForRow_(row).slice(0, 7) !== targetNewMonth) return false;
       }
       if (MASTER_DATA.sheetName === 'app_schedule' && masterFilters.verifyingOnly && verifyingHeader) {
         if (!isTruthyValue(getCellByHeader_(row, verifyingHeader))) return false;
@@ -1473,6 +1553,9 @@
 
       tableHeaders.forEach(h => {
         let cellValue = getCellByHeader_(row, h);
+        if (filtered.isNewHeader && (h === filtered.isNewHeader || (h.includes('/') && h.split('/').map(s => s.trim()).includes(filtered.isNewHeader)))) {
+          cellValue = getNewFirstDateForRow_(row);
+        }
         // 配信終了列: end_date が今日より前なら自動で TRUE 表示
         if (inactiveHeader && (h === inactiveHeader ||
             (h.includes('/') && h.split('/').map(s => s.trim()).includes(inactiveHeader)))) {
@@ -1682,7 +1765,7 @@
       const selected = pending || String(select.value || '').trim();
       const sanitizedSelected = ['TRUE', 'FALSE'].includes(selected.toUpperCase()) ? '' : selected;
       const nextSelected = sanitizedSelected;
-      const placeholder = `<option value="" ${nextSelected ? '' : 'selected '}disabled hidden>-- 選択してください --</option>`;
+      const placeholder = `<option value="" ${nextSelected ? '' : 'selected '}disabled hidden>選択してください</option>`;
       select.innerHTML = placeholder + optionValues.map(option => `<option value="${escapeAttribute(option.value)}" ${option.value === nextSelected ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>`).join('');
       if (nextSelected && !optionValues.some(option => option.value === nextSelected)) {
         select.insertAdjacentHTML('beforeend', `<option value="${escapeAttribute(nextSelected)}" selected>${escapeHtml(nextSelected)}</option>`);
@@ -1713,7 +1796,7 @@
       normalizedOptions.push({ value: selectedValue, label: selectedValue });
     }
 
-    const placeholder = `<option value="" ${selectedValue ? '' : 'selected '}disabled hidden>-- 選択してください --</option>`;
+    const placeholder = `<option value="" ${selectedValue ? '' : 'selected '}disabled hidden>選択してください</option>`;
     const optionHtml = normalizedOptions.map(option => `
       <option value="${escapeAttribute(option.value)}" ${option.value === selectedValue ? 'selected' : ''}>${escapeHtml(option.label || option.value)}</option>
     `).join('');
@@ -1828,13 +1911,16 @@
     if (key === 'cycle') {
       return { kind: 'input', html: renderCycleButtonInput_(textValue) };
     }
-    if (['is_new', 'new_flag', '新規/is_new', 'is_verifying', 'verifying_flag', '検証中/is_verifying', 'is_draft', '下書き/is_draft', 'is_fixed', '確定済/is_fixed', 'is_inactive', '配信終了/is_inactive'].includes(key)) {
+    if (key === 'is_new' || key === 'new_flag' || key === '新規/is_new' || key === '新規') {
+      const displayDate = normalizeNewFirstDateValue_(textValue, null);
+      return { kind: 'input', html: `<input type="date" name="is_new" value="${escapeAttribute(displayDate)}" readonly disabled class="locked-new-date" placeholder="保存時に自動判定">` };
+    }
+    if (['is_verifying', 'verifying_flag', '検証中/is_verifying', 'is_draft', '下書き/is_draft', 'is_fixed', '確定済/is_fixed', 'is_inactive', '配信終了/is_inactive'].includes(key)) {
       const name = (key === 'is_verifying' || key === 'verifying_flag' || key === '検証中/is_verifying')
         ? 'is_verifying'
         : (key === 'is_draft' || key === '下書き/is_draft') ? 'is_draft'
         : (key === 'is_fixed' || key === '確定済/is_fixed') ? 'is_fixed'
-        : (key === 'is_inactive' || key === '配信終了/is_inactive') ? 'is_inactive'
-        : 'is_new';
+        : 'is_inactive';
       return { kind: 'input', html: `<input type="checkbox" name="${escapeAttribute(name)}" aria-label="${escapeAttribute(getDisplayName(name))}" ${isTruthyValue(textValue) ? 'checked' : ''}>` };
     }
     if (key === 'current_job_count') {
@@ -1897,7 +1983,7 @@
   }
 
   function renderMsChipList_(chips, placeholder) {
-    if (!chips.length) return `<span class="ms-placeholder">${escapeHtml(placeholder || '-- 選択してください --')}</span>`;
+    if (!chips.length) return `<span class="ms-placeholder">${escapeHtml(placeholder || '選択してください')}</span>`;
     return chips.map(chip => `<span class="ms-chip${chip.isGroup ? ' ms-chip-group' : ''}">${escapeHtml(chip.label)}</span>`).join('');
   }
 
@@ -1947,7 +2033,7 @@
         </div>
       </div>`;
     }).join('');
-    const placeholder = opts.placeholder || '-- 選択してください --';
+    const placeholder = opts.placeholder || '選択してください';
     const hidden = opts.hiddenName != null
       ? `<input type="hidden" name="${escapeAttribute(opts.hiddenName)}" value="${escapeAttribute(opts.rawValue == null ? '' : String(opts.rawValue))}" data-include-value="true">`
       : '';
@@ -2362,21 +2448,40 @@
     const weekDates = buildDates(baseDate, 7).map(d => formatDate(d));
     const weekStart = weekDates[0];
     const weekEnd = weekDates[weekDates.length - 1];
+    const monthKey = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, '0')}`;
     const active = prRows.filter(r => {
       if (isInactive(r) || isDraft(r)) return false;
       const s = normalizeDateString(getPrStartDate_(r));
       const e = normalizeDateString(getPrEndDate_(r));
       return (!s || s <= weekEnd) && (!e || e >= weekStart);
     });
-    if (!active.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
-    const chips = active.map(r => {
+    const parts = [];
+    if (active.length) {
+      const chips = active.map(r => {
       const id = normalizeIdKey(getPrLinkIdFromMasterRow_(r));
       const title = getPrTitle_(r) || '';
       const e = normalizeDateString(getPrEndDate_(r));
       const endLabel = e ? '〜' + e.replace(/-/g, '/') : '';
       return `<span class="pr-announce-chip">${id ? 'PR' + escapeHtml(String(id)) + ' ' : ''}${escapeHtml(title)}${endLabel ? ' ' + escapeHtml(endLabel) : ''}</span>`;
-    }).join('');
-    el.innerHTML = `<i class="ti ti-speakerphone" aria-hidden="true"></i><strong>PR掲出中：</strong>${chips}`;
+      }).join('');
+      parts.push(`<div><i class="ti ti-speakerphone" aria-hidden="true"></i><strong>PR掲出中：</strong>${chips}</div>`);
+    }
+    const newRows = (APP_DATA.schedule || []).filter(row => {
+      if (isInactive(row) || isDraft(row)) return false;
+      return getNewFirstDateForRow_(row).slice(0, 7) === monthKey;
+    });
+    if (newRows.length) {
+      const chips = newRows
+        .sort((a, b) => getNewFirstDateForRow_(a).localeCompare(getNewFirstDateForRow_(b)) || String(a.mail_name || '').localeCompare(String(b.mail_name || ''), 'ja'))
+        .map(row => {
+          const date = getNewFirstDateForRow_(row).replace(/-/g, '/');
+          const name = getValueByKeys(row, ['mail_name', 'メルマガ名']) || '';
+          return `<span class="pr-announce-chip new-announce-chip">${escapeHtml(date)} ${escapeHtml(name)}</span>`;
+        }).join('');
+      parts.push(`<div><i class="ti ti-sparkles" aria-hidden="true"></i><strong>${escapeHtml(formatYearMonthLabel_(monthKey))} 新規 ${newRows.length}件：</strong>${chips}</div>`);
+    }
+    if (!parts.length) { el.style.display = 'none'; el.innerHTML = ''; return; }
+    el.innerHTML = parts.join('');
     el.style.display = '';
   }
 

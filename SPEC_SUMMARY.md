@@ -9,6 +9,7 @@
 > メルマガ一覧フィルタは**全項目が複数選択(1.49)**: 担当部署/形式/種別/担当者/曜日/時間/サイクル/地域系/職種系/年齢を配信編集モーダルと同じ複数選択部品（`renderMultiSelectMarkup_`/`groupMultiSelectOptions_` に共通化）で描画。選択値 `masterFilters.selections[key]`（配列・同一項目内OR・項目間AND）、絞り込みは `filterMasterRows_`、複数値判定は `isMasterMultiField_`、再描画は 120ms debounce。年齢は埋め込み候補。詳細 §0.4。
 > カレンダー前日以前は列全体を薄暗く（`th.is-past`/`td.is-past-column` `#e7eaee`、過去 `.slot-item` opacity 0.78、境界線なし）で今日との境目を明暗差で表現(1.50)。
 > カレンダーの「変更後初回＝変更あり」バッジは**実装済み(1.51)**: `getMasterChangeDates_()`(コメント`[マスタ変更]`集約)→`masterChangeDates` 配信、`getMasterChangeFirstOccMap_`/`renderMasterChangeBadge_` でセルに赤「変更あり」表示。モーダルのバナーと同基準。詳細 §0.3。
+> `is_new` は**初回配信日フィールド(YYYY-MM-DD)**として扱う(1.52)。新規作成時、同名メルマガが `app_schedule` 全履歴に無い場合のみ初回発生日を自動入力し、モーダルではロック表示。メルマガ一覧の「新規」チップは年月で絞り込み、カレンダー該当日には「新規」バッジを表示。旧 `TRUE` 値は読み取り時に初回発生日へフォールバックし、移行用 `migrateIsNewToFirstDeliveryDates()` で日付化できる。
 > 未実装の保留: app_pr_code_master は紐づく列が無く保留。
 
 

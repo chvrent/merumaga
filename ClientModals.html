@@ -39,6 +39,15 @@
     const modal = document.getElementById('masterModal');
     const isPrMaster = MASTER_DATA.sheetName === 'app_pr';
     const mode = row.__rowNumber ? 'edit' : 'master';
+    if (!isPrMaster && mode === 'edit') {
+      const existingNewDate = getNewFirstDateForRow_(row);
+      if (existingNewDate) {
+        row.is_new = existingNewDate;
+        row.new_flag = existingNewDate;
+        row['新規'] = existingNewDate;
+        row['新規/is_new'] = existingNewDate;
+      }
+    }
     const tabsContainer = modal ? modal.querySelector('.modal-tabs-container') : null;
 
     document.getElementById('masterModalTitle').textContent = row.__rowNumber ? 'マスタ編集' : 'マスタ新規追加';
@@ -104,6 +113,7 @@
     bindFormatSelects_(modal);
     bindCycleButtons_(modal);
     bindSingleDeliveryDateSync_(modal);
+    bindMasterNewDateAutoRefresh_(modal);
 
     if (modal) {
       const prIdField = modal.querySelector('[name="pr_id"]');
@@ -124,6 +134,7 @@
         if (prIdField && !String(prIdField.value || '').trim() && typeof computeTentativePrId_ === 'function') {
           prIdField.value = computeTentativePrId_();
         }
+        refreshMasterNewDateField_(modal);
       }
       setModalVisible_(modal, true);
       // ③ 既存行(編集モード)ならマスタ変更履歴を非同期ロード
@@ -131,6 +142,43 @@
       // ③ 備考URLのリンクボタン
       renderNoteLinkButtons_(modal);
     }
+  }
+
+  function bindMasterNewDateAutoRefresh_(modal) {
+    if (!modal || modal.dataset.newDateAutoBound === 'true') return;
+    modal.dataset.newDateAutoBound = 'true';
+    modal.addEventListener('change', event => {
+      if (!event.target || !['mail_name', 'start_date', 'end_date', 'weekday', 'cycle'].includes(event.target.name)) return;
+      refreshMasterNewDateField_(modal);
+    });
+    modal.addEventListener('input', event => {
+      if (!event.target || !['mail_name', 'start_date', 'end_date', 'weekday', 'cycle'].includes(event.target.name)) return;
+      refreshMasterNewDateField_(modal);
+    });
+  }
+
+  function refreshMasterNewDateField_(modal) {
+    if (!modal || modal.dataset.modalType !== 'master' || modal.dataset.mode !== 'master') return;
+    const field = modal.querySelector('[name="is_new"]');
+    if (!field) return;
+    field.value = computeMasterNewFirstDate_(modal);
+  }
+
+  function computeMasterNewFirstDate_(modal) {
+    const row = {};
+    modal.querySelectorAll('[name]').forEach(input => {
+      if (!input.name) return;
+      row[input.name] = input.type === 'checkbox' ? input.checked : input.value;
+    });
+    const mailName = String(getValueByKeys(row, ['mail_name', 'メルマガ名']) || '').trim();
+    if (!mailName || hasExistingScheduleMailName_(mailName)) return '';
+    return getScheduleRowFirstOccurrenceDate_(row);
+  }
+
+  function hasExistingScheduleMailName_(mailName) {
+    const normalized = String(mailName || '').trim();
+    if (!normalized) return false;
+    return (APP_DATA.schedule || []).some(row => String(getValueByKeys(row, ['mail_name', 'メルマガ名']) || '').trim() === normalized);
   }
 
   // ③ マスタ変更履歴をロードして表示する
@@ -231,7 +279,6 @@
       'hour',
       'current_job_count',
       'is_fixed',
-      'is_new',
       'pr'
     ]);
     const hiddenHeaders = new Set(['target_ids', 'target_mails', '配信停止', '配信終了', '停止']);
@@ -564,13 +611,16 @@
   }
 
   function renderEditInput_(header, key, value) {
-    if (['is_new', 'new_flag', '新規/is_new', 'is_verifying', 'verifying_flag', '検証中/is_verifying', 'is_draft', '下書き/is_draft', 'is_fixed', '確定済/is_fixed', 'is_inactive', '配信終了/is_inactive'].includes(key)) {
+    if (key === 'is_new' || key === 'new_flag' || key === '新規/is_new' || key === '新規') {
+      const displayDate = normalizeNewFirstDateValue_(value, CURRENT_ENTRY || null);
+      return `<input type="date" name="is_new" value="${escapeAttribute(displayDate)}" readonly disabled class="locked-new-date" placeholder="保存時に自動判定">`;
+    }
+    if (['is_verifying', 'verifying_flag', '検証中/is_verifying', 'is_draft', '下書き/is_draft', 'is_fixed', '確定済/is_fixed', 'is_inactive', '配信終了/is_inactive'].includes(key)) {
       const name = (key === 'is_verifying' || key === 'verifying_flag' || key === '検証中/is_verifying')
         ? 'is_verifying'
         : (key === 'is_draft' || key === '下書き/is_draft') ? 'is_draft'
         : (key === 'is_fixed' || key === '確定済/is_fixed') ? 'is_fixed'
-        : (key === 'is_inactive' || key === '配信終了/is_inactive') ? 'is_inactive'
-        : 'is_new';
+        : 'is_inactive';
       return `<input type="checkbox" name="${escapeAttribute(name)}" aria-label="${escapeAttribute(getDisplayName(name))}" ${isTruthyValue(value) ? 'checked' : ''} ${isEditModalLockedField_(name) ? 'disabled' : ''}>`;
     }
     return renderMasterFieldInput_(header, key, value, 'edit');
@@ -781,11 +831,11 @@
       delete payload.checker;
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'is_new')) {
-      payload.is_new = payload.is_new ? 'TRUE' : 'FALSE';
+      payload.is_new = normalizeDateString(payload.is_new);
       delete payload.new_flag;
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'new_flag') && !Object.prototype.hasOwnProperty.call(payload, 'is_new')) {
-      payload.is_new = payload.new_flag ? 'TRUE' : 'FALSE';
+      payload.is_new = normalizeDateString(payload.new_flag);
       delete payload.new_flag;
     }
     if (Object.prototype.hasOwnProperty.call(payload, 'is_verifying')) {
@@ -872,7 +922,8 @@
   }
 
   function normalizeComparableModalValue_(value, key) {
-    if (['is_new', 'is_verifying', 'is_draft', 'is_fixed', 'is_inactive'].includes(key)) return isTruthyValue(value) ? 'TRUE' : 'FALSE';
+    if (key === 'is_new') return normalizeNewFirstDateValue_(value, CURRENT_ENTRY || null);
+    if (['is_verifying', 'is_draft', 'is_fixed', 'is_inactive'].includes(key)) return isTruthyValue(value) ? 'TRUE' : 'FALSE';
     if (key === 'hour') return normalizeMasterHourValue(value);
     if (key === 'weekday') return normalizeWeekdayLabel(value);
     if (key === 'start_date' || key === 'end_date' || key === 'delivery_date' || key === 'original_date') {
@@ -1796,10 +1847,15 @@
     const formatKey = getInputControlFormatKey_(format);
     const hiddenKeys = getInputControlHiddenKeys_(modalKey, formatKey);
     const lockedKeys = new Set(['schedule_id']);
+    const shouldLockNewField = formatKey !== 'other';
 
     if (modalKey === 'deliveryEdit') {
       // シート「入力制御」の配信編集モーダル行に従い、全フォーマットでロック
       ['start_date', 'end_date', 'mail_name', 'mail_type', 'cycle', 'format', 'sub_category', 'is_new', 'weekday', 'is_verifying'].forEach(key => lockedKeys.add(key));
+      if (!shouldLockNewField) lockedKeys.delete('is_new');
+    }
+    if (shouldLockNewField && (modalKey === 'masterNew' || modalKey === 'masterEdit')) {
+      lockedKeys.add('is_new');
     }
     if (formatKey === 'auto') lockedKeys.add('current_job_count');
 
@@ -1814,6 +1870,9 @@
       }
       const sheetState = getInputControlStateFromSheet_(key, modalKey, formatKey);
       if (sheetState) applyNormalizedInputControlState_(modal, key, sheetState);
+      if (shouldLockNewField && key === 'is_new' && (modalKey === 'masterNew' || modalKey === 'masterEdit' || modalKey === 'deliveryEdit')) {
+        setFieldGroupControlState_(modal, key, 'ロック');
+      }
     });
 
     updateSectionHeadingVisibility_(modal);
@@ -1828,6 +1887,7 @@
 
   function applyEditModalLockedFieldControls_(modal) {
     EDIT_MODAL_LOCKED_FIELDS.forEach(key => {
+      if (key === 'is_new' && getInputControlFormatKey_(modal && modal.dataset.format) === 'other') return;
       setFieldGroupEnabled_(modal, key, false);
     });
   }

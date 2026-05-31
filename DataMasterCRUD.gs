@@ -135,7 +135,7 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   copyPayloadAlias_(normalizedPayload, 'category', 'mail_type');
   copyPayloadAlias_(normalizedPayload, 'new_flag', 'is_new');
   if (Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new')) {
-    normalizedPayload.is_new = isTruthy_(normalizedPayload.is_new) ? 'TRUE' : 'FALSE';
+    normalizedPayload.is_new = normalizeNewFirstDatePayload_(normalizedPayload.is_new);
     delete normalizedPayload.new_flag;
   }
   copyPayloadAlias_(normalizedPayload, 'verifying_flag', 'is_verifying');
@@ -157,8 +157,11 @@ function saveMasterDataUnlocked_(sheetName, payload) {
   if (!values.length) throw new Error(`${safeSheetName} is empty`);
 
   const headers = values[0].map(header => String(header || '').trim());
-  ensureOptionalMasterPayloadHeaders_(sheet, headers, safeSheetName, normalizedPayload);
   const rowNumber = Number(payload.__rowNumber || 0);
+  if (safeSheetName === SCHEDULE_SHEET_NAME && !(rowNumber >= 2 && rowNumber <= sheet.getLastRow())) {
+    if (!Object.prototype.hasOwnProperty.call(normalizedPayload, 'is_new')) normalizedPayload.is_new = '';
+  }
+  ensureOptionalMasterPayloadHeaders_(sheet, headers, safeSheetName, normalizedPayload);
   const idIndex = getMasterIdIndex_(safeSheetName, headers);
   const isExistingRow = rowNumber >= 2 && rowNumber <= sheet.getLastRow();
   // ③ 差分ログ用に更新前の行をコピー（row は後で上書きされる）
@@ -179,6 +182,9 @@ function saveMasterDataUnlocked_(sheetName, payload) {
 
   if (idIndex != null && !normalizeCell_(row[idIndex])) {
     row[idIndex] = generateNextMasterId_(safeSheetName, values, idIndex);
+  }
+  if (safeSheetName === SCHEDULE_SHEET_NAME && !isExistingRow) {
+    applyNewFirstDateForInsert_(headers, values, row);
   }
 
   if (rowNumber >= 2 && rowNumber <= sheet.getMaxRows()) {
@@ -214,7 +220,7 @@ function ensureOptionalMasterPayloadHeaders_(sheet, headers, sheetName, payload)
 
   // シートごとに必要なオプションヘッダーを定義
   const optionalHeadersMap = {
-    [SCHEDULE_SHEET_NAME]: ['is_draft', 'is_verifying']
+    [SCHEDULE_SHEET_NAME]: ['is_draft', 'is_verifying', 'is_new']
   };
 
   const allowedOptional = optionalHeadersMap[sheetName] || [];
@@ -234,6 +240,107 @@ function applySingleDeliveryPayloadRule_(payload) {
   if (cycle !== '単発') return;
   const startDate = normalizeCommentTargetDate_(payload.start_date);
   if (startDate) payload.end_date = startDate;
+}
+
+function normalizeNewFirstDatePayload_(value) {
+  const text = normalizeCell_(value);
+  if (!text || text === 'FALSE' || text === 'false' || text === '0') return '';
+  const date = normalizeCommentTargetDate_(text);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) return date;
+  return isTruthy_(text) ? 'TRUE' : '';
+}
+
+function applyNewFirstDateForInsert_(headers, existingValues, row) {
+  const isNewIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.is_new);
+  if (isNewIndex == null) return;
+  const mailName = normalizeCell_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.mail_name));
+  if (!mailName || hasExistingScheduleMailName_(headers, existingValues, mailName)) {
+    row[isNewIndex] = '';
+    return;
+  }
+  row[isNewIndex] = computeFirstScheduleOccurrenceDate_(headers, row) || '';
+}
+
+function hasExistingScheduleMailName_(headers, existingValues, mailName) {
+  for (var i = 1; i < existingValues.length; i++) {
+    var existing = normalizeCell_(getFieldByAliases_(headers, existingValues[i], SCHEDULE_FIELD_ALIASES.mail_name));
+    if (existing && existing === mailName) return true;
+  }
+  return false;
+}
+
+function computeFirstScheduleOccurrenceDate_(headers, row) {
+  const startDate = normalizeCommentTargetDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.start_date));
+  if (!startDate) return '';
+  const cur = parseScheduleDate_(startDate);
+  if (!cur) return '';
+  const end = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate());
+  end.setDate(end.getDate() + 400);
+  while (cur <= end) {
+    if (isScheduleOccurrenceDateForNew_(headers, row, cur)) return formatDate_(cur);
+    cur.setDate(cur.getDate() + 1);
+  }
+  return '';
+}
+
+function isScheduleOccurrenceDateForNew_(headers, row, date) {
+  const dateStr = formatDate_(date);
+  const startDate = normalizeCommentTargetDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.start_date));
+  const endDate = normalizeCommentTargetDate_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.end_date));
+  if (startDate && dateStr < startDate) return false;
+  if (endDate && dateStr > endDate) return false;
+
+  const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+  const dayLabel = weekdays[date.getDay()];
+  const entryWeekday = normalizeWeekdayLabel_(getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.weekday));
+  const cycleValue = getFieldByAliases_(headers, row, SCHEDULE_FIELD_ALIASES.cycle);
+  const cycle = normalizeCycleLabel_(cycleValue);
+  if (cycle === '単発') return !!startDate && startDate === dateStr;
+  if (cycle === '毎日') return true;
+  if (cycle === '毎月') return isMonthlyCycleDateForBackup_(startDate, date);
+  if (cycle === '月末') return getMonthEndInfo_(date).isInWindow && entryWeekday === dayLabel;
+  if (cycle === 'A' || cycle === 'B') return entryWeekday === dayLabel && cycle === getCycleForScheduleRow_(headers, row, date);
+  if (/^M[1-4]$/.test(cycle)) return entryWeekday === dayLabel && isNthWeekOfMonthForNew_(date, Number(cycle.substring(1)));
+  const cycleNumber = extractCycleNumberForBackup_(cycle);
+  if (cycleNumber != null) {
+    const expectedCycle = getCycleForScheduleRow_(headers, row, date);
+    return entryWeekday === dayLabel && typeof expectedCycle === 'number' && cycleContainsForBackup_(cycleValue, expectedCycle);
+  }
+  return entryWeekday === dayLabel;
+}
+
+function isNthWeekOfMonthForNew_(date, n) {
+  return Math.floor((date.getDate() - 1) / 7) + 1 === n;
+}
+
+function migrateIsNewToFirstDeliveryDates() {
+  return withScriptLock_(() => {
+    const ss = getSourceSpreadsheet_();
+    const sheet = ss.getSheetByName(SCHEDULE_SHEET_NAME);
+    if (!sheet) throw new Error(`Sheet not found: ${SCHEDULE_SHEET_NAME}`);
+    const values = sheet.getDataRange().getValues();
+    if (values.length < 2) return { success: true, updated: 0 };
+    const headers = values[0].map(header => String(header || '').trim());
+    const isNewIndex = firstExistingHeaderIndex_(buildHeaderMap_(headers), SCHEDULE_FIELD_ALIASES.is_new);
+    if (isNewIndex == null) return { success: true, updated: 0 };
+    let updated = 0;
+    for (var i = 1; i < values.length; i++) {
+      var raw = normalizeCell_(values[i][isNewIndex]);
+      var next = '';
+      if (/^\d{4}[-\/]\d{1,2}[-\/]\d{1,2}$/.test(raw)) {
+        next = normalizeCommentTargetDate_(raw);
+      } else if (isTruthy_(raw)) {
+        next = computeFirstScheduleOccurrenceDate_(headers, values[i]);
+      }
+      if (raw === 'FALSE' || raw === 'false' || raw === '0') next = '';
+      if (normalizeCell_(values[i][isNewIndex]) !== next) {
+        sheet.getRange(i + 1, isNewIndex + 1).setValue(next);
+        updated++;
+      }
+    }
+    if (updated) invalidateInitialDataCaches_([SCHEDULE_SHEET_NAME]);
+    return { success: true, updated };
+  });
 }
 
 function deleteMasterData(sheetName, rowNumber) {
