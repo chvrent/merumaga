@@ -484,6 +484,48 @@ function getMasterChangeHistory(scheduleId) {
   return results;
 }
 
+/**
+ * 全メルマガの「最終マスタ変更日(YYYY-MM-DD)」マップを返す。
+ * コメントシートの `[マスタ変更]` を schedule_id 別に走査し、最新日のみ採用。
+ * カレンダーの「変更後初回＝変更あり」バッジ判定に使う（getInitialData で配信）。
+ */
+function getMasterChangeDates_() {
+  const sheet = getCommentsSheet_();
+  if (!sheet) return {};
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return {};
+
+  const headers = values[0].map(function(h) { return String(h || '').trim(); });
+  const idIndex = findCommentHeaderIndex_(headers, 'schedule_id');
+  const textIndex = findCommentHeaderIndex_(headers, 'comment_text');
+  const tsIndex = findCommentHeaderIndex_(headers, 'timestamp');
+  if (idIndex < 0 || textIndex < 0 || tsIndex < 0) return {};
+
+  const map = {};
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    var text = String(row[textIndex] || '');
+    if (text.indexOf('[マスタ変更]') !== 0) continue;
+    var id = normalizeCell_(row[idIndex]);
+    if (!id) continue;
+    var d = toCommentDateOnly_(row[tsIndex]);
+    if (!d) continue;
+    if (!map[id] || d > map[id]) map[id] = d;
+  }
+  return map;
+}
+
+function toCommentDateOnly_(value) {
+  if (!value) return '';
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone() || 'Asia/Tokyo', 'yyyy-MM-dd');
+  }
+  var s = String(value).replace(/[\/.]/g, '-');
+  var m = s.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (!m) return '';
+  return m[1] + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[3]).slice(-2);
+}
+
 function findCommentHeaderIndex_(headers, key) {
   var aliases = COMMENTS_FIELD_ALIASES[key] || [key];
   for (var i = 0; i < headers.length; i++) {

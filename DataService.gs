@@ -31,6 +31,7 @@ function getInitialData(options) {
     adminMaster: getAdminList(),
     prefMaster: getPrefMaster(),
     jobMaster: getJobMaster(),
+    masterChangeDates: getMasterChangeDates_(),
     inputControls: getInputControlRows_()
   }, getOperationalDataForRange_(dateRange));
 }
