@@ -26,23 +26,28 @@
   const MASTER_RENDER_LIMIT = 300;
   const masterFilters = { status: 'active', newOnly: false, verifyingOnly: false, draftOnly: false, selections: {} };
   // メルマガ一覧の選択式フィルタ対象。source:'person'=設定者or確認者、'column'=該当列。
-  // multi=true は「、」区切りの複数値（地域/職種/年齢）でセルとの包含一致。
+  // 「複数値(地域/職種/年齢)かどうか」は isMasterMultiField_() で導出（multi はここに持たない）。
   const MASTER_FILTER_FIELDS_ = Object.freeze([
-    { key: 'subcategory', aliases: ['sub_category', 'サブカテゴリ', '担当部署'], fallback: '担当部署', multi: false, source: 'column' },
-    { key: 'format', aliases: ['format', '形式'], fallback: '形式', multi: false, source: 'column' },
-    { key: 'category', aliases: ['mail_type', 'category', '種別'], fallback: '種別', multi: false, source: 'column' },
-    { key: 'person', aliases: [], fallback: '担当者', multi: false, source: 'person' },
-    { key: 'weekday', aliases: ['weekday', '曜日'], fallback: '曜日', multi: false, source: 'column' },
-    { key: 'hour', aliases: ['hour', '時間', '時刻', '配信時間'], fallback: '時間', multi: false, source: 'column' },
-    { key: 'cycle', aliases: ['cycle', 'サイクル', '配信サイクル'], fallback: 'サイクル', multi: false, source: 'column' },
-    { key: 'target_age', aliases: ['target_age', '対象年齢', 'USER_年齢', '年齢'], fallback: '年齢', multi: true, source: 'column' },
-    { key: 'target_address', aliases: ['target_address', 'USER_現住所', '対象現住所', '現住所'], fallback: '現住所', multi: true, source: 'column' },
-    { key: 'user_desired_location', aliases: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'], fallback: '希望勤務地', multi: true, source: 'column' },
-    { key: 'job_location', aliases: ['job_location', 'JOB_勤務地'], fallback: 'JOB勤務地', multi: true, source: 'column' },
-    { key: 'user_experience_job', aliases: ['user_experience_job', 'USER_経験職種', '経験職種'], fallback: '経験職種', multi: true, source: 'column' },
-    { key: 'user_desired_job', aliases: ['user_desired_job', 'USER_希望職種', '希望職種'], fallback: '希望職種', multi: true, source: 'column' },
-    { key: 'job_type', aliases: ['job_type', 'JOB_職種'], fallback: 'JOB職種', multi: true, source: 'column' }
+    { key: 'subcategory', aliases: ['sub_category', 'サブカテゴリ', '担当部署'], fallback: '担当部署', source: 'column' },
+    { key: 'format', aliases: ['format', '形式'], fallback: '形式', source: 'column' },
+    { key: 'category', aliases: ['mail_type', 'category', '種別'], fallback: '種別', source: 'column' },
+    { key: 'person', aliases: [], fallback: '担当者', source: 'person' },
+    { key: 'weekday', aliases: ['weekday', '曜日'], fallback: '曜日', source: 'column' },
+    { key: 'hour', aliases: ['hour', '時間', '時刻', '配信時間'], fallback: '時間', source: 'column' },
+    { key: 'cycle', aliases: ['cycle', 'サイクル', '配信サイクル'], fallback: 'サイクル', source: 'column' },
+    { key: 'target_age', aliases: ['target_age', '対象年齢', 'USER_年齢', '年齢'], fallback: '年齢', source: 'column' },
+    { key: 'target_address', aliases: ['target_address', 'USER_現住所', '対象現住所', '現住所'], fallback: '現住所', source: 'column' },
+    { key: 'user_desired_location', aliases: ['user_desired_location', 'USER_希望勤務地', '希望勤務地'], fallback: '希望勤務地', source: 'column' },
+    { key: 'job_location', aliases: ['job_location', 'JOB_勤務地'], fallback: 'JOB勤務地', source: 'column' },
+    { key: 'user_experience_job', aliases: ['user_experience_job', 'USER_経験職種', '経験職種'], fallback: '経験職種', source: 'column' },
+    { key: 'user_desired_job', aliases: ['user_desired_job', 'USER_希望職種', '希望職種'], fallback: '希望職種', source: 'column' },
+    { key: 'job_type', aliases: ['job_type', 'JOB_職種'], fallback: 'JOB職種', source: 'column' }
   ]);
+
+  // 複数値（「、」区切り・マスタ/埋め込み紐づけ）の項目かを単一情報源から導出する。
+  function isMasterMultiField_(key) {
+    return getMasterMultiSelectOptions_(key) != null;
+  }
   const SCHEDULE_BACKGROUND_COLORS = Object.freeze({
     default: '#FFFFFF',
     checkingSingle: '#dbeafe',
@@ -1332,7 +1337,7 @@
           const assigneeVal = assigneeHeader ? String(getCellByHeader_(row, assigneeHeader) || '').trim() : '';
           const reviewerVal = reviewerHeader ? String(getCellByHeader_(row, reviewerHeader) || '').trim() : '';
           if (entry.values.indexOf(assigneeVal) === -1 && entry.values.indexOf(reviewerVal) === -1) return false;
-        } else if (entry.field.multi) {
+        } else if (isMasterMultiField_(entry.field.key)) {
           const cellVals = parseMultiSelectValue_(getCellByHeader_(row, entry.header));
           if (!entry.values.some(v => cellVals.indexOf(v) !== -1)) return false;
         } else {
@@ -1971,7 +1976,7 @@
     if (field.source === 'person') {
       return getMasterPersonCandidates_().map(value => ({ group: '', value }));
     }
-    if (field.multi) {
+    if (isMasterMultiField_(field.key)) {
       const out = [];
       const seen = new Set();
       (getMasterMultiSelectOptions_(field.key) || []).forEach(option => {
