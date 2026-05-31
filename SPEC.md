@@ -6,6 +6,7 @@
 
 | 日付 | 版 | 概要 | 担当者 |
 | :--- | :--- | :--- | :--- |
+| 2026-05-31 | 1.49 | **メルマガ一覧フィルタの複数選択化** — 担当部署/形式/種別/担当者/曜日/時間/サイクル/地域系/職種系/年齢を、配信編集モーダルと同一の複数選択部品（`renderMultiSelectMarkup_`/`groupMultiSelectOptions_` に共通化）で描画。選択値は `masterFilters.selections[key]`（配列・OR一致、multiは「、」包含、personは設定者or確認者一致）。`MASTER_FILTER_FIELDS_`/`renderMasterFilterMultiSelect_`/`applyMasterFilterSelection_`。旧single-select handler/`renderMasterFilterSelect_`/`MASTER_EXTRA_FILTER_FIELDS_` を撤去。詳細は §0.4。 | Claude Opus |
 | 2026-05-30 | 1.48 | **UI刷新バッチ6（マスタ紐づけ複数選択・バックエンド込み）** — 地域系（`target_address`/`user_desired_location`/`job_location`）を `app_pref_master`、職種系（`user_experience_job`/`user_desired_job`/`job_type`）を `app_job_master` に紐づけ、**大分類グルーピング＋チップ表示の複数選択ドロップダウン**で描画。バックエンド `DataService.gs` に `getPrefMaster()`/`getJobMaster()`/`getCategoryMasterOptions_()` を追加し `getInitialData` で `prefMaster`/`jobMaster` を配信。クライアント `Client.html` の `renderMasterMultiSelectInput_()`/`syncMasterMultiSelectField_()`/`MASTER_MULTISELECT_KEYS_` で実装。hidden は元値保持・変更時のみ「、」区切りへ再シリアライズ（override誤検知回避）。`app_pr_code_master` は紐づく列が無いため引き続き保留。詳細は §0.6。 | Claude Opus |
 | 2026-05-30 | 1.47 | **UI刷新バッチ5＋確定仕様化** — 担当者フィルタの不具合修正（アーカイブ枠も担当者で絞り込み・未設定行を除外）。パラメータを横幅いっぱい表示。日付ピッカーを枠内クリックで開く（`onclick=showPicker`）。マスタ変更後の初回配信に「変更あり」バナー表示。**新規(is_new)/検証(is_verifying) を配信編集モーダルでロック**し、マスタ値に紐づけ（変更はマスタ編集モーダルで）。**ここまでのUI刷新(1.42–1.47)の決定事項・注意点を「UI刷新 確定仕様」として明文化し、無断変更を禁止。** | Claude Opus |
 | 2026-05-30 | 1.46 | **UI刷新バッチ4（一覧/カレンダー/配信編集）** — メルマガ一覧の件数サマリー行を削除（統計バーで代替）。PR管理/メルマガ一覧のフィルター行の縦幅・余白を統一（タブ遷移のガタつき解消）。カレンダーのメルマガ名クリックと同時にメルマガ名をコピー。担当者検索を app_admin_master 連動のプルダウン化（初期=すべて、設定者or確認者の完全一致）。各セル末尾に空欄クリック領域を常設し、メルマガが多くても新規追加クリック可能に。配信編集の変更範囲選択に「この日以降を変更（マスタ編集）」（`saveScheduleFromDate`、確定済・確認済み以外の同名予定が全変更される旨のアラート併記）を追加。 | Claude Opus |
@@ -88,6 +89,7 @@
 - 日付ピッカーは**枠内クリックで即カレンダー表示**（`onclick=showPicker()`）。
 - 日付ヘッダー順: 日付 → タグ（サイクル+月末タグ） → 操作ボタン（全停止/再開/R確定）。
 - 各セル末尾に**空欄クリック領域 `.slot-add-zone`**（最大メルマガ＋1行）。満杯列でも新規追加クリック可。
+- **前日以前のカレンダー列は列全体を薄暗く表示**（ヘッダー `th.is-past` とセル `td.is-past-column` の背景を `#e7eaee`、ヘッダー文字 text-3、過去列の `.slot-item` は `opacity:0.78` でくすませる）。今日は既存の accent アンダーラインを維持し、**明暗差で**今日と前日の境目を表現する（境界線は引かない）。
 
 ### 0.4 メルマガ一覧 / PR管理
 - 一覧の「N件中M件を表示…」**件数サマリー行は削除**（統計バーで代替）。
@@ -95,7 +97,11 @@
 - メルマガ一覧に**現状ステータスバー**（全/表示/配信中/検証中/新規/下書き/停止・終了）。
 - 一覧/PR管理は**画面いっぱい**（`.master-table-container { flex:1 }`）、**列ヘッダー中央寄せ**。
 - フィルターチップは PR管理チップ風（角丸 r8 / 白背景 / 選択中 accent-light）。
-- **メルマガ一覧フィルタは選択式項目を網羅**（`app_schedule` のみ）。ステータス（配信中/すべて/配信終了）＋新規/検証中/下書きの「のみ」トグル＋担当部署/形式/種別に加え、**担当者**（設定者or確認者の完全一致・`getMasterPersonCandidates_`）と、**曜日/時間/サイクル/地域系/職種系/年齢**の選択式列プルダウン（`MASTER_EXTRA_FILTER_FIELDS_`）を表示する。地域系/職種系/年齢の `multi` 列は「、」分解して**包含一致**、その他は**完全一致**。候補値は `getMasterFilterCandidateValues_`（multi はマスタ/埋め込みの並び順→データ出現順）。状態は `masterFilters.person` / `masterFilters.columns`。`app_pr`・その他シートではこれらをリセット。
+- **メルマガ一覧フィルタは選択式項目を網羅し、すべて複数選択**（`app_schedule` のみ）。ステータス（配信中/すべて/配信終了）＋新規/検証中/下書きの「のみ」トグルに加え、**担当部署/形式/種別/担当者/曜日/時間/サイクル/地域系/職種系/年齢**を**配信編集モーダルと同一の複数選択部品**で表示する（`MASTER_FILTER_FIELDS_`／`renderMasterFilterMultiSelect_`）。
+  - 複数選択部品は `renderMultiSelectMarkup_()`＋`groupMultiSelectOptions_()` に**共通化**し、マスタ/配信編集（`opts.hiddenName`）と一覧フィルタ（`opts.filterKey`＋`data-ms-filter`）で共有する（大分類トグル・全選択集約チップ・indeterminate を含む）。**この共通化を個別実装に戻さない。**
+  - 選択値は `masterFilters.selections[key]`（**配列・OR一致**）。複数値項目（地域系/職種系/年齢）は「、」分解して**包含一致**、`person` は**設定者or確認者**のいずれか一致、その他は**完全一致**。空配列＝絞り込みなし。複数値項目かどうかは `isMasterMultiField_(key)`（＝`getMasterMultiSelectOptions_(key) != null`）で**導出**し、`MASTER_MULTISELECT_KEYS_`＋埋め込み定義を単一情報源とする（`MASTER_FILTER_FIELDS_` に `multi` を持たせない）。
+  - 変更は `syncMasterMultiSelectField_()` の change 委譲で `data-ms-filter` を検出し `applyMasterFilterSelection_()` → `renderMasterTable()` を即時実行（**チップ行は再描画せず**ドロップダウンを開いたまま複数選択可）。未選択時のサマリは `data-ms-placeholder`「項目: すべて」。
+  - `app_pr`・その他シートでは `masterFilters.selections` をリセット。
 
 ### 0.5 配信編集モーダル
 - ヘッダー: 通数/設定/確認プルダウンは**半幅**（`.hf 50px`）。設定/確認は**略称のみ**表示。
@@ -640,6 +646,7 @@ UI仕様を変更する場合は、該当箇所の近傍だけで判断しては
 - マスタ編集・配信編集のテキスト/日付/日時/長文項目は `Client.html` の `getMasterTextInputConfig_()` と `renderTextInputFromConfig_()` を経由して描画する。入力タイプを増減する場合は、個別HTMLを追加する前に同設定関数へ集約できるか確認する。
 - マスタ編集・配信編集の特殊項目（メルマガ名、PR ID、設定者、確認者、新規、求人件数、PR、形式非表示）は `Client.html` の `getMasterSpecialFieldConfig_()` / `renderMasterSpecialFieldInput_()` を経由して描画する。特殊扱いを追加・解除する場合は、select/text の共通描画に入る前の同関数を更新する。
 - `applyDynamicInputControl()` のモード別制御は `resetModalFieldStates_()`、`applyAutoJobFieldControls_()`、`applyEditModalLockedFieldControls_()`、`applyCurrentJobCountControls_()`、`applyPrMasterControls_()` に分かれている。モーダル状態の条件を増減する場合は、同じ責務の関数へ寄せてから変更する。
+- メルマガ一覧の行の絞り込みは `filterMasterRows_()`（検索語・選択式フィルタ `MASTER_FILTER_FIELDS_`・新規/検証/下書きトグル・ステータス）に集約し、`renderMasterTable()` は描画のみを担う。戻り値の `endDate/inactive/verifying/isNew` ヘッダー・`today` はステータスバー描画とセル描画で再利用する。絞り込み条件を増減するときは `filterMasterRows_()` 内で完結させる。
 - 形式タブは `Client.html` の `setModalFormatState()` と `setModalFormatTabLockState()` を正とし、`dataset.mode === 'edit'` のモーダルではタブをロック状態にする。編集時はタブの有効/無効と `format` の値が必ず同期しているか確認する。
 
 ### 5.6 メンテナンス・高速化ルール

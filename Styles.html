@@ -533,6 +533,18 @@ thead th {
 #tableContainer thead th.is-holiday .date-header-picker,
 .date-header-picker.is-emphasis-date { color: var(--alert); }
 #tableContainer thead th.is-holiday .date-header { background: #fff7ed; }
+/* 過去日: ヘッダー・列全体を薄暗くして今日との境目を明確にする */
+#tableContainer thead th.is-past .date-header { background: #dfe2e7; }
+#tableContainer thead th.is-past .date-title { color: var(--text-3); }
+#tableContainer thead th.is-past .date-header-picker { color: var(--text-3); border-color: var(--border); }
+#tableContainer thead th.is-past.is-weekend .date-title,
+#tableContainer thead th.is-past.is-holiday .date-title,
+#tableContainer thead th.is-past .date-header-picker.is-emphasis-date { color: #c084a0; }
+/* 列全体(ヘッダー+全セル)を暗くし、中身も少しくすませる */
+#tableContainer thead th.is-past { background-color: #e7eaee; }
+#tableContainer td.is-past-column { background-color: #e7eaee; }
+#tableContainer td.is-past-column .slot-item { opacity: 0.78; }
+/* 今日: 引き続き明るいアクセント（過去列が暗いので境目は明暗差で表現） */
 #tableContainer thead th.is-today .date-header {
   background: var(--bg-sub);
   border-bottom: 3px solid var(--accent);
@@ -1289,6 +1301,16 @@ thead th {
 
 /* ④ マスタ紐づけ複数選択ドロップダウン（地域系/職種系） */
 .ms-field { position: relative; width: 100%; }
+/* 一覧フィルタ内の複数選択はチップ/プルダウンと同じくコンパクトに横並び */
+.filter-chips-bar .ms-field.ms-filter { width: auto; min-width: 130px; max-width: 240px; }
+.filter-chips-bar .ms-field.ms-filter .ms-dd > summary { min-height: 28px; padding: 3px 8px; }
+.filter-chips-bar .ms-field.ms-filter .ms-panel {
+  position: absolute;
+  z-index: 40;
+  left: 0;
+  min-width: 200px;
+  background: var(--bg);
+}
 .ms-dd { width: 100%; }
 .ms-dd > summary {
   list-style: none;
