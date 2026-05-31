@@ -544,14 +544,13 @@ thead th {
 #tableContainer thead th.is-past { background-color: #e7eaee; }
 #tableContainer td.is-past-column { background-color: #e7eaee; }
 #tableContainer td.is-past-column .slot-item { opacity: 0.78; }
-/* 今日: 列の左端にアクセント境界線を引き、過去との境目を強調 */
+/* 今日: 引き続き明るいアクセント（過去列が暗いので境目は明暗差で表現） */
 #tableContainer thead th.is-today .date-header {
   background: var(--bg-sub);
   border-bottom: 3px solid var(--accent);
 }
-#tableContainer thead th.is-today { border-left: 2px solid var(--accent); }
 #tableContainer thead th.is-today .date-title { color: var(--accent); font-weight: 700; }
-#tableContainer td.is-today-column { background-color: rgba(13,148,136,0.03); border-left: 2px solid var(--accent); }
+#tableContainer td.is-today-column { background-color: rgba(13,148,136,0.03); }
 .date-header-picker {
   width: 100%;
   min-height: 24px;
