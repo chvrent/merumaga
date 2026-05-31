@@ -38,6 +38,32 @@ git remote -v
 すでに他AI名のブランチにいる場合は、編集を始める前にユーザーへ確認する。
 この処理は `scripts/ai-start.ps1` で自動化する。
 
+## ブランチは用が済んだら削除する (クリーンアップ フロー)
+
+作業ブランチは `main` にマージし終えて**用がなくなったら削除する**。マージ済みブランチを溜めない。
+
+1. **マージ直後に削除**: `<agent>/<task>` ブランチを `main` へ `--no-ff` マージ＋ `git push origin main` した直後、
+   そのブランチをローカル削除する。
+   ```powershell
+   git checkout main
+   git merge --no-ff <branch> ; git push origin main
+   git branch -d <branch>                      # マージ済みなら -d で安全に消える
+   git push origin --delete <branch>           # リモートに push 済みのブランチのみ
+   ```
+   - `-d` が「未マージ」で拒否したら、**本当にマージ済みか確認するまで `-D` で強制削除しない**（取りこぼし防止）。
+   - リモートに存在しないローカル専用ブランチは push delete 不要（`git ls-remote --heads origin <branch>` で確認）。
+
+2. **まとめて掃除する場合** (マージ済みのみ・安全):
+   ```powershell
+   git branch --merged main          # 一覧（* = カレント, + = worktree使用中 は対象外）
+   git push origin --delete <merged-branch> ...   # マージ済みを確認してから
+   git remote prune origin           # 消えたリモート追跡参照を整理
+   ```
+   - **worktree で使用中のブランチ (`+` 印) は削除しない**（worktree を解除しない限り消せない／壊れる）。
+   - リモートのマージ済み判定は `git rev-list --count origin/main..origin/<branch>` が `0` なら取り込み済み。`0` でないものは**未マージなので消さずユーザーへ確認**。
+
+3. **判断に迷う・大きな未マージブランチがある場合は削除しない**。`git branch --no-merged main` に出るものは原則残し、ユーザーに要否を確認する。
+
 ## 修正のたびにドキュメント追記 (全AI共通)
 
 修正・機能追加・バグ対応で `main` にマージした **毎回**、以下を必ず実施する。ユーザー要望 (2026-05-29)。
