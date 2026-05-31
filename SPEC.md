@@ -6,6 +6,7 @@
 
 | 日付 | 版 | 概要 | 担当者 |
 | :--- | :--- | :--- | :--- |
+| 2026-05-31 | 1.51 | **カレンダーの「変更後初回配信＝変更あり」バッジを実装**（§0.7 の保留を解消） — サーバ `getMasterChangeDates_()`（コメントの `[マスタ変更]` を `schedule_id → 最終マスタ変更日` に集約）を `getInitialData` で `masterChangeDates` 配信。クライアント `getMasterChangeFirstOccMap_()`（変更日以降の最初の発生日を `computeOccurrenceDatesInRange_` で算出・キャッシュ、データ再読込で破棄）＋`renderMasterChangeBadge_()` で一致セルに赤「変更あり」(`occurrence-change-badge`)を表示。モーダルのバナーと同基準。詳細は §0.3。 | Claude Opus |
 | 2026-05-31 | 1.50 | **カレンダー前日以前の薄暗化＋一覧フィルタの整理・性能改善** — カレンダーの前日以前を列全体（`th.is-past`/`td.is-past-column` 背景 `#e7eaee`、過去 `.slot-item` を `opacity:0.78`）で薄暗くし、明暗差で今日との境目を表現（境界線は引かない）。一覧フィルタの絞り込みを `filterMasterRows_()` に抽出、複数値判定を `isMasterMultiField_()`（`getMasterMultiSelectOptions_` 由来）で単一情報源化、フィルタ変更時のテーブル再描画を 120ms debounce 化（`MASTER_FILTER_RENDER_TIMER_`）。挙動不変のリファクタ＋CSS。詳細は §0.3 / §0.4。 | Claude Opus |
 | 2026-05-31 | 1.49 | **メルマガ一覧フィルタの複数選択化** — 担当部署/形式/種別/担当者/曜日/時間/サイクル/地域系/職種系/年齢を、配信編集モーダルと同一の複数選択部品（`renderMultiSelectMarkup_`/`groupMultiSelectOptions_` に共通化）で描画。選択値は `masterFilters.selections[key]`（配列・OR一致、multiは「、」包含、personは設定者or確認者一致）。`MASTER_FILTER_FIELDS_`/`renderMasterFilterMultiSelect_`/`applyMasterFilterSelection_`。旧single-select handler/`renderMasterFilterSelect_`/`MASTER_EXTRA_FILTER_FIELDS_` を撤去。詳細は §0.4。 | Claude Opus |
 | 2026-05-30 | 1.48 | **UI刷新バッチ6（マスタ紐づけ複数選択・バックエンド込み）** — 地域系（`target_address`/`user_desired_location`/`job_location`）を `app_pref_master`、職種系（`user_experience_job`/`user_desired_job`/`job_type`）を `app_job_master` に紐づけ、**大分類グルーピング＋チップ表示の複数選択ドロップダウン**で描画。バックエンド `DataService.gs` に `getPrefMaster()`/`getJobMaster()`/`getCategoryMasterOptions_()` を追加し `getInitialData` で `prefMaster`/`jobMaster` を配信。クライアント `Client.html` の `renderMasterMultiSelectInput_()`/`syncMasterMultiSelectField_()`/`MASTER_MULTISELECT_KEYS_` で実装。hidden は元値保持・変更時のみ「、」区切りへ再シリアライズ（override誤検知回避）。`app_pr_code_master` は紐づく列が無いため引き続き保留。詳細は §0.6。 | Claude Opus |
@@ -91,6 +92,7 @@
 - 日付ヘッダー順: 日付 → タグ（サイクル+月末タグ） → 操作ボタン（全停止/再開/R確定）。
 - 各セル末尾に**空欄クリック領域 `.slot-add-zone`**（最大メルマガ＋1行）。満杯列でも新規追加クリック可。
 - **前日以前のカレンダー列は列全体を薄暗く表示**（ヘッダー `th.is-past` とセル `td.is-past-column` の背景を `#e7eaee`、ヘッダー文字 text-3、過去列の `.slot-item` は `opacity:0.78` でくすませる）。今日は既存の accent アンダーラインを維持し、**明暗差で**今日と前日の境目を表現する（境界線は引かない）。
+- **マスタ変更後の初回配信**はカレンダーセルに赤「**変更あり**」バッジ（`occurrence-change-badge`）を表示（1.51）。サーバが `APP_DATA.masterChangeDates`（`schedule_id → 最終マスタ変更日`、`getMasterChangeDates_()` がコメントの `[マスタ変更]` を集約）を提供し、クライアント `getMasterChangeFirstOccMap_()` が各メルマガで変更日以降の最初の発生日（`computeOccurrenceDatesInRange_`）を算出・キャッシュ、`renderMasterChangeBadge_()` が一致セルにバッジを描画する。配信編集モーダルのバナー（§0.5）と同じ判定基準。
 
 ### 0.4 メルマガ一覧 / PR管理
 - 一覧の「N件中M件を表示…」**件数サマリー行は削除**（統計バーで代替）。
@@ -135,7 +137,8 @@
 
 ### 0.7 未実装・保留（要対応。正本として記録）
 - **`app_pr_code_master`** の紐づけ（アコーディオン＋チップ複数選択）は**紐づく列が未定のため保留**。対象キーが決まり次第、§0.6 の地域系/職種系と同じ枠組み（`MASTER_MULTISELECT_KEYS_` / `getCategoryMasterOptions_()`）で実装する。
-- カレンダー上の「**変更後初回配信＝変更あり**」のバッジ表示は、`schedule_id → 最終マスタ変更日` のマップをサーバから提供する必要があり**未実装**（配信編集モーダルのバナーは実装済み）。
+
+> カレンダーの「変更後初回配信＝変更あり」バッジは **1.51 で実装済み**（§0.3 参照）。本リストからは外した。
 
 ---
 
