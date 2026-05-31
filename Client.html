@@ -1295,16 +1295,10 @@
       + `<div class="master-si alert"><span class="master-si-dot" style="background:var(--alert)"></span>停止・終了 <b>${ended}</b> 件</div>`;
   }
 
-  function renderMasterTable() {
-    const statsBarEl = document.getElementById('masterStatsBar');
-    if (MASTER_DATA.sheetName === 'app_pr') {
-      if (statsBarEl) { statsBarEl.innerHTML = ''; statsBarEl.style.display = 'none'; }
-      renderPrCards();
-      return;
-    }
-    const container = document.getElementById('masterTableContainer');
-    const headers = MASTER_DATA.headers || [];
-    const visibleHeaders = getVisibleMasterHeaders(headers);
+  // メルマガ一覧(app_schedule等)の行を検索語・選択式フィルタ・ステータスで絞り込む。
+  // 戻り値: { rows, endDateHeader, inactiveHeader, verifyingHeader, isNewHeader, today }
+  // ヘッダー類はステータスバー描画でも再利用する。
+  function filterMasterRows_() {
     const searchInput = document.getElementById('masterSearchInput');
     const keyword = String(searchInput ? searchInput.value : '').trim().toLowerCase();
 
@@ -1366,9 +1360,33 @@
       return true;
     });
 
+    return { rows, endDateHeader, inactiveHeader, verifyingHeader, isNewHeader, today };
+  }
+
+  function renderMasterTable() {
+    const statsBarEl = document.getElementById('masterStatsBar');
+    if (MASTER_DATA.sheetName === 'app_pr') {
+      if (statsBarEl) { statsBarEl.innerHTML = ''; statsBarEl.style.display = 'none'; }
+      renderPrCards();
+      return;
+    }
+    const container = document.getElementById('masterTableContainer');
+    const headers = MASTER_DATA.headers || [];
+    const visibleHeaders = getVisibleMasterHeaders(headers);
+
+    const filtered = filterMasterRows_();
+    const rows = filtered.rows;
+    const endDateHeader = filtered.endDateHeader;
+    const inactiveHeader = filtered.inactiveHeader;
+    const today = filtered.today;
+
     // ⑥ メルマガ一覧の現状ステータスバー
     renderMasterStatsBar_(MASTER_DATA.rows || [], rows.length, {
-      endDateHeader, inactiveHeader, verifyingHeader, isNewHeader, today
+      endDateHeader: filtered.endDateHeader,
+      inactiveHeader: filtered.inactiveHeader,
+      verifyingHeader: filtered.verifyingHeader,
+      isNewHeader: filtered.isNewHeader,
+      today: filtered.today
     });
 
     if (!headers.length) {
