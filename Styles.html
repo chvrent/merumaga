@@ -533,6 +533,15 @@ thead th {
 #tableContainer thead th.is-holiday .date-header-picker,
 .date-header-picker.is-emphasis-date { color: var(--alert); }
 #tableContainer thead th.is-holiday .date-header { background: #fff7ed; }
+/* 過去日: ヘッダー・セルを薄暗くして今日との境目を明確にする */
+#tableContainer thead th.is-past .date-header { background: #f0f1f3; }
+#tableContainer thead th.is-past .date-title { color: var(--text-3); }
+#tableContainer thead th.is-past .date-header-picker { color: var(--text-3); border-color: var(--border); }
+#tableContainer thead th.is-past.is-weekend .date-title,
+#tableContainer thead th.is-past.is-holiday .date-title,
+#tableContainer thead th.is-past .date-header-picker.is-emphasis-date { color: #c084a0; }
+#tableContainer td.is-past-column { background-color: #f4f5f6; }
+/* 今日: 引き続き明るいアクセント */
 #tableContainer thead th.is-today .date-header {
   background: var(--bg-sub);
   border-bottom: 3px solid var(--accent);

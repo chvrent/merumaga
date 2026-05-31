@@ -559,11 +559,13 @@
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
       const isHoliday = holidayDates.has(dateStr);
       const isToday = dateStr === todayStr;
+      const isPast = dateStr < todayStr;
       const headerClasses = [
         monthEndInfo.isInWindow ? 'month-end-header' : '',
         isWeekend ? 'is-weekend' : '',
         isHoliday ? 'is-holiday' : '',
-        isToday ? 'is-today' : ''
+        isToday ? 'is-today' : '',
+        isPast ? 'is-past' : ''
       ].filter(Boolean).join(' ');
       const label = `${date.getMonth() + 1}/${date.getDate()} (${weekdays[date.getDay()]})`;
       const headerDateControl = index === 0
@@ -596,8 +598,9 @@
     dates.forEach((date) => {
       const dateStr = formatDate(date);
       const isToday = dateStr === todayStr;
+      const isPastCol = dateStr < todayStr;
       html += `
-        <th class="grid-header-cell ${isToday ? 'is-today' : ''}" style="padding:0; border-top:none;">
+        <th class="grid-header-cell ${isToday ? 'is-today' : ''} ${isPastCol ? 'is-past' : ''}" style="padding:0; border-top:none;">
           <div class="grid-header">
             <div class="col-name">内容</div>
             <div class="col-count">通数</div>
@@ -621,7 +624,7 @@
         const slotEntries = dedupeSlotEntries_(archivedSlotEntries.concat(entries), dateStr, hour);
         // ⑬ 時間帯合計配信数ツールチップ
         const slotTooltip = slotEntries.length > 0 ? buildSlotTooltip_(slotEntries, dateStr, hour) : '';
-        html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}" style="padding:0;"${slotTooltip}>`;
+        html += `<td data-date="${dateStr}" data-hour="${hour}:00" class="${isToday ? 'is-today-column' : ''}${dateStr < todayStr ? ' is-past-column' : ''}" style="padding:0;"${slotTooltip}>`;
         if (slotEntries.length) {
           slotEntries.forEach(entry => {
             const renderedPrIds = new Set();
