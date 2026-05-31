@@ -968,10 +968,17 @@
     return Array.isArray(masterFilters.selections[key]) ? masterFilters.selections[key] : [];
   }
 
+  // 選択値の反映は即時、テーブル再描画は短時間 debounce で合体（連続選択時のジャンク防止）。
+  // チップ/サマリ表示は syncMasterMultiSelectField_ 側で即時更新済み。
+  let MASTER_FILTER_RENDER_TIMER_ = null;
   function applyMasterFilterSelection_(key, values) {
     if (!masterFilters.selections) masterFilters.selections = {};
     masterFilters.selections[key] = Array.isArray(values) ? values : [];
-    renderMasterTable();
+    if (MASTER_FILTER_RENDER_TIMER_) clearTimeout(MASTER_FILTER_RENDER_TIMER_);
+    MASTER_FILTER_RENDER_TIMER_ = setTimeout(() => {
+      MASTER_FILTER_RENDER_TIMER_ = null;
+      renderMasterTable();
+    }, 120);
   }
 
   function setMasterStatusFilter(value) {
