@@ -6,6 +6,7 @@
 
 | 日付 | 版 | 概要 | 担当者 |
 | :--- | :--- | :--- | :--- |
+| 2026-05-31 | 1.50 | **カレンダー前日以前の薄暗化＋一覧フィルタの整理・性能改善** — カレンダーの前日以前を列全体（`th.is-past`/`td.is-past-column` 背景 `#e7eaee`、過去 `.slot-item` を `opacity:0.78`）で薄暗くし、明暗差で今日との境目を表現（境界線は引かない）。一覧フィルタの絞り込みを `filterMasterRows_()` に抽出、複数値判定を `isMasterMultiField_()`（`getMasterMultiSelectOptions_` 由来）で単一情報源化、フィルタ変更時のテーブル再描画を 120ms debounce 化（`MASTER_FILTER_RENDER_TIMER_`）。挙動不変のリファクタ＋CSS。詳細は §0.3 / §0.4。 | Claude Opus |
 | 2026-05-31 | 1.49 | **メルマガ一覧フィルタの複数選択化** — 担当部署/形式/種別/担当者/曜日/時間/サイクル/地域系/職種系/年齢を、配信編集モーダルと同一の複数選択部品（`renderMultiSelectMarkup_`/`groupMultiSelectOptions_` に共通化）で描画。選択値は `masterFilters.selections[key]`（配列・OR一致、multiは「、」包含、personは設定者or確認者一致）。`MASTER_FILTER_FIELDS_`/`renderMasterFilterMultiSelect_`/`applyMasterFilterSelection_`。旧single-select handler/`renderMasterFilterSelect_`/`MASTER_EXTRA_FILTER_FIELDS_` を撤去。詳細は §0.4。 | Claude Opus |
 | 2026-05-30 | 1.48 | **UI刷新バッチ6（マスタ紐づけ複数選択・バックエンド込み）** — 地域系（`target_address`/`user_desired_location`/`job_location`）を `app_pref_master`、職種系（`user_experience_job`/`user_desired_job`/`job_type`）を `app_job_master` に紐づけ、**大分類グルーピング＋チップ表示の複数選択ドロップダウン**で描画。バックエンド `DataService.gs` に `getPrefMaster()`/`getJobMaster()`/`getCategoryMasterOptions_()` を追加し `getInitialData` で `prefMaster`/`jobMaster` を配信。クライアント `Client.html` の `renderMasterMultiSelectInput_()`/`syncMasterMultiSelectField_()`/`MASTER_MULTISELECT_KEYS_` で実装。hidden は元値保持・変更時のみ「、」区切りへ再シリアライズ（override誤検知回避）。`app_pr_code_master` は紐づく列が無いため引き続き保留。詳細は §0.6。 | Claude Opus |
 | 2026-05-30 | 1.47 | **UI刷新バッチ5＋確定仕様化** — 担当者フィルタの不具合修正（アーカイブ枠も担当者で絞り込み・未設定行を除外）。パラメータを横幅いっぱい表示。日付ピッカーを枠内クリックで開く（`onclick=showPicker`）。マスタ変更後の初回配信に「変更あり」バナー表示。**新規(is_new)/検証(is_verifying) を配信編集モーダルでロック**し、マスタ値に紐づけ（変更はマスタ編集モーダルで）。**ここまでのUI刷新(1.42–1.47)の決定事項・注意点を「UI刷新 確定仕様」として明文化し、無断変更を禁止。** | Claude Opus |
@@ -59,7 +60,7 @@
 | 2026-05-29 | 1.17 | **編集モーダル ヘッダーの日付化**: `#mhead-id-time` の表示を `#SCH_xxx · HH:MM` から `YYYY/MM/DD/HH` (例: `2026/06/01/21`) に変更 (`ClientModals.html` `openEditModal_` 内, `target_date` の `-` を `/` に置換 + `hour` の HH 部分のみ採用)。**PR管理カードの「終了」ボタン削除** — 終了処理は編集モーダル経由のみに統一し、`renderPrCards()` 内のインライン `終了` 赤ボタンを撤去 (`Client.html` 1456-1461)。**ヘッダー凡例 + カレンダーバッジ統一** — `SCHEDULE_LEGEND_ITEMS` に `type:'badge'` を追加して PR 追加(緑)/削除(赤)/掲出中(ミュート) を凡例にも表示、`renderScheduleLegend_` で `pr-label` クラスをそのまま使用しカレンダー本体と完全同色化。`.legend-badge` CSS を追加。 | Claude Sonnet |
 | 2026-05-29 | 1.16 | **Fix 4 を main へ取り込み** (モーダル通数(万)を `<input type="number" name="delivery_count">` で編集可能化、`.hf` 幅 46→66px、編集モーダルPR行に `pr-row-body` で本文表示、PR行ステータスマップ `'start'/'end'` → `'add'/'remove'` 修正、カレンダーPRラベル `div`→`span` + `.pr-labels-row` 横並びバッジ化・取り消し線廃止・追加=緑/削除=赤/掲出中=ミュート、`.month-end-header { background: transparent !important }` 削除でsticky時の透け解消、sticky thead 1行目 `height:70px` / 2行目 `top:70px`、CSS変数 `--color-month-end-bg` 導入で `.date-note` と `SCHEDULE_BACKGROUND_COLORS.monthEnd` を同色 `#d9d2e9` で連動、`.modal-scroll-body { overflow-x: hidden }` で横スクロール抑止)。staging `@208` 反映済み。 | Claude Sonnet |
 
-## 0. UI刷新 確定仕様（2026-05-30 / 版1.42–1.47）
+## 0. UI刷新 確定仕様（2026-05-30〜31 / 版1.42–1.49）
 
 > **重要・変更禁止（要承認）**: 本セクションはユーザー指示（2026-05-30）により確定した UI 仕様の正本である。
 > ここに記載の決定事項・配色・削除した要素・ロック対象は、**ユーザーの明示的な承認なしに勝手に変更・復元してはならない**。
@@ -219,11 +220,11 @@
 - **形式タブの共通デザイン**（配信編集・マスタ共通 / 2026-05-29 SPEC 1.21）:
     - 並び順は `抽出 → フリー → 自動求人特集 → その他`（`index.html` の `modal-tabs-container`）。HTML 上の並びは表示順のみを決め、実際に開くタブは `setModalFormatState` が `CURRENT_ENTRY.format` に基づき active クラスを差し替える。
     - スタイルは**下線（アンダーライン）型**: コンテナ（`.modal-tabs-container`）は背景・枠なしで下端に区切り線（`border-bottom`）。各タブ（`.modal-tab`）は `flex:1` で**等幅・全幅**に並べる。アクティブタブ（`.modal-tab.active`）= 濃い文字 + 下に黒い下線（`border-bottom-color: var(--text)`）、非アクティブ = グレー文字・下線なし。配色/形状を変える場合は `Styles.html` の `.modal-tabs-container` / `.modal-tab` を編集する。
-- **フッターボタンの共通デザイン**（配信編集モーダル / 2026-05-29 SPEC 1.25）:
-    - 固定フッター `.mfoot` は上段にステータス行（`.mfoot-status`）、下段にボタン行（`.mfoot-btns`）。ボタンは**全幅セグメントではなく、右寄せのコンパクトボタン**（`UI/modal_linear.html` 準拠）。`設定`=薄紫（`.state-btn`）、`確認`=薄緑（`.checking-btn`）、`保存して閉じる`=濃色（`.primary-btn`）。
+- **フッターボタンの共通デザイン**（配信編集モーダル / 初出 SPEC 1.25・**現行正本は §0.1 配色 / §0.5 構成**）:
+    - 固定フッター `.mfoot` は下段にボタン行（`.mfoot-btns`）。ボタンは**全幅セグメントではなく、右寄せのコンパクトボタン**（`UI/modal_linear.html` 準拠）。配色は**§0.1 準拠**: `設定`=インディゴ（`.state-btn`、`#eef2ff`/`#4338ca`）、`確認`=グリーン（`.checking-btn`、ok系）、`保存して閉じる`=teal accent×白文字（`.primary-btn`）。取り消しモード（`.is-cancel-mode`）のみ赤系。
     - 配置: `.mfoot-btns` の左端に配信停止/再開（`.stop-resume-row`、JSがIDで表示制御）、続いて伸縮スペーサー `.fsp`、右側に `設定 / 確認 / 保存して閉じる` をまとめる。
-    - **フッターボタンCSSの正本は `Styles.html` の「Compact modal footer (.mfoot)」ブロックのみ**。`.modal-footer-btn` を別ブロックで二重定義しないこと。過去 `.modal-action-footer` 用の旧定義（`flex:1` / `.primary-btn{flex:2}` / `padding:13px` / `border:none`）が残り、後勝ち＋ボタンへの `flex` 漏れでコンパクトボタンが全幅化する不具合が起きた（タブ1.24と同型の重複CSS事故）。
-    - ステータスピル（`#delivery-status-pill`）は**単一ピル**（`確定済` / `配信停止中` / `配信予定`）。UI案 `modal_linear.html` の「設定済 → 確認待ち」2段進捗は実装しない（確定/停止という運用上重要な状態を優先するユーザー判断 / SPEC 1.25）。
+    - **フッターボタンCSSの正本は `Styles.html` の `modal-footer-btn` ブロックのみ**。別ブロックで二重定義しないこと。過去 `.modal-action-footer` 用の旧定義（`flex:1` / `.primary-btn{flex:2}` / `padding:13px` / `border:none`）が残り、後勝ち＋ボタンへの `flex` 漏れでコンパクトボタンが全幅化する不具合が起きた（タブ1.24と同型の重複CSS事故）。
+    - フッターの進行表示は **`設定済 → 確認待ち → 確定済` の3段ステータス（`delivery-status-steps`、§0.5）を常時表示**（1.44 で実装）。※1.25時点の「単一ピルのみ・2段進捗は実装しない」判断は1.44で置き換え済み。
 - **マスタ新規追加 (#addMasterModal)**:
     - 最上部に「形式」タブ（上記共通デザイン）を配置。
     - **タブクリック時の連動ルール**:
@@ -263,26 +264,31 @@
 ### 3.4 一覧検索・フィルタ機能設計仕様
 「メルマガ一覧」タブにおける検索エリアは、膨大な配信データの中から「今チェックすべき対象」を1クリックで瞬時に絞り込めることを目的とする。
 
+> **UI実装の正本は §0.4（版1.49）**。本節は項目・絞り込みロジックの設計仕様。選択式フィルタは**すべて配信編集モーダルと同一の複数選択部品**（`renderMultiSelectMarkup_`）で描画する（旧 `<select>` 単一選択は撤去）。
+
 #### ［レイアウト・UI構造］
-画面上部の見出し下部に、すべてのフィルタ項目を同じデザインのチップ（インライン・プルダウン形式）で統一して綺麗に横並びで配置する。
-`［状態: ▼］ ［新規のみ］ ［検証中のみ］ ［下書きのみ］ ［担当部署: ▼］ ［形式: ▼］ ［種別: ▼］`
+画面上部の見出し下部に、すべてのフィルタ項目を同じデザインのチップ／複数選択ドロップダウンで統一して横並び配置する（`.filter-chips-bar`、`flex-wrap` で折り返し）。
+`［状態: ▼］ ［新規のみ］ ［検証中のみ］ ［下書きのみ］ ［担当部署 ▼］ ［形式 ▼］ ［種別 ▼］ ［担当者 ▼］ ［曜日 ▼］ ［時間 ▼］ ［サイクル ▼］ ［年齢 ▼］ ［現住所 ▼］ ［希望勤務地 ▼］ ［JOB勤務地 ▼］ ［経験職種 ▼］ ［希望職種 ▼］ ［JOB職種 ▼］`
 
 #### ［フィルタ項目マトリクス］
-状態、サブカテゴリ、形式、種別は `<select>` 要素（チップ）として、新規のみ・検証中のみ・下書きのみは `<button>` 要素（アクティブ時に青背景）として実装する。
+状態は `<button>` チップ群（配信中/すべて/配信終了の単一選択）、新規のみ・検証中のみ・下書きのみは `<button>` トグル。それ以外の選択式項目はすべて**複数選択部品（`.ms-field`、`MASTER_FILTER_FIELDS_`）**で、**同一項目内は複数選択＝OR一致**・**項目間は AND**。`app_schedule` のみ表示し、`app_pr`・他シートでは `masterFilters.selections` をリセット。
 
 | フィルタ項目名 | UIの型 | 選択肢 | 初期値 | ロジック（GAS/JS連動） |
 | --- | --- | --- | --- | --- |
-| **状態** | `select` | 配信中 / すべて / 配信終了 | 配信中 | `end_date` を過ぎているか `is_inactive=TRUE` のものを「配信終了」とする。`is_draft=TRUE` の行は「配信中」から除外し、「すべて」でのみ表示する。 |
+| **状態** | `button`群 | 配信中 / すべて / 配信終了 | 配信中 | `end_date` を過ぎているか `is_inactive=TRUE` のものを「配信終了」とする。`is_draft=TRUE` の行は「配信中」から除外し、「すべて」でのみ表示する。 |
 | **新規のみ** | `button` | (トグル式) | OFF | 有効時、`is_new` 列が「TRUE」のレコードだけを抽出。 |
 | **検証中のみ** | `button` | (トグル式) | OFF | 有効時、`is_verifying` 列が「TRUE」のレコードだけを抽出。 |
-| **下書きのみ** | `button` | (トグル式) | OFF | 有効時、`is_draft` 列が「TRUE」のレコードだけを抽出。ON 時は状態フィルターを無視し、他の AND 条件（キーワード・担当部署・形式・種別）は引き続き有効。 |
-| **担当部署** | `select` | すべて / 商品 / (各個別名) | すべて | `担当部署`（旧 `サブカテゴリ`）列と連動。「商品」選択時は部分一致、その他は完全一致。 |
-| **形式** | `select` | すべて / フリー / 抽出 / 自動求人特集 / その他 | すべて | 「形式」列で絞り込み。 |
-| **種別** | `select` | すべて / (各種別名) | すべて | 「種別」列（MA/イレギュラー/隔週等）と連動。 |
+| **下書きのみ** | `button` | (トグル式) | OFF | 有効時、`is_draft` 列が「TRUE」のレコードだけを抽出。ON 時は状態フィルターを無視し、他の AND 条件は引き続き有効。 |
+| **担当部署 / 形式 / 種別** | 複数選択 | 列の実値（`getUniqueMasterColumnValues_`） | 未選択(=すべて) | `sub_category` / `format` / `mail_type` 列と**完全一致**（選択値のいずれかに一致＝OR）。 |
+| **担当者** | 複数選択 | 設定者・確認者の実値の和集合（`getMasterPersonCandidates_`） | 未選択 | **設定者(`assignee`) or 確認者(`reviewer`)** が選択値のいずれかに一致。 |
+| **曜日 / 時間 / サイクル** | 複数選択 | 列の実値 | 未選択 | 各列と完全一致（OR）。 |
+| **年齢** | 複数選択 | 埋め込み候補（`AGE_MULTISELECT_OPTIONS_`、「全て選択する」グループ） | 未選択 | `target_age` を「、」分解し、選択値のいずれかを**含む**行を抽出（包含一致）。 |
+| **現住所 / 希望勤務地 / JOB勤務地** | 複数選択 | `app_pref_master`（大分類グルーピング） | 未選択 | `target_address` / `user_desired_location` / `job_location` を「、」分解して包含一致。 |
+| **経験職種 / 希望職種 / JOB職種** | 複数選択 | `app_job_master`（大分類グルーピング） | 未選択 | `user_experience_job` / `user_desired_job` / `job_type` を「、」分解して包含一致。 |
 
 #### ［検索・連動ロジックの共通仕様］
-- **AND検索（掛け算切り替え）の保証**: すべてのチップおよびキーワード入力は、「すべて掛け算（AND条件）」で即座に作動すること。
-- **自動トリガー**: チップの選択が変更された瞬間（change イベント）、再読込ボタンを押さずとも即座に一覧の再描画（フィルタリング）が走る仕様とする。
+- **AND検索の保証**: すべてのフィルタ項目およびキーワード入力は項目間 AND で即座に作動する。複数選択項目は**同一項目内のみ OR**（選択値のいずれかに一致）。絞り込みは `filterMasterRows_()` に集約。
+- **自動トリガー**: 選択変更の瞬間（change イベント）、再読込ボタン無しで即座に一覧を再描画する。複数選択時は**ドロップダウンを開いたまま**選択値を即時反映し、テーブル再描画のみ 120ms debounce で合体する。
 
 ## 4. 内部ロジック・データ詳細仕様
 
@@ -391,16 +397,19 @@ PR管理はメルマガ配信系モーダルとは項目体系が異なるため
 
 #### カレンダー色分けルール
 
+> 色は UI刷新（§0.2）で更新済み。**正本は `Client.html` の `SCHEDULE_BACKGROUND_COLORS` / `SCHEDULE_LINE_COLORS`**（下表は追従）。
+
 | 条件 | 種別 | 色コード |
 | --- | --- | --- |
-| `is_verifying = TRUE` または サイクル = 「単発」 | 行背景色 | `#d9e6fc`（水色） |
-| サイクル = 「月末増発」 | 行背景色 | `#d9d2e9`（薄紫） |
-| `sub_category` が「商品」系 | 行背景色 | `#d9ead3`（薄緑） |
-| サイクル = 「隔週A」 | 左端ライン | `#9bd283`（緑） |
-| サイクル = 「隔週B」 | 左端ライン | `#e171c0`（ピンク） |
-| 特殊サイクル（ポジションマッチ等） | 左端ライン | `#8e7cc3`（紫） |
+| `is_verifying = TRUE` または サイクル = 「単発」/「検証」 | 行背景色 | `#dbeafe`（`checkingSingle`） |
+| サイクル = 「月末」 | 行背景色 | `#ede9fe`（`monthEnd`） |
+| `sub_category` 等が「商品」系 | 行背景色 | `#dcfce7`（`product`） |
+| 上記以外 | 行背景色 | `#FFFFFF`（`default`） |
+| サイクル = 「隔週A」 | 左端ライン | `#34d399`（`biweeklyA`） |
+| サイクル = 「隔週B」 | 左端ライン | `#ec4899`（`biweeklyB`） |
+| 特殊サイクル（ポジションマッチ等） | 左端ライン | `#8b5cf6`（`specialCycle`） |
 
-色ルールの正本は `Client.html` の `SCHEDULE_BACKGROUND_COLORS` / `SCHEDULE_LINE_COLORS` / `SCHEDULE_LEGEND_ITEMS`。色変更時は必ず凡例も同時更新する。
+色ルールの正本は `Client.html` の `SCHEDULE_BACKGROUND_COLORS` / `SCHEDULE_LINE_COLORS` / `SCHEDULE_LEGEND_ITEMS`（＝§0.2）。色変更時は必ず凡例も同時更新する。
 
 ### 4.2 PR管理専用 入力項目・配置マトリクス
 PR管理画面の新規追加・編集における専用の制御ルール。
@@ -635,10 +644,10 @@ UI仕様を変更する場合は、該当箇所の近傍だけで判断しては
 
 ### 5.5 色設定・廃止項目の保守ルール
 
-- 配信行の背景色は `Client.html` の `getBgColor()` を正とする。現在の追加指定は、隔週B `#FFF5F7`、種別MA `#FFF8D6`。特殊配信およびサイクル数値系は薄紫 `#E6E6FA`、水色 `#E0FFFF` は `その他` と `検証` に使う。形式が `自動求人特集` であること自体では背景色を付けない。
-- 配信行の背景色・左端ライン・ヘッダー凡例は `Client.html` の `SCHEDULE_BACKGROUND_COLORS` / `SCHEDULE_LINE_COLORS` / `SCHEDULE_LEGEND_ITEMS` を正とする。色ルールと凡例は同じ定義から描画し、片方だけを変更してはならない。
-- 配信行の左端ラインは `担当部署`（内部キー `sub_category`）による補助分類とする。ただし種別が `MA` の配信行は、MA背景色のみで識別し、左端ラインを付けない。`特殊` を含む場合は紫 `#800080`、`商品` を含む場合は青緑 `#008080`、`その他` または `他部署` を含む場合、および空欄以外で上記に該当しない場合はオレンジ `#FFA500`。ヘッダー凡例の表示名は `担当部署: その他(他部署)` とする。空欄の場合は左端ラインを付けない。
-- 左端ラインの分類・色を変更した場合も、必ず同じ変更でヘッダー凡例を更新する。
+- 配信行の背景色は `Client.html` の `getBgColor()` を正とする（UI刷新 §0.2 で更新済み）。返す色は **`checkingSingle #dbeafe`（検証/単発）/ `monthEnd #ede9fe`（月末）/ `product #dcfce7`（商品系）/ `default #FFFFFF`** の4種のみ。種別MA・隔週B・特殊サイクル等への個別背景色は付けない（旧 `#FFF5F7`/`#FFF8D6`/`#E6E6FA`/`#E0FFFF` 指定は廃止）。形式が `自動求人特集` であること自体では背景色を付けない。
+- 配信行の背景色・左端ライン・ヘッダー凡例は `Client.html` の `SCHEDULE_BACKGROUND_COLORS` / `SCHEDULE_LINE_COLORS` / `SCHEDULE_LEGEND_ITEMS`（＝§0.2）を正とする。色ルールと凡例は同じ定義から描画し、片方だけを変更してはならない。
+- 配信行の左端ラインは **`getSubCategoryClass()` が返すサイクル基準クラス**で付ける: `is-biweekly-a`=`#34d399`（隔週A）/ `is-biweekly-b`=`#ec4899`（隔週B）/ `is-special-cycle`=`#8b5cf6`（特殊サイクル）。該当しない（通常 weekly/monthly 等）場合は左端ラインを付けない（旧 `sub_category` 基準の紫 `#800080`/青緑 `#008080`/オレンジ `#FFA500` 分類は廃止）。
+- 左端ラインの分類・色を変更した場合も、必ず同じ変更でヘッダー凡例（`SCHEDULE_LEGEND_ITEMS`）を更新する。
 - 廃止したシート列は、既存シートに列が残っていてもアプリの返却データ・一覧・フォーム・ツールチップへ再表示しない。廃止列を増やす場合は、サーバー返却側とクライアント表示側の両方に除外ガードを追加する。
 - `job_count_updated_at` / `求人数最終取得日時` は廃止項目。求人件数アラートは `current_job_count` のみを使い、最終取得日時は表示しない。
 - マスタ編集の `mail_type` / `種別`、`sub_category` / `担当部署`（旧 `サブカテゴリ`）、`cycle` / `サイクル` は編集可能項目とし、配信編集専用ロックの対象に含めない。ロック対象を変更する場合は、`EDIT_MODAL_LOCKED_FIELDS` を変更し、項目描画時の `disabled` 指定と動的入力制御が同じ定数を参照していることを確認する。
