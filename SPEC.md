@@ -646,6 +646,7 @@ UI仕様を変更する場合は、該当箇所の近傍だけで判断しては
 - マスタ編集・配信編集のテキスト/日付/日時/長文項目は `Client.html` の `getMasterTextInputConfig_()` と `renderTextInputFromConfig_()` を経由して描画する。入力タイプを増減する場合は、個別HTMLを追加する前に同設定関数へ集約できるか確認する。
 - マスタ編集・配信編集の特殊項目（メルマガ名、PR ID、設定者、確認者、新規、求人件数、PR、形式非表示）は `Client.html` の `getMasterSpecialFieldConfig_()` / `renderMasterSpecialFieldInput_()` を経由して描画する。特殊扱いを追加・解除する場合は、select/text の共通描画に入る前の同関数を更新する。
 - `applyDynamicInputControl()` のモード別制御は `resetModalFieldStates_()`、`applyAutoJobFieldControls_()`、`applyEditModalLockedFieldControls_()`、`applyCurrentJobCountControls_()`、`applyPrMasterControls_()` に分かれている。モーダル状態の条件を増減する場合は、同じ責務の関数へ寄せてから変更する。
+- メルマガ一覧の行の絞り込みは `filterMasterRows_()`（検索語・選択式フィルタ `MASTER_FILTER_FIELDS_`・新規/検証/下書きトグル・ステータス）に集約し、`renderMasterTable()` は描画のみを担う。戻り値の `endDate/inactive/verifying/isNew` ヘッダー・`today` はステータスバー描画とセル描画で再利用する。絞り込み条件を増減するときは `filterMasterRows_()` 内で完結させる。
 - 形式タブは `Client.html` の `setModalFormatState()` と `setModalFormatTabLockState()` を正とし、`dataset.mode === 'edit'` のモーダルではタブをロック状態にする。編集時はタブの有効/無効と `format` の値が必ず同期しているか確認する。
 
 ### 5.6 メンテナンス・高速化ルール
