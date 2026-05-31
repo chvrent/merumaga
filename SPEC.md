@@ -100,7 +100,7 @@
 - **メルマガ一覧フィルタは選択式項目を網羅し、すべて複数選択**（`app_schedule` のみ）。ステータス（配信中/すべて/配信終了）＋新規/検証中/下書きの「のみ」トグルに加え、**担当部署/形式/種別/担当者/曜日/時間/サイクル/地域系/職種系/年齢**を**配信編集モーダルと同一の複数選択部品**で表示する（`MASTER_FILTER_FIELDS_`／`renderMasterFilterMultiSelect_`）。
   - 複数選択部品は `renderMultiSelectMarkup_()`＋`groupMultiSelectOptions_()` に**共通化**し、マスタ/配信編集（`opts.hiddenName`）と一覧フィルタ（`opts.filterKey`＋`data-ms-filter`）で共有する（大分類トグル・全選択集約チップ・indeterminate を含む）。**この共通化を個別実装に戻さない。**
   - 選択値は `masterFilters.selections[key]`（**配列・OR一致**）。複数値項目（地域系/職種系/年齢）は「、」分解して**包含一致**、`person` は**設定者or確認者**のいずれか一致、その他は**完全一致**。空配列＝絞り込みなし。複数値項目かどうかは `isMasterMultiField_(key)`（＝`getMasterMultiSelectOptions_(key) != null`）で**導出**し、`MASTER_MULTISELECT_KEYS_`＋埋め込み定義を単一情報源とする（`MASTER_FILTER_FIELDS_` に `multi` を持たせない）。
-  - 変更は `syncMasterMultiSelectField_()` の change 委譲で `data-ms-filter` を検出し `applyMasterFilterSelection_()` → `renderMasterTable()` を即時実行（**チップ行は再描画せず**ドロップダウンを開いたまま複数選択可）。未選択時のサマリは `data-ms-placeholder`「項目: すべて」。
+  - 変更は `syncMasterMultiSelectField_()` の change 委譲で `data-ms-filter` を検出し `applyMasterFilterSelection_()` を呼ぶ。**選択値は即時反映**しつつ `renderMasterTable()` は **120ms debounce**（`MASTER_FILTER_RENDER_TIMER_`）で合体し、連続選択時の再描画ジャンクを抑制する。チップ/サマリ表示は即時更新（**チップ行は再描画せず**ドロップダウンを開いたまま複数選択可）。未選択時のサマリは `data-ms-placeholder`「項目: すべて」。
   - `app_pr`・その他シートでは `masterFilters.selections` をリセット。
 
 ### 0.5 配信編集モーダル
