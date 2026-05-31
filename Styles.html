@@ -533,21 +533,25 @@ thead th {
 #tableContainer thead th.is-holiday .date-header-picker,
 .date-header-picker.is-emphasis-date { color: var(--alert); }
 #tableContainer thead th.is-holiday .date-header { background: #fff7ed; }
-/* 過去日: ヘッダー・セルを薄暗くして今日との境目を明確にする */
-#tableContainer thead th.is-past .date-header { background: #f0f1f3; }
+/* 過去日: ヘッダー・列全体を薄暗くして今日との境目を明確にする */
+#tableContainer thead th.is-past .date-header { background: #dfe2e7; }
 #tableContainer thead th.is-past .date-title { color: var(--text-3); }
 #tableContainer thead th.is-past .date-header-picker { color: var(--text-3); border-color: var(--border); }
 #tableContainer thead th.is-past.is-weekend .date-title,
 #tableContainer thead th.is-past.is-holiday .date-title,
 #tableContainer thead th.is-past .date-header-picker.is-emphasis-date { color: #c084a0; }
-#tableContainer td.is-past-column { background-color: #f4f5f6; }
-/* 今日: 引き続き明るいアクセント */
+/* 列全体(ヘッダー+全セル)を暗くし、中身も少しくすませる */
+#tableContainer thead th.is-past { background-color: #e7eaee; }
+#tableContainer td.is-past-column { background-color: #e7eaee; }
+#tableContainer td.is-past-column .slot-item { opacity: 0.78; }
+/* 今日: 列の左端にアクセント境界線を引き、過去との境目を強調 */
 #tableContainer thead th.is-today .date-header {
   background: var(--bg-sub);
   border-bottom: 3px solid var(--accent);
 }
+#tableContainer thead th.is-today { border-left: 2px solid var(--accent); }
 #tableContainer thead th.is-today .date-title { color: var(--accent); font-weight: 700; }
-#tableContainer td.is-today-column { background-color: rgba(13,148,136,0.03); }
+#tableContainer td.is-today-column { background-color: rgba(13,148,136,0.03); border-left: 2px solid var(--accent); }
 .date-header-picker {
   width: 100%;
   min-height: 24px;
