@@ -196,6 +196,41 @@
     if (APP_DATA) APP_DATA._prLookup = null;
   }
 
+  // A-1: マスタ変更後「初回配信」のカレンダー「変更あり」バッジ。
+  // APP_DATA.masterChangeDates(schedule_id→最終マスタ変更日) を元に、
+  // 各メルマガで変更日以降 最初の発生日を1度だけ算出してキャッシュする。
+  let MASTER_CHANGE_FIRST_OCC_ = null;
+  function getMasterChangeFirstOccMap_() {
+    if (MASTER_CHANGE_FIRST_OCC_) return MASTER_CHANGE_FIRST_OCC_;
+    const map = {};
+    const changeDates = (APP_DATA && APP_DATA.masterChangeDates) || {};
+    const schedule = Array.isArray(APP_DATA && APP_DATA.schedule) ? APP_DATA.schedule : [];
+    if (typeof computeOccurrenceDatesInRange_ === 'function') {
+      const byId = {};
+      schedule.forEach(function(r) { const id = r && r.schedule_id; if (id) byId[id] = r; });
+      Object.keys(changeDates).forEach(function(id) {
+        const cd = normalizeDateString(changeDates[id]);
+        const row = byId[id];
+        if (!cd || !row) return;
+        const endDate = new Date(cd + 'T00:00:00');
+        endDate.setDate(endDate.getDate() + 400); // 月次/特殊サイクルでも初回を拾える窓
+        const occ = computeOccurrenceDatesInRange_(row, cd, formatDate(endDate)) || [];
+        if (occ.length) map[id] = occ[0];
+      });
+    }
+    MASTER_CHANGE_FIRST_OCC_ = map;
+    return map;
+  }
+
+  function renderMasterChangeBadge_(scheduleId, dateStr) {
+    if (!scheduleId || !dateStr) return '';
+    const map = getMasterChangeFirstOccMap_();
+    if (map[scheduleId] && map[scheduleId] === dateStr) {
+      return '<div class="occurrence-change-badge master-change-badge">変更あり</div>';
+    }
+    return '';
+  }
+
   function ensurePrLookupIndex_() {
     if (APP_DATA && APP_DATA._prLookup) return APP_DATA._prLookup;
 
@@ -258,6 +293,10 @@
     LAST_SUCCESSFUL_LOAD_AT = Date.now();
     if (Object.prototype.hasOwnProperty.call(nextData, 'pr') || Object.prototype.hasOwnProperty.call(nextData, 'prTargets')) {
       invalidatePrLookupIndex_();
+    }
+    // マスタ変更日 or schedule が更新されたら「変更後初回」キャッシュを破棄
+    if (Object.prototype.hasOwnProperty.call(nextData, 'masterChangeDates') || Object.prototype.hasOwnProperty.call(nextData, 'schedule')) {
+      MASTER_CHANGE_FIRST_OCC_ = null;
     }
     if (cacheable && cacheKey) {
       WEEK_DATA_CACHE[cacheKey] = {
@@ -715,6 +754,7 @@
                 </div>
                 ${prLabel}
                 ${renderOccurrenceOverrideBadges(entryForDate)}
+                ${renderMasterChangeBadge_(scheduleId, dateStr)}
               </div>
               <div class="col-count ${countChanged ? 'is-occurrence-overridden' : ''}">${escapeHtml(effectiveEntry.delivery_count)}</div>
               ${renderCheckStatusCell(checkItemId, 'setter', effectiveEntry.assignee, `col-setter ${setterChanged ? 'is-occurrence-overridden' : ''}`, entryForDate)}
